@@ -9,7 +9,7 @@ export class WebhookService {
     // private readonly historialService: HistorialService,
     // private readonly gptService: GptService,
     // private readonly clienteService: ClienteService,
-  ) {}
+  ) { }
 
   async procesarWebhook(body: any) {
     const {
@@ -22,7 +22,6 @@ export class WebhookService {
     const remoteJid = (data?.key?.remoteJid || '').replace('@s.whatsapp.net', '');
     const pushName = data?.pushName || 'Desconocido';
     const message = data?.message?.conversation || 'Sin mensaje';
-
     const clientePath = `${instance}/clientes/${remoteJid}`;
 
     //const esNuevo = await this.clienteService.verificarYRegistrar(remoteJid, instance, pushName);
@@ -37,7 +36,10 @@ export class WebhookService {
     // // Generar respuesta GPT
     // const respuesta = await this.gptService.generarRespuesta(instance, remoteJid, historial, message);
 
-    console.log('IA:');
+    console.log(`IA: ${JSON.stringify(body)}`);
+    console.log(`****pushname: ${JSON.stringify(pushName)}`);
+    console.log(`****message: ${JSON.stringify(message)}`);
+    console.log(`****clientePath: ${JSON.stringify(clientePath)}`);
 
     // Enviar respuesta por Evolution (puedes extraer esto a un servicio también)
     // await sendMessage(server_url, apikey, instance, remoteJid, 'text', respuesta);
