@@ -3,7 +3,7 @@ import { PrismaService } from 'src/prisma.service';
 
 @Injectable()
 export class SessionService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   // Create or update a session based on remoteJid + instanceId
   async registerSession(userId: string, remoteJid: string, pushName: string, instanceId: string) {
@@ -40,12 +40,23 @@ export class SessionService {
     });
   }
 
+  //TODO: Quitar de aquí, esto va en instance services
+  // Get a specific userId by instanceId
+  async getUserId(instanceName: string) {
+    return this.prisma.instancias.findFirst({
+      where: {
+        instanceName
+      },
+    });
+  }
+
   // Get a specific session by remoteJid and instanceId
-  async getSession(remoteJid: string, instanceId: string) {
+  async getSession(remoteJid: string, instanceId: string, userId: string) {
     return this.prisma.session.findFirst({
       where: {
         remoteJid,
         instanceId,
+        userId,
       },
     });
   }

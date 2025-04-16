@@ -15,7 +15,7 @@ export class WebhookService {
 
   async procesarWebhook(body: any) {
     const {
-      instance = 'Desconocido',
+      instance,
       apikey,
       server_url,
       data = {},
@@ -26,10 +26,23 @@ export class WebhookService {
     const message = data?.message?.conversation || 'Sin mensaje';
     const clientePath = `${instance}/clientes/${remoteJid}`;
 
-    const isNew = await this.sessionService.getSession(remoteJid, instance);
+    const prismaInstancia = await this.sessionService.getUserId(instance);
+    console.log(`INSTANCEEEE: ${instance}`);
+    console.log(`USERRRRR: ${JSON.stringify(prismaInstancia)}`);
 
-    console.log(`NEWWWWWWWWWW: ${isNew}`);
+    const userId = prismaInstancia?.userId ?? '';
+    const instanceId = prismaInstancia?.instanceId ?? '';
 
+    const isNew = await this.sessionService.getSession(remoteJid, instanceId, userId);
+    const comingUser = isNew as object;
+
+    if (Object.keys(comingUser).length > 0) {
+      console.log(`Bienvenidooo!`)
+    }
+    if (!isNew) {
+      await this.sessionService.registerSession(userId, remoteJid, pushName, instanceId);
+      console.log('✅ Registro exitoso')
+    }
 
     // Guardar historial
     // await this.historialService.guardarMensaje(remoteJid, message, pushName);
@@ -41,10 +54,9 @@ export class WebhookService {
     // // Generar respuesta GPT
     // const respuesta = await this.gptService.generarRespuesta(instance, remoteJid, historial, message);
 
-    console.log(`IA: ${JSON.stringify(body)}`);
-    console.log(`****pushname: ${JSON.stringify(pushName)}`);
-    console.log(`****message: ${JSON.stringify(message)}`);
-    console.log(`****clientePath: ${JSON.stringify(clientePath)}`);
+    // console.log(`IA: ${JSON.stringify(body)}`);
+    // console.log(`****pushname: ${JSON.stringify(pushName)}`);
+    // console.log(`****message: ${JSON.stringify(message)}`);
 
     // Enviar respuesta por Evolution (puedes extraer esto a un servicio también)
     // await sendMessage(server_url, apikey, instance, remoteJid, 'text', respuesta);
