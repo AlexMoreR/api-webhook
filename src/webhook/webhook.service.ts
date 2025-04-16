@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 // import { HistorialService } from './funciones/historial.service';
 // import { GptService } from './funciones/gpt.service';
 // import { ClienteService } from './funciones/cliente.service';
+import { SessionService } from '../session/session.service';
 
 @Injectable()
 export class WebhookService {
@@ -9,6 +10,7 @@ export class WebhookService {
     // private readonly historialService: HistorialService,
     // private readonly gptService: GptService,
     // private readonly clienteService: ClienteService,
+    private sessionService: SessionService
   ) { }
 
   async procesarWebhook(body: any) {
@@ -24,7 +26,10 @@ export class WebhookService {
     const message = data?.message?.conversation || 'Sin mensaje';
     const clientePath = `${instance}/clientes/${remoteJid}`;
 
-    //const esNuevo = await this.clienteService.verificarYRegistrar(remoteJid, instance, pushName);
+    const isNew = await this.sessionService.getSession(remoteJid, instance);
+
+    console.log(`NEWWWWWWWWWW: ${isNew}`);
+
 
     // Guardar historial
     // await this.historialService.guardarMensaje(remoteJid, message, pushName);

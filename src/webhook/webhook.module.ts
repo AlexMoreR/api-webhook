@@ -3,10 +3,11 @@ import { WebhookController } from './webhook.controller';
 import { WebhookService } from './webhook.service';
 import { PrismaService } from 'src/prisma.service';
 import { HttpModule } from '@nestjs/axios';
+import { SessionService } from 'src/session/session.service';
 
 @Module({
   imports: [HttpModule],
   controllers: [WebhookController],
-  providers: [WebhookService, PrismaService]
+  providers: [WebhookService, PrismaService, SessionService]
 })
 export class WebhookModule {}
