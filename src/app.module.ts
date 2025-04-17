@@ -6,6 +6,7 @@ import { LoggerModule } from './core/logger/logger.module';
 import { WebhookModule } from './modules/webhook/webhook.module';
 import configuration from './config/configuration';
 import { DatabaseModule } from './database/database.module';
+import { InstancesService } from './modules/instances/instances.service';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { DatabaseModule } from './database/database.module';
   providers: [
     ServicesService,
     SessionService,
+    InstancesService,
   ],
 })
 export class AppModule { }

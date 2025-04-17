@@ -40,15 +40,6 @@ export class SessionService {
     });
   }
 
-  //TODO: Quitar de aquí, esto va en instance services
-  // Get a specific userId by instanceId
-  async getUserId(instanceName: string) {
-    return this.prisma.instancias.findFirst({
-      where: {
-        instanceName
-      },
-    });
-  }
 
   // Get a specific session by remoteJid and instanceId
   async getSession(remoteJid: string, instanceId: string, userId: string) {
@@ -76,4 +67,13 @@ export class SessionService {
       data: { status: false },
     });
   }
+
+  // Consulta el estado del chat
+  async isSessionActive(remoteJid: string): Promise<boolean> {
+    const session = await this.prisma.session.findFirst({
+        where: { remoteJid },
+        select: { status: true },
+    });
+    return session?.status ?? false;
+}
 }
