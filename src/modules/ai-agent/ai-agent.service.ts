@@ -1,12 +1,17 @@
+import axios from 'axios';
+import * as fs from 'fs';
+import * as path from 'path';
+import OpenAI from 'openai';
+
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { LoggerService } from 'src/core/logger/logger.service';
-import FormData from 'form-data';
 
 @Injectable()
 export class AiAgentService {
+  private openAiClient: OpenAI;
   private readonly openAiApiKey: string;
   private readonly openAiChatUrl = 'https://api.openai.com/v1/chat/completions';
   private readonly openAiWhisperUrl = 'https://api.openai.com/v1/audio/transcriptions';
@@ -17,6 +22,10 @@ export class AiAgentService {
     private readonly logger: LoggerService,
   ) {
     this.openAiApiKey = this.configService.get<string>('OPENAI_API_KEY') || '';
+
+    this.openAiClient = new OpenAI({
+      apiKey: this.configService.get<string>('OPENAI_API_KEY'),
+    });
 
     if (!this.openAiApiKey) {
       this.logger.error('❌ API Key de OpenAI no encontrada. Verifica tu archivo .env', '', 'AiAgentService');
@@ -60,27 +69,54 @@ export class AiAgentService {
     }
   }
 
+
+  // async downloadAudioFile(fileUrl: string, destination: string): Promise<void> {
+  //   const writer = fs.createWriteStream(destination);
+
+  //   const response = await axios.get(fileUrl, { responseType: 'stream' });
+
+  //   response.data.pipe(writer);
+
+  //   await new Promise<void>((resolve, reject) => {
+  //     writer.on('finish', resolve);
+  //     writer.on('error', reject);
+  //   });
+  // }
+
+
+  async downloadAudioFile(url, outputPath) {
+    const writer = fs.createWriteStream(outputPath);
+    const response = await axios({
+      url,
+      method: 'GET',
+      responseType: 'stream'
+    });
+
+    response.data.pipe(writer);
+
+    return new Promise<void>((resolve, reject) => {
+      writer.on('finish', resolve);
+      writer.on('error', reject);
+    });
+  }
+
   async transcribeAudio(audioUrl: string): Promise<string> {
     try {
-      const formData = new FormData();
-      formData.append('file', audioUrl); // Aquí deberías descargar y subir el archivo real
-      formData.append('model', 'whisper-1');
-      formData.append('language', 'es');
+      // 1. Descargar el audio temporalmente
+      const tempFilePath = path.join(__dirname, 'temp_audio_file'); 
+      await this.downloadAudioFile(audioUrl, tempFilePath);
 
-      const response = await firstValueFrom(
-        this.httpService.post(
-          this.openAiWhisperUrl,
-          formData,
-          {
-            headers: {
-              ...this.getHeaders(),
-              ...formData.getHeaders(), // Necesario para FormData
-            },
-          },
-        ),
-      );
+      // 2. Enviar el audio a OpenAI Whisper
+      const transcription = await this.openAiClient.audio.transcriptions.create({
+        file: fs.createReadStream(tempFilePath),
+        model: 'whisper-1',
+        language: 'es',
+      });
 
-      return response.data.text ?? '[ERROR_TRANSCRIPTION_FAILED]';
+      // 3. Borrar el archivo temporal si quieres limpiar
+      fs.unlinkSync(tempFilePath);
+
+      return transcription.text;
     } catch (error) {
       this.logger.error('❌ Error transcribiendo audio con OpenAI', error?.response?.data || error.message, 'AiAgentService');
       return '[ERROR_TRANSCRIBING_AUDIO]';
