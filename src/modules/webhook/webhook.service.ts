@@ -17,7 +17,7 @@ export class WebhookService {
    * @param {WebhookBodyDto} body - Payload recibido del webhook.
    * @returns {Promise<void>}
    */
-  async procesarWebhook(body: WebhookBodyDto): Promise<void> {
+  async processWebhook(body: WebhookBodyDto): Promise<void> {
     const {
       instance: instanceName,
       data = {},

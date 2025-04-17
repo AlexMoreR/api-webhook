@@ -15,7 +15,7 @@ export class WebhookController {
     this.logger.log(`📦 Webhook recibido:${JSON.stringify(payload, null, 2)}`, 'WebhookController');
 
     try {
-      await this.webhookService.procesarWebhook(payload);
+      await this.webhookService.processWebhook(payload);
       return res.status(200).send('Webhook recibido y procesado con éxito');
     } catch (error) {
       console.error('❌ Error en el webhook:', error);
