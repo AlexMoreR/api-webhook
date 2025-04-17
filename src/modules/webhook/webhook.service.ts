@@ -50,7 +50,7 @@ export class WebhookService {
 
     /* Validar si la session está activa */
     const sessionActive = await this.sessionService.isSessionActive(remoteJid);
-    this.logger.log(`Estado de la session: ${sessionActive}`, 'WebhookService');
+    this.logger.debug(`Estado de la session: ${sessionActive}`, 'WebhookService');
     if (!sessionActive) {
       // Terminar flujo
       return;
@@ -58,9 +58,10 @@ export class WebhookService {
 
     /* Extraer la data dependiendo del tipo de mensaje, "text", "media", "audio" */
     const extractedContent = this.messageTypeHandlerService.extractContentByType(messageType, data);
-    this.logger.log(`Ouput AI - proceso multimedia: ${JSON.stringify(extractedContent)}`, 'WebhookService');
+    this.logger.debug(`Ouput AI - proceso multimedia: ${JSON.stringify(extractedContent)}`, 'WebhookService');
     /* LLamado al agente IA */
-    // const aiResponse = await this.aiAgentService.processInput(extractedContent);
+    const aiResponse = await this.aiAgentService.processInput((await extractedContent).toString());
+    this.logger.debug(`Ouput AI - respuesta del agente IA: ${JSON.stringify(extractedContent)}`, 'WebhookService');
     // Continuar con workflow...
   }
 
