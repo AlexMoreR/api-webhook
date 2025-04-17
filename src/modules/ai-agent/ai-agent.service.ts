@@ -7,6 +7,8 @@ import { firstValueFrom } from 'rxjs';
 export class AiAgentService {
   private readonly openAiApiKey: string;
   private readonly openAiUrl = 'https://api.openai.com/v1/chat/completions';
+  private readonly openAiWhisperUrl = 'https://api.openai.com/v1/audio/transcriptions';
+  private readonly openAiVisionUrl = 'https://api.openai.com/v1/chat/completions'; // mismo endpoint, cambiando prompt
 
   constructor(
     private readonly configService: ConfigService,
@@ -48,5 +50,55 @@ export class AiAgentService {
       console.error('Error procesando input con OpenAI', error.response?.data || error.message);
       return 'Lo siento, hubo un error procesando tu mensaje.';
     }
+  }
+
+  
+  async transcribeAudio(audioUrl: string): Promise<string> {
+    // Aquí deberías descargar el audio y enviarlo como FormData a Whisper
+    // Ejemplo pseudo-código:
+
+    const response = await firstValueFrom(
+      this.httpService.post(
+        this.openAiWhisperUrl,
+        {
+          file: audioUrl, // <-- Aquí normalmente subirías el audio como buffer
+          model: 'whisper-1',
+          language: 'es',
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${this.openAiApiKey}`,
+            'Content-Type': 'multipart/form-data',
+          },
+        },
+      ),
+    );
+
+    return response.data.text ?? '[AUDIO_TRANSCRIPTION_FAILED]';
+  }
+
+  async describeImage(imageUrl: string): Promise<string> {
+    // Aquí describes la imagen usando GPT-4 Vision
+    const prompt = `Describe detalladamente esta imagen: ${imageUrl}`;
+
+    const response = await firstValueFrom(
+      this.httpService.post(
+        this.openAiUrl,
+        {
+          model: 'gpt-4-vision-preview', // modelo que soporta imágenes
+          messages: [
+            { role: 'user', content: prompt },
+          ],
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${this.openAiApiKey}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      ),
+    );
+
+    return response.data.choices?.[0]?.message?.content?.trim() ?? '[IMAGE_DESCRIPTION_FAILED]';
   }
 }

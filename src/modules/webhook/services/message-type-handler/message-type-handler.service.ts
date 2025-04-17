@@ -1,17 +1,37 @@
 import { Injectable } from '@nestjs/common';
+import { AiAgentService } from 'src/modules/ai-agent/ai-agent.service'; // Para usar OpenAI
 
 @Injectable()
 export class MessageTypeHandlerService {
-    extractContentByType(messageType: string, data: any): string {
-        switch (messageType) {
-            case 'conversation':
-                return data?.message?.conversation ?? '';
-            case 'audioMessage':
-                return '[AUDIO_MESSAGE]'; // Aquí podrías procesar el audio luego
-            case 'imageMessage':
-                return '[IMAGE_MESSAGE]'; // Aquí podrías procesar la imagen
-            default:
-                return '[UNKNOWN_MESSAGE_TYPE]';
+  constructor(private readonly aiAgentService: AiAgentService) {}
+
+  /**
+   * Extrae el contenido real del mensaje según su tipo.
+   * @param {string} messageType - Tipo de mensaje recibido.
+   * @param {any} data - Objeto data recibido en el webhook.
+   * @returns {Promise<string>} - El contenido extraído (texto conversacional).
+   */
+  async extractContentByType(messageType: string, data: any): Promise<string> {
+    switch (messageType) {
+      case 'conversation':
+        return data?.message?.conversation ?? '';
+
+      case 'audioMessage':
+        const audioUrl = data?.message?.audioMessage?.url; // Supongamos que tienes la URL
+        if (audioUrl) {
+          return await this.aiAgentService.transcribeAudio(audioUrl);
         }
+        return '[AUDIO_MESSAGE_NOT_FOUND]';
+
+      case 'imageMessage':
+        const imageUrl = data?.message?.imageMessage?.url; // Supongamos que tienes la URL
+        if (imageUrl) {
+          return await this.aiAgentService.describeImage(imageUrl);
+        }
+        return '[IMAGE_MESSAGE_NOT_FOUND]';
+
+      default:
+        return '[UNKNOWN_MESSAGE_TYPE]';
     }
+  }
 }
