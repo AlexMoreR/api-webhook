@@ -190,3 +190,11 @@ enum Plan {
   business
   pymes
 }
+
+model Log {
+  id        String   @id @default(cuid())
+  level     String
+  message   String
+  context   String?
+  timestamp DateTime @default(now())
+}
