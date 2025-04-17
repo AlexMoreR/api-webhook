@@ -58,6 +58,7 @@ export class WebhookService {
 
     /* Extraer la data dependiendo del tipo de mensaje, "text", "media", "audio" */
     const extractedContent = this.messageTypeHandlerService.extractContentByType(messageType, data);
+    this.logger.log(`Ouput AI - proceso multimedia: ${JSON.stringify(extractedContent)}`, 'WebhookService');
     /* LLamado al agente IA */
     // const aiResponse = await this.aiAgentService.processInput(extractedContent);
     // Continuar con workflow...
