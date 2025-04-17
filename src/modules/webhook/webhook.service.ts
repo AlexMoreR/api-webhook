@@ -121,13 +121,6 @@ export class WebhookService {
     apikey: string,
   ) {
     try {
-
-      this.logger.debug(server_url)
-      this.logger.debug(apikey)
-      this.logger.debug(instanceName)
-      this.logger.debug(remoteJid)
-      this.logger.debug(message)
-
       if (!server_url || !apikey) {
         this.logger.error('❌ No se encontraron server_url o apikey dinámicos.', '', 'WebhookService');
         return;

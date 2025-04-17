@@ -82,8 +82,6 @@ export class AiAgentService {
   //     writer.on('error', reject);
   //   });
   // }
-
-
   async downloadAudioFile(url, outputPath) {
     const writer = fs.createWriteStream(outputPath);
     const response = await axios({
@@ -102,8 +100,10 @@ export class AiAgentService {
 
   async transcribeAudio(audioUrl: string): Promise<string> {
     try {
+      this.logger.debug(`Audio URL: ${JSON.stringify(audioUrl)}`, 'WebhookService');
+
       // 1. Descargar el audio temporalmente
-      const tempFilePath = path.join(__dirname, 'temp_audio_file'); 
+      const tempFilePath = path.join(__dirname, 'temp_audio_file.oga');
       await this.downloadAudioFile(audioUrl, tempFilePath);
 
       // 2. Enviar el audio a OpenAI Whisper

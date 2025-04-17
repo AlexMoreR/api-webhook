@@ -17,7 +17,7 @@ export class MessageTypeHandlerService {
         return data?.message?.conversation ?? '';
 
       case 'audioMessage':
-        const audioUrl = data?.message?.audioMessage?.url; // Supongamos que tienes la URL
+        const audioUrl = data?.message?.mediaUrl; // Supongamos que tienes la URL
         if (audioUrl) {
           return await this.aiAgentService.transcribeAudio(audioUrl);
         }
