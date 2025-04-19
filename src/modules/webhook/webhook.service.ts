@@ -68,7 +68,7 @@ export class WebhookService {
     const extractedContent = this.messageTypeHandlerService.extractContentByType(messageType, data);
     this.logger.debug(`Ouput AI - proceso multimedia: ${JSON.stringify(extractedContent)}`, 'WebhookService');
     /* LLamado al agente IA */
-    const aiResponse = await this.aiAgentService.processInput((await extractedContent).toString());
+    const aiResponse = await this.aiAgentService.processInput((await extractedContent).toString(), userId);
     this.logger.debug(`Ouput AI - respuesta del agente IA: ${JSON.stringify(aiResponse)}`, 'WebhookService');
 
     /* Enviar mensaje al cliente */

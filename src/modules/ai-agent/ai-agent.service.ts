@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { LoggerService } from 'src/core/logger/logger.service';
+import { PromptService } from '../prompt/prompt.service';
 
 @Injectable()
 export class AiAgentService {
@@ -20,6 +21,7 @@ export class AiAgentService {
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
     private readonly logger: LoggerService,
+    private readonly promptService: PromptService,
   ) {
     this.openAiApiKey = this.configService.get<string>('OPENAI_API_KEY') || '';
 
@@ -43,15 +45,17 @@ export class AiAgentService {
     };
   }
 
-  async processInput(content: string): Promise<string> {
+  async processInput(content: string, userId: string): Promise<string> {
     try {
+      const systemPrompt = await this.promptService.getSystemMessageByUserId(userId);
+
       const response = await firstValueFrom(
         this.httpService.post(
           this.openAiChatUrl,
           {
             model: 'gpt-3.5-turbo',
             messages: [
-              { role: 'system', content: 'Eres un asistente amigable y eficiente.' },
+              { role: 'system', content: systemPrompt},
               { role: 'user', content },
             ],
             temperature: 0.7,
