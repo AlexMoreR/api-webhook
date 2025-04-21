@@ -40,7 +40,6 @@ export class SessionService {
     });
   }
 
-
   // Get a specific session by remoteJid and instanceId
   async getSession(remoteJid: string, instanceId: string, userId: string) {
     return this.prisma.session.findFirst({
@@ -65,6 +64,14 @@ export class SessionService {
     return this.prisma.session.updateMany({
       where: { remoteJid, instanceId },
       data: { status: false },
+    });
+  }
+
+  // Update state session by remoteJid y instanceId
+  async updateSessionStatus(remoteJid: string, instanceId: string, status: boolean) {
+    return this.prisma.session.updateMany({
+      where: { remoteJid, instanceId },
+      data: { status },
     });
   }
 

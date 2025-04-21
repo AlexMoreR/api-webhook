@@ -10,6 +10,7 @@ import { AiAgentService } from '../ai-agent/ai-agent.service';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
+import { isGroupChat } from './utils/is-group-chat';
 
 @Injectable()
 export class WebhookService {
@@ -51,16 +52,31 @@ export class WebhookService {
 
     await this.checkOrRegisterSession(remoteJid, instanceId, userId, pushName);
 
-    if (this.messageDirectionService.isFromMe(fromMe)) {
-      // Ejecutar otro flujo si es enviado por el sistema
+    /* Validar si el mensaje proviene de un grupo. */
+    if (isGroupChat(remoteJid)) {
+      this.logger.log('🔇 Mensaje de grupo detectado, no se responderá.', 'WebhookService');
       return;
     }
 
     /* Validar si la session está activa */
     const sessionActive = await this.sessionService.isSessionActive(remoteJid);
-    this.logger.debug(`Estado de la session: ${sessionActive}`, 'WebhookService');
+    this.logger.log(`Estado de la session: ${sessionActive}`, 'WebhookService');
     if (!sessionActive) {
       // Terminar flujo
+      return;
+    }
+
+    /* Validar quien está escribiendo y ejecutar pausas, rr ó seguimientos. */
+    if (this.messageDirectionService.isFromMe(fromMe)) {
+      this.logger.log(`IS FROM ME: ${fromMe}`, 'WebhookService');
+
+      /* Poner el estado del chat en false */
+      await this.sessionService.updateSessionStatus(remoteJid, instanceId, false);
+      this.logger.log(`Se pausa el chat.`, 'WebhookService');
+      /* Monitoreo de PAUSA, buscar si en el mensaje viene la palabra clave para reactivar el chat*/
+      /* Monitoreo de RR */
+      /* Monitoreo de RR */
+      // Ejecutar otro flujo si es enviado por el sistema
       return;
     }
 
@@ -73,7 +89,6 @@ export class WebhookService {
 
     /* Enviar mensaje al cliente */
     await this.sendMessageToClient(pureRemoteJid, aiResponse, instanceName, server_url, apikey);
-
     // Continuar con workflow...
   }
 
@@ -125,14 +140,14 @@ export class WebhookService {
         this.logger.error('❌ No se encontraron server_url o apikey dinámicos.', '', 'WebhookService');
         return;
       }
-  
+
       const url = `${server_url}/message/sendText/${instanceName}`;
-  
+
       const payload = {
         number: remoteJid,
         text: message,
       };
-  
+
       await firstValueFrom(
         this.httpService.post(url, payload, {
           headers: {
@@ -141,7 +156,7 @@ export class WebhookService {
           },
         }),
       );
-  
+
       this.logger.log(`📨 Mensaje enviado exitosamente a ${remoteJid}`, 'WebhookService');
     } catch (error) {
       this.logger.error('❌ Error enviando mensaje a Evolution API', error?.response?.data || error.message, 'WebhookService');
