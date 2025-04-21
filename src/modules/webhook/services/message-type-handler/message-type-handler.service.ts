@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AiAgentService } from 'src/modules/ai-agent/ai-agent.service'; // Para usar OpenAI
+import { WebhookDataDto } from '../../dto/webhook-body';
 
 @Injectable()
 export class MessageTypeHandlerService {
@@ -11,20 +12,21 @@ export class MessageTypeHandlerService {
    * @param {any} data - Objeto data recibido en el webhook.
    * @returns {Promise<string>} - El contenido extraído (texto conversacional).
    */
-  async extractContentByType(messageType: string, data: any): Promise<string> {
+    async extractContentByType(messageType: string, data: WebhookDataDto): Promise<string> {
+
     switch (messageType) {
       case 'conversation':
         return data?.message?.conversation ?? '';
 
       case 'audioMessage':
-        const audioUrl = data?.message?.mediaUrl; // Supongamos que tienes la URL
+        const audioUrl = data?.message?.mediaUrl; 
         if (audioUrl) {
           return await this.aiAgentService.transcribeAudio(audioUrl);
         }
         return '[AUDIO_MESSAGE_NOT_FOUND]';
 
       case 'imageMessage':
-        const imageUrl = data?.message?.imageMessage?.url; // Supongamos que tienes la URL
+        const imageUrl = data?.message?.mediaUrl;
         if (imageUrl) {
           return await this.aiAgentService.describeImage(imageUrl);
         }

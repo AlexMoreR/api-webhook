@@ -48,6 +48,7 @@ export class AiAgentService {
   async processInput(content: string, userId: string): Promise<string> {
     try {
       const systemPrompt = await this.promptService.getPromptUserId(userId);
+      this.logger.debug(`PROMPT: ${systemPrompt}`, 'processInput');
 
       const response = await firstValueFrom(
         this.httpService.post(
@@ -55,7 +56,8 @@ export class AiAgentService {
           {
             model: 'gpt-3.5-turbo',
             messages: [
-              { role: 'system', content: systemPrompt},
+              // { role: 'system', content: systemPrompt},
+              { role: 'system', content: 'hola' },
               { role: 'user', content },
             ],
             temperature: 0.7,
@@ -74,18 +76,6 @@ export class AiAgentService {
   }
 
 
-  // async downloadAudioFile(fileUrl: string, destination: string): Promise<void> {
-  //   const writer = fs.createWriteStream(destination);
-
-  //   const response = await axios.get(fileUrl, { responseType: 'stream' });
-
-  //   response.data.pipe(writer);
-
-  //   await new Promise<void>((resolve, reject) => {
-  //     writer.on('finish', resolve);
-  //     writer.on('error', reject);
-  //   });
-  // }
   async downloadAudioFile(url, outputPath) {
     const writer = fs.createWriteStream(outputPath);
     const response = await axios({
@@ -104,8 +94,6 @@ export class AiAgentService {
 
   async transcribeAudio(audioUrl: string): Promise<string> {
     try {
-      this.logger.debug(`Audio URL: ${JSON.stringify(audioUrl)}`, 'WebhookService');
-
       // 1. Descargar el audio temporalmente
       const tempFilePath = path.join(__dirname, 'temp_audio_file.oga');
       await this.downloadAudioFile(audioUrl, tempFilePath);
@@ -129,26 +117,28 @@ export class AiAgentService {
 
   async describeImage(imageUrl: string): Promise<string> {
     try {
-      const prompt = `Describe esta imagen de forma clara: ${imageUrl}`;
-
-      const response = await firstValueFrom(
-        this.httpService.post(
-          this.openAiChatUrl,
+      const response = await this.openAiClient.responses.create({
+        model: 'gpt-4.1', // Este modelo soporta imágenes
+        input: [
+          { role: 'user', content: 'Describe de forma clara y detallada el contenido de esta imagen.' },
           {
-            model: 'gpt-4-vision-preview',
-            messages: [{ role: 'user', content: prompt }],
-            temperature: 0.7,
+            role: 'user',
+            content: [
+              {
+                type: 'input_image',
+                image_url: imageUrl,
+                detail: 'auto'
+              },
+            ],
           },
-          {
-            headers: this.getHeaders(),
-          },
-        ),
-      );
+        ],
+      });
 
-      return response.data.choices?.[0]?.message?.content?.trim() ?? '[ERROR_DESCRIBING_IMAGE]';
+      return response.output_text ?? '[ERROR_DESCRIBING_IMAGE]';
     } catch (error) {
       this.logger.error('❌ Error describiendo imagen con OpenAI', error?.response?.data || error.message, 'AiAgentService');
       return '[ERROR_DESCRIBING_IMAGE]';
     }
   }
+
 }

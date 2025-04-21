@@ -36,7 +36,7 @@ export class WebhookService {
       instance: instanceName,
       server_url,
       apikey,
-      data = {},
+      data,
     } = body;
 
     const pureRemoteJid = data?.key?.remoteJid ?? '';

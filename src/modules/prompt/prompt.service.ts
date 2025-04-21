@@ -3,14 +3,27 @@ import { PrismaService } from 'src/database/prisma.service';
 
 @Injectable()
 export class PromptService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async getPromptUserId(userId: string): Promise<string> {
-    const systemMessage = await this.prisma.systemMessage.findFirst({
+    const systemMessages = await this.prisma.systemMessage.findMany({
       where: { userId },
-      orderBy: { createdAt: 'desc' }, // Por si tiene varios, le traemos el último actualizado
+      orderBy: { createdAt: 'asc' }, // Opcional: 'asc' si quieres en orden antiguo a nuevo
+      select: {
+        title: true,
+        message: true,
+      },
     });
 
-    return systemMessage?.message ?? 'Eres un asistente amigable y eficiente.';
+    if (!systemMessages.length) {
+      // Si no hay mensajes, devuelve un prompt base por defecto
+      return 'Bienvenido a Quest\nEstoy aquí para ayudarte.';
+    }
+
+    const fullPrompt = systemMessages
+      .map((sm) => `${sm.title}\n${sm.message}`)
+      .join('\n\n'); // Doble salto de línea entre cada bloque
+
+    return fullPrompt;
   }
 }
