@@ -9,6 +9,7 @@ import { DatabaseModule } from './database/database.module';
 import { InstancesService } from './modules/instances/instances.service';
 import { AiAgentModule } from './modules/ai-agent/ai-agent.module';
 import { UserService } from './modules/user/user.service';
+import { ChatHistoryService } from './modules/chat-history/chat-history.service';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { UserService } from './modules/user/user.service';
     SessionService,
     InstancesService,
     UserService,
+    ChatHistoryService,
   ],
 })
 export class AppModule { }

@@ -11,6 +11,7 @@ import { AiAgentService } from '../ai-agent/ai-agent.service';
 import { PromptService } from '../prompt/prompt.service';
 import { UserService } from '../user/user.service';
 import { MessageBufferService } from './services/message-buffer/message-buffer.service';
+import { ChatHistoryService } from '../chat-history/chat-history.service';
 
 @Module({
   imports: [HttpModule],
@@ -28,7 +29,8 @@ import { MessageBufferService } from './services/message-buffer/message-buffer.s
     MessageTypeHandlerService,
     AiAgentService,
     PromptService,
-    MessageBufferService
+    MessageBufferService,
+    ChatHistoryService
   ]
 })
 export class WebhookModule { }

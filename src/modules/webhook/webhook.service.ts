@@ -13,6 +13,7 @@ import { UserService } from '../user/user.service';
 import { isGroupChat } from './utils/is-group-chat';
 import { Pausar, User } from '@prisma/client';
 import { MessageBufferService } from './services/message-buffer/message-buffer.service';
+import { ChatHistoryService } from '../chat-history/chat-history.service';
 
 @Injectable()
 export class WebhookService {
@@ -25,7 +26,7 @@ export class WebhookService {
     private readonly messageTypeHandlerService: MessageTypeHandlerService,
     private readonly messageBufferService: MessageBufferService,
     private readonly aiAgentService: AiAgentService,
-
+    private readonly chatHistoryService: ChatHistoryService,
     private readonly httpService: HttpService,
   ) { }
 
@@ -60,6 +61,7 @@ export class WebhookService {
 
     const sessionStatus = await this.checkOrRegisterSession(remoteJid, instanceId, userId, pushName);
     const conversationMsg = data?.message?.conversation ?? '';
+    const sessionHistoryId = `${instanceName}-${pureRemoteJid}`;
 
     /* Validar si el mensaje proviene de un grupo. */
     if (isGroupChat(remoteJid)) {
@@ -88,8 +90,6 @@ export class WebhookService {
 
     /* Extraer la data dependiendo del tipo de mensaje, "text", "media", "audio" */
     const extractedContent = await this.messageTypeHandlerService.extractContentByType(messageType, apikeyOpenAi, data);
-    this.logger.debug(`Ouput AI - proceso multimedia: ${JSON.stringify(extractedContent)}`, 'WebhookService');
-
     const incomingMessage = extractedContent.toString().trim().toLowerCase();
 
     // Detectar comandos especiales
@@ -97,9 +97,14 @@ export class WebhookService {
       // FLUSH: El usuario terminó de escribir, enviamos lo acumulado YA
       await this.messageBufferService.flush(remoteJid, async (mergedText) => {
         this.logger.debug(`Merged text (flushed) ready for AI processing: ${mergedText}`, 'WebhookService');
-        const aiResponse = await this.aiAgentService.processInput(mergedText, userId, apikeyOpenAi);
+
+        // GUARDAR EN HISTORIAL ✅
+        await this.chatHistoryService.saveMessage(sessionHistoryId, mergedText);
+
+        const aiResponse = await this.aiAgentService.processInput(mergedText, userId, apikeyOpenAi, sessionHistoryId);
         await this.sendMessageToClient(pureRemoteJid, aiResponse, instanceName, server_url, apikey);
       });
+
       return; // No sigas esperando, ya procesaste
     }
 
@@ -117,7 +122,10 @@ export class WebhookService {
       async (mergedText) => {
         this.logger.debug(`Merged text ready for AI processing: ${mergedText}`, 'WebhookService');
 
-        const aiResponse = await this.aiAgentService.processInput(mergedText, userId, apikeyOpenAi);
+        // GUARDAR EN HISTORIAL ✅
+        await this.chatHistoryService.saveMessage(sessionHistoryId, mergedText);
+
+        const aiResponse = await this.aiAgentService.processInput(mergedText, userId, apikeyOpenAi, sessionHistoryId);
         await this.sendMessageToClient(pureRemoteJid, aiResponse, instanceName, server_url, apikey);
       }
     );

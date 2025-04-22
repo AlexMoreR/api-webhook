@@ -12,7 +12,7 @@ export class WebhookController {
 
   @Post()
   async recibirWebhook(@Body() payload: any, @Res() res: Response) {
-    this.logger.log(`📦 Webhook recibido:${JSON.stringify(payload, null, 2)}`, 'WebhookController');
+    // this.logger.log(`📦 Webhook recibido:${JSON.stringify(payload, null, 2)}`, 'WebhookController');
 
     try {
       await this.webhookService.processWebhook(payload);

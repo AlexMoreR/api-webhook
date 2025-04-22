@@ -5,6 +5,8 @@ import OpenAI from 'openai';
 import { Injectable } from '@nestjs/common';
 import { LoggerService } from 'src/core/logger/logger.service';
 import { PromptService } from '../prompt/prompt.service';
+import { ChatHistoryService } from '../chat-history/chat-history.service';
+import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 
 @Injectable()
 export class AiAgentService {
@@ -13,6 +15,7 @@ export class AiAgentService {
   constructor(
     private readonly logger: LoggerService,
     private readonly promptService: PromptService,
+    private readonly chatHistoryService: ChatHistoryService
   ) { }
 
   /**
@@ -43,19 +46,32 @@ export class AiAgentService {
    * @param {string} input
    * @param {string} userId
    * @param {string} apikeyOpenAi
+   * @param {string} sessionId - ID de la sesión (ej: instance_name + remotejid)
    * @returns {Promise<string>}
    */
-  async processInput(input: string, userId: string, apikeyOpenAi: string): Promise<string> {
+  async processInput(input: string, userId: string, apikeyOpenAi: string, sessionId: string): Promise<string> {
     try {
       this.initializeClient(apikeyOpenAi);
+
       const systemPrompt = await this.promptService.getPromptUserId(userId);
+      // Traer el historial del chat
+      const chatHistory = await this.chatHistoryService.getChatHistory(sessionId);
+
+      // Armar el array de mensajes
+      const historyMessages: ChatCompletionMessageParam[] = chatHistory.map((text) => ({
+        role: 'user',
+        content: text,
+      }));
+
+      const messages: ChatCompletionMessageParam[] = [
+        { role: 'system', content: systemPrompt },
+        ...historyMessages,
+        { role: 'user', content: input },
+      ];
 
       const response = await this.openAiClient.chat.completions.create({
         model: 'gpt-3.5-turbo',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: input },
-        ],
+        messages,
         temperature: 0.1,
       });
 

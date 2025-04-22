@@ -1,0 +1,49 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from 'src/database/prisma.service';
+
+@Injectable()
+export class ChatHistoryService {
+    constructor(private readonly prisma: PrismaService) { }
+
+    /**
+     * Guarda un mensaje en el historial.
+     *
+     * @param sessionId - ID de la sesión (ej: instance_name + remotejid)
+     * @param content - Texto del mensaje
+     */
+    async saveMessage(sessionId: string, content: string): Promise<void> {
+        const messageJson = {
+            type: 'human',
+            content: content,
+            additional_kwargs: {},
+            response_metadata: {},
+        };
+
+        await this.prisma.n8n_chat_histories.create({
+            data: {
+                session_id: sessionId,
+                message: messageJson,
+            },
+        });
+    }
+
+    /**
+     * Obtiene el historial de conversación de un usuario.
+     *
+     * @param sessionId - ID de la sesión (ej: instance_name + remotejid)
+     * @returns {Promise<string[]>} - Lista de contenidos concatenados
+     */
+    async getChatHistory(sessionId: string): Promise<string[]> {
+        const messages = await this.prisma.n8n_chat_histories.findMany({
+            where: { session_id: sessionId },
+            orderBy: { id: 'asc' },
+        });
+
+        return messages.map((msg) => {
+            if (msg.message && typeof msg.message === 'object' && 'content' in msg.message) {
+                return (msg.message as any).content ?? '';
+            }
+            return '';
+        });
+    }
+}
