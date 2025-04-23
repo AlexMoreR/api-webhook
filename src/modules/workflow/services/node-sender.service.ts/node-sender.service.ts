@@ -1,6 +1,6 @@
 import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
-import { firstValueFrom } from 'rxjs';
+import { delay, firstValueFrom } from 'rxjs';
 import { LoggerService } from 'src/core/logger/logger.service';
 
 @Injectable()
@@ -17,7 +17,8 @@ export class NodeSenderService {
     try {
       const body = {
         number: remoteJid,
-        options: { delay: 100, presence: 'composing' },
+        delay: 1200,
+        // options: { delay: 100, presence: 'composing' },
         text,
       };
 
@@ -56,6 +57,7 @@ export class NodeSenderService {
       };
 
       const mimetype = mimeMap[type.toLowerCase()] || 'application/octet-stream';
+      const filename = this.extractFilenameFromUrl(mediaUrl);
 
       const body = {
         number: remoteJid,
@@ -63,6 +65,8 @@ export class NodeSenderService {
         mimetype,
         caption,
         media: mediaUrl,
+        fileName: type === 'document' ? filename : '',
+        delay: 1200,
       };
 
       // this.logger.log(
@@ -89,4 +93,11 @@ export class NodeSenderService {
     }
   }
 
+  /**
+   *  Extrae el nombre del documento basado en el mediaUrl
+   */
+  private extractFilenameFromUrl(url: string): string | null {
+    const match = url.match(/[^/]+?\.(pdf|xlsx|docx)/i);
+    return match ? match[0] : null;
+  }
 }
