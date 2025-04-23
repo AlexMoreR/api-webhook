@@ -75,14 +75,14 @@ export class WorkflowService {
                 };
 
                 // ⏳ Tiempo límite por nodo (configurable)
-                const TIMEOUT_MS = 10000;
+                const TIMEOUT_MS = 15000;
 
                 await Promise.race([
                     sendNode(),
                     new Promise((_, reject) => setTimeout(() => reject(new Error('Tiempo de espera excedido')), TIMEOUT_MS))
                 ]);
             } catch (error) {
-                this.logger.error(`Se excedío el tiempo de espera procesando nodo ID: ${node.id}`, error?.response?.data || error.message, 'WorkflowService');
+                this.logger.warn(`Se excedío el tiempo de espera procesando nodo ID: ${node.id}, ${error?.response?.data || error.message}`, 'WebhookService');
                 // Continúa con el siguiente nodo
             }
         }
