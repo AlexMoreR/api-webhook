@@ -82,7 +82,7 @@ export class WorkflowService {
                     new Promise((_, reject) => setTimeout(() => reject(new Error('Tiempo de espera excedido')), TIMEOUT_MS))
                 ]);
             } catch (error) {
-                this.logger.error(`Error procesando nodo ID: ${node.id}`, error?.response?.data || error.message, 'WorkflowService');
+                this.logger.error(`Se excedío el tiempo de espera procesando nodo ID: ${node.id}`, error?.response?.data || error.message, 'WorkflowService');
                 // Continúa con el siguiente nodo
             }
         }
