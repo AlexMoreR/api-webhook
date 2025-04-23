@@ -97,7 +97,7 @@ export class WebhookService {
     /* Ejecución de flujos */
     // Buscar flujos disponibles
     //TODO: SE DEBE DETERMINAR CON BASE AL PROMPT SI SE EJECUTA O NO UN FLUJO
-    const workflows = await this.workflowService.getWorkflow();
+    const workflows = await this.workflowService.getWorkflow(userId);
     const matchedFlow = workflows.find((flow) => incomingMessage.includes(flow.name.toLowerCase()));
 
     if (matchedFlow) {

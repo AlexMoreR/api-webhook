@@ -97,7 +97,14 @@ export class NodeSenderService {
    *  Extrae el nombre del documento basado en el mediaUrl
    */
   private extractFilenameFromUrl(url: string): string | null {
-    const match = url.match(/([^/-]+-[^/-]+-[^/-]+\.(?:pdf|xlsx|docx))$/i);
-    return match ? match[1] : null;
+    // Extrae el último segmento de la URL
+    const filename = url.split('/').pop();
+    if (!filename) return null;
+
+    // Divide por guiones y elimina los primeros 3 segmentos (UUID)
+    const parts = filename.split('-');
+    if (parts.length <= 3) return filename; // Si no hay suficientes partes, devuelve el nombre completo
+
+    return parts.slice(3).join('-');
   }
 }

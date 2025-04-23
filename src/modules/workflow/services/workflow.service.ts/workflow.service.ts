@@ -101,8 +101,26 @@ export class WorkflowService {
      *
      * @returns {Promise<any[]>}
      */
-    async getWorkflow() {
-        this.logger.debug('Obteniendo lista de workflows disponibles...', 'WorkflowService');
-        return this.prisma.workflow.findMany();
+    async getWorkflow(userId: string) {
+        this.logger.log('Obteniendo lista de workflows disponibles...', 'WorkflowService');
+
+        if (!userId) {
+            return [];
+        }
+
+        try {
+            const workflows = await this.prisma.workflow.findMany({
+                where: {
+                    userId,
+                },
+                orderBy: {
+                    createdAt: "asc",
+                },
+            });
+            return workflows;
+        } catch (error) {
+            this.logger.error('Error al obtener los workflows:"', error, 'WorkflowService');
+            return [];
+        }
     }
 }
