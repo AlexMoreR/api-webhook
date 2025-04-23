@@ -1,4 +1,82 @@
+// modules/ai-agent/services/intention.service.ts
 import { Injectable } from '@nestjs/common';
+import OpenAI from 'openai';
+import { LoggerService } from 'src/core/logger/logger.service';
+import { IntentionItem } from 'src/types/open-ai';
 
 @Injectable()
-export class IntentionService {}
+export class IntentionService {
+    private openAiClient: OpenAI;
+
+    constructor(
+        private readonly logger: LoggerService,
+    ) { }
+    /**
+     * Inicializa el cliente de OpenAI con una API Key proporcionada.
+     *
+     * @param {string} apikeyOpenAi
+     */
+    private initializeClient(apikeyOpenAi: string): void {
+        if (!this.isValidApiKey(apikeyOpenAi)) {
+            this.logger.error('API Key inválida o no proporcionada.', '', 'AiAgentService');
+        }
+        this.openAiClient = new OpenAI({ apiKey: apikeyOpenAi });
+    }
+
+    /**
+     * Valida si una API Key parece válida.
+     *
+     * @param {string} apikeyOpenAi
+     * @returns {boolean}
+     */
+    private isValidApiKey(apikeyOpenAi: string): boolean {
+        return typeof apikeyOpenAi === 'string' && apikeyOpenAi.startsWith('sk-') && apikeyOpenAi.length >= 40;
+    }
+
+
+    /**
+     * Determina si un texto tiene una intención que coincida con alguna acción disponible.
+     * @param input Texto enviado por el usuario.
+     * @param acciones Lista de intenciones posibles (flujos, seguimientos, notificaciones).
+     */
+    async detectIntent(input: string, acciones: IntentionItem[], apikeyOpenAi: string): Promise<IntentionItem | null> {
+        this.logger.debug(`mergedText ${input}`);
+        this.logger.debug(`posiblesIntenciones ${JSON.stringify(acciones)}`);
+        this.initializeClient(apikeyOpenAi);
+
+        const inputEmbedding = await this.createEmbedding(input);
+
+        let bestMatch: { item: IntentionItem; score: number } | null = null;
+
+        for (const item of acciones) {
+            const itemEmbedding = await this.createEmbedding(item.frase);
+            const similarity = this.cosineSimilarity(inputEmbedding, itemEmbedding);
+
+            if (!bestMatch || similarity > bestMatch.score) {
+                bestMatch = { item, score: similarity };
+            }
+        }
+
+        if (bestMatch && bestMatch.score >= 0.7) {
+            return bestMatch.item;
+        }
+
+        return null;
+    }
+
+    private async createEmbedding(text: string): Promise<number[]> {
+        const res = await this.openAiClient.embeddings.create({
+            model: 'text-embedding-3-small',
+            input: text,
+        });
+        return res.data[0].embedding;
+    }
+
+    private cosineSimilarity(a: number[], b: number[]): number {
+        const dot = a.reduce((sum, val, i) => sum + val * b[i], 0);
+        const normA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
+        const normB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
+        return dot / (normA * normB);
+    }
+}
+

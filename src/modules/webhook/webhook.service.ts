@@ -15,6 +15,8 @@ import { Pausar, User } from '@prisma/client';
 import { MessageBufferService } from './services/message-buffer/message-buffer.service';
 import { ChatHistoryService } from '../chat-history/chat-history.service';
 import { WorkflowService } from '../workflow/services/workflow.service.ts/workflow.service';
+import { IntentionService } from '../ai-agent/services/intention/intention.service';
+import { IntentionItem } from 'src/types/open-ai';
 
 @Injectable()
 export class WebhookService {
@@ -30,6 +32,7 @@ export class WebhookService {
     private readonly chatHistoryService: ChatHistoryService,
     private readonly httpService: HttpService,
     private readonly workflowService: WorkflowService,
+    private readonly intentionService: IntentionService,
   ) { }
 
   /**
@@ -94,22 +97,6 @@ export class WebhookService {
     const extractedContent = await this.messageTypeHandlerService.extractContentByType(messageType, apikeyOpenAi, data);
     const incomingMessage = extractedContent.toString().trim().toLowerCase();
 
-    /* Ejecución de flujos */
-    // Buscar flujos disponibles
-    //TODO: SE DEBE DETERMINAR CON BASE AL PROMPT SI SE EJECUTA O NO UN FLUJO
-    const workflows = await this.workflowService.getWorkflow(userId);
-    const matchedFlow = workflows.find((flow) => incomingMessage.includes(flow.name.toLowerCase()));
-
-    if (matchedFlow) {
-      await this.workflowService.executeWorkflow(
-        matchedFlow.name,
-        server_url,
-        apikey,
-        instanceName,
-        pureRemoteJid,
-      );
-      return; // Ya ejecutaste un flujo, no proceses normal
-    }
 
     // Detectar comandos especiales
     if (['listo', 'envía', 'terminé'].includes(incomingMessage)) {
@@ -144,10 +131,37 @@ export class WebhookService {
         // GUARDAR EN HISTORIAL ✅
         await this.chatHistoryService.saveMessage(sessionHistoryId, mergedText);
 
+        // Obtener intenciones posibles
+        const workflows = await this.workflowService.getWorkflow(userId);
+        const posiblesIntenciones: IntentionItem[] = workflows.map((flow) => ({
+          name: flow.name,
+          tipo: 'flujo',
+          frase: flow.description ?? flow.name,
+        }));
+
+        // Detectar intención con embeddings usando el mensaje unificado
+        const decision = await this.intentionService.detectIntent(mergedText, posiblesIntenciones, apikeyOpenAi);
+        this.logger.debug(`Decision ${decision}`);
+
+        if (decision?.tipo === 'flujo') {
+          this.logger.log(`Intención detectada: ejecutar flujo "${decision.name}"`, 'WebhookService');
+
+          await this.workflowService.executeWorkflow(
+            decision.name,
+            server_url,
+            apikey,
+            instanceName,
+            pureRemoteJid,
+          );
+          return;
+        }
+
+        // Si no es un flujo, continuar con respuesta IA
         const aiResponse = await this.aiAgentService.processInput(mergedText, userId, apikeyOpenAi, sessionHistoryId);
         await this.sendMessageToClient(pureRemoteJid, aiResponse, instanceName, server_url, apikey);
       }
     );
+
   }
 
   /**

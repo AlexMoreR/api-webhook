@@ -1,7 +1,6 @@
 import { Controller, Post, Body, Res } from '@nestjs/common';
 import { WebhookService } from './webhook.service';
 import { Response } from 'express';
-import { LoggerService } from 'src/core/logger/logger.service';
 
 @Controller('webhook')
 export class WebhookController {
