@@ -65,10 +65,10 @@ export class NodeSenderService {
         media: mediaUrl,
       };
 
-      this.logger.log(
-        `Enviando ${type} a ${remoteJid} con mimetype: ${mimetype}, caption: "${caption}" y mediaURL: ${mediaUrl}`,
-        'NodeSenderService',
-      );
+      // this.logger.log(
+      //   `Enviando ${type} a ${remoteJid} con mimetype: ${mimetype}, caption: "${caption}" y mediaURL: ${mediaUrl}`,
+      //   'NodeSenderService',
+      // );
 
       const response = await firstValueFrom(
         this.http.post(url, body, {
@@ -76,10 +76,10 @@ export class NodeSenderService {
         }),
       );
 
-      this.logger.log(
-        `Respuesta del ${type} a ${remoteJid}: ${JSON.stringify(response.data)}`,
-        'NodeSenderService',
-      );
+      // this.logger.log(
+      //   `Respuesta del ${type} a ${remoteJid}: ${JSON.stringify(response.data)}`,
+      //   'NodeSenderService',
+      // );
     } catch (error) {
       this.logger.error(
         `Error enviando ${type} a ${remoteJid}`,
