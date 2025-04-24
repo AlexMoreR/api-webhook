@@ -10,10 +10,15 @@ export class NodeSenderService {
     private readonly logger: LoggerService,
   ) { }
 
+
   /**
-   * Envía un nodo de texto al cliente y registra la respuesta.
-   * url = `${urlevo}/message/sendText/${instanceName}`;
-   * 
+   * Send message type text
+   *
+   * @param {string} url - `${urlevo}/message/sendText/${instanceName}`.
+   * @param {string} apikey - 32900F6F-2692-4B41-A037-57BEF8717B26.
+   * @param {string} remoteJid - 573107964105@s.whatsapp.net.
+   * @param {string} text - message.
+   * @returns {void} - Nombre del flujo a ejecutar o null si no se debe ejecutar.
    */
   async sendTextNode(url: string, apikey: string, remoteJid: string, text: string) {
     try {

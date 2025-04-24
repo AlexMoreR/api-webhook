@@ -8,3 +8,8 @@ export interface Decision {
     name: string;
     tipo: string;
 }
+export interface ToolHandler {
+    name: string;
+    handle(args: any): Promise<string>;
+  }
+  
