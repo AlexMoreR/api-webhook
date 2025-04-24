@@ -8,6 +8,7 @@ import { PromptService } from '../prompt/prompt.service';
 import { ChatHistoryService } from '../chat-history/chat-history.service';
 import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { Workflow } from '@prisma/client';
+import { NodeSenderService } from '../workflow/services/node-sender.service.ts/node-sender.service';
 
 @Injectable()
 export class AiAgentService {
@@ -16,7 +17,8 @@ export class AiAgentService {
   constructor(
     private readonly logger: LoggerService,
     private readonly promptService: PromptService,
-    private readonly chatHistoryService: ChatHistoryService
+    private readonly chatHistoryService: ChatHistoryService,
+    private readonly nodeSenderService: NodeSenderService
   ) { }
 
   /**
@@ -50,38 +52,72 @@ export class AiAgentService {
    * @param {string} sessionId - ID de la sesión (ej: instance_name + remotejid)
    * @returns {Promise<string>}
    */
+
+  private async getWeather(location: string): Promise<string> {
+    // Aquí podrías hacer una llamada real a una API de clima
+    return `Soleado y 25°C en ${location}`; // Respuesta simulada
+  }
+
   async processInput(input: string, userId: string, apikeyOpenAi: string, sessionId: string): Promise<string> {
     try {
       this.initializeClient(apikeyOpenAi);
-
+  
       const systemPrompt = await this.promptService.getPromptUserId(userId);
-      // Traer el historial del chat
       const chatHistory = await this.chatHistoryService.getChatHistory(sessionId);
-
-      // Armar el array de mensajes
+  
       const historyMessages: ChatCompletionMessageParam[] = chatHistory.map((text) => ({
         role: 'user',
         content: text,
       }));
-
+  
       const messages: ChatCompletionMessageParam[] = [
         { role: 'system', content: systemPrompt },
         ...historyMessages,
         { role: 'user', content: input },
       ];
-
+  
+      const tools: any[] = [
+        {
+          type: 'function',
+          function: {
+            name: 'notificacion',
+            description: 'Utiliza esta herramienta cuando un usuario necesite la asesoría de un asesor, haga una solicitud, reclamo o agendamiento.',
+            parameters: {
+              type: 'object',
+              properties: {
+                nombre: { type: 'string', description: 'Nombre del usuario' },
+                detalles: { type: 'string', description: 'Detalle de la notificación o solicitud' },
+              },
+              required: ['nombre', 'detalles'],
+            },
+          },
+        },
+      ];
+  
       const response = await this.openAiClient.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: 'gpt-4',
         messages,
-        temperature: 0.1,
+        tools,
+        tool_choice: 'auto', // o especifica 'notificacion' si deseas forzarla
       });
-
-      return response.choices?.[0]?.message?.content?.trim() ?? '[ERROR_OPENAI_EMPTY_RESPONSE]';
+  
+      const choice: any = response.choices?.[0];
+      const toolCall = choice?.message?.tool_calls?.[0];
+  
+      if (toolCall && toolCall.function?.name === 'notificacion') {
+        const args = JSON.parse(toolCall.function.arguments);
+        // Aquí puedes hacer lo que quieras con los datos de la tool, por ejemplo:
+        await this.nodeSenderService.sendTextNode('http://conexion-3.verzay.co/message/sendText/More-Pruebas', '893C5438-0C98-4B60-AA11-D866208D77BC', '573196892277@s.whatsapp.net', 'Tienes una notificacion del cliente.');
+        return `✅ Notificación enviada para ${args.nombre} con detalles: ${args.detalles}`;
+      }
+  
+      return choice?.message?.content?.trim() ?? '[ERROR_OPENAI_EMPTY_RESPONSE]';
     } catch (error) {
       this.logger.error('Error procesando entrada con OpenAI.', error?.response?.data || error.message, 'AiAgentService');
       return '[ERROR_PROCESSING_OPENAI_INPUT]';
     }
   }
+  
 
   /**
    * Descarga un archivo de audio desde una URL.
