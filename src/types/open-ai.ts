@@ -11,5 +11,15 @@ export interface Decision {
 export interface ToolHandler {
     name: string;
     handle(args: any): Promise<string>;
-  }
-  
+}
+
+export interface proccessInput {
+    input: string,
+    userId: string,
+    apikeyOpenAi: string,
+    sessionId: string,
+    server_url: string,
+    apikey: string,
+    instanceName: string,
+    pureRemoteJid: string,
+}

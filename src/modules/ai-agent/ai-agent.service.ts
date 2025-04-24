@@ -7,8 +7,10 @@ import { LoggerService } from 'src/core/logger/logger.service';
 import { PromptService } from '../prompt/prompt.service';
 import { ChatHistoryService } from '../chat-history/chat-history.service';
 import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
-import { Workflow } from '@prisma/client';
 import { NodeSenderService } from '../workflow/services/node-sender.service.ts/node-sender.service';
+import { WorkflowService } from '../workflow/services/workflow.service.ts/workflow.service';
+import { IntentionService } from './services/intention/intention.service';
+import { IntentionItem, proccessInput } from 'src/types/open-ai';
 
 @Injectable()
 export class AiAgentService {
@@ -18,7 +20,9 @@ export class AiAgentService {
     private readonly logger: LoggerService,
     private readonly promptService: PromptService,
     private readonly chatHistoryService: ChatHistoryService,
-    private readonly nodeSenderService: NodeSenderService
+    private readonly nodeSenderService: NodeSenderService,
+    private readonly workflowService: WorkflowService,
+    private readonly intentionService: IntentionService,
   ) { }
 
   /**
@@ -58,7 +62,30 @@ export class AiAgentService {
     return `Soleado y 25°C en ${location}`; // Respuesta simulada
   }
 
-  async processInput(input: string, userId: string, apikeyOpenAi: string, sessionId: string): Promise<string> {
+  /**
+   * Se procesa el texto 
+   *
+   * @private
+   * @param input - msg
+   * @param userId - User ID
+   * @param apikeyOpenAi - API Key Open AI
+   * @param sessionId - Nombre de la instancia en Evolution API
+   * @param server_url - URL base del servidor Evolution
+   * @param apikey - API Key para autorización con Evolution
+   * @param instanceName - Nombre de la instancia en Evolution API
+   * @param pureRemoteJid - Número del cliente en formato WhatsApp
+   * @returns {Promise<void>}
+   */
+  async processInput({
+    input,
+    userId,
+    apikeyOpenAi,
+    sessionId,
+    server_url,
+    apikey,
+    instanceName,
+    pureRemoteJid
+  }: proccessInput) {
     try {
       this.initializeClient(apikeyOpenAi);
 
@@ -92,6 +119,23 @@ export class AiAgentService {
             },
           },
         },
+        {
+          type: 'function',
+          function: {
+            name: 'execute_workflow',
+            description: 'Siempre consulta y ejecuta si existen flujos disponibles en la base de datos que correspondan a la solicitud del usuario. Si se encuentra un flujo, se ejecuta. Si no hay flujos, la IA continúa la conversación normalmente.',
+            parameters: {
+              type: 'object',
+              properties: {
+                nombre_flujo: {
+                  type: 'string',
+                  description: 'Nombre del flujo a ejecutar, como "Curso Ambiental" o "Agendar Cita".',
+                },
+              },
+              required: ['nombre_flujo'],
+            },
+          },
+        }
       ];
 
       const response = await this.openAiClient.chat.completions.create({
@@ -103,16 +147,30 @@ export class AiAgentService {
 
       const choice: any = response.choices?.[0];
       const toolCall = choice?.message?.tool_calls?.[0];
+      console.debug(`choice >>>>>>>>>>> ${JSON.stringify(choice)}`)
+      console.debug(`toolCall >>>>>>>>>>> ${JSON.stringify(toolCall)}`)
 
-      if (toolCall && toolCall.function?.name === 'notificacion') {
+      if (toolCall) {
         const args = JSON.parse(toolCall.function.arguments);
-        // Aquí puedes hacer lo que quieras con los datos de la tool, por ejemplo:
-        await this.nodeSenderService.sendTextNode(
-          'http://conexion-3.verzay.co/message/sendText/More-Pruebas',
-          '893C5438-0C98-4B60-AA11-D866208D77BC',
-          '573196892277@s.whatsapp.net',
-          'Tienes una notificacion del cliente.');
-        return `✅ Notificación enviada para ${args.nombre} con detalles: ${args.detalles}`;
+
+        switch (toolCall.function.name) {
+          case 'notificacion':
+            return await this.handleNotificacionTool(args);
+
+          case 'execute_workflow':
+            return await this.handleExecuteWorkflowTool(
+              args,
+              userId,
+              apikeyOpenAi,
+              sessionId,
+              server_url,
+              apikey,
+              instanceName,
+              pureRemoteJid);
+
+          default:
+            this.logger.warn(`Tool no soportada: ${toolCall.function.name}`, 'AiAgentService');
+        }
       }
 
       return choice?.message?.content?.trim() ?? '[ERROR_OPENAI_EMPTY_RESPONSE]';
@@ -120,8 +178,56 @@ export class AiAgentService {
       this.logger.error('Error procesando entrada con OpenAI.', error?.response?.data || error.message, 'AiAgentService');
       return '[ERROR_PROCESSING_OPENAI_INPUT]';
     }
-  }
+  };
 
+  private async handleNotificacionTool(args: any): Promise<string> {
+    await this.nodeSenderService.sendTextNode(
+      'http://conexion-3.verzay.co/message/sendText/More-Pruebas',
+      '893C5438-0C98-4B60-AA11-D866208D77BC',
+      '573196892277@s.whatsapp.net',
+      'Tienes una notificación del cliente.'
+    );
+    return `✅ Notificación enviada para ${args.nombre} con detalles: ${args.detalles}`;
+  };
+
+  private async handleExecuteWorkflowTool(
+    args: any,
+    userId: string,
+    apikeyOpenAi: string,
+    sessionId: string,
+    server_url: string,
+    apikey: string,
+    instanceName: string,
+    pureRemoteJid: string
+  ): Promise<string> {
+    const workflows = await this.workflowService.getWorkflow(userId);
+    const posiblesIntenciones: IntentionItem[] = workflows.map((flow) => ({
+      name: flow.name,
+      tipo: 'flujo',
+      frase: flow.description ?? flow.name,
+    }));
+
+    const decision = await this.intentionService.detectIntent(args.nombre_flujo, posiblesIntenciones, apikeyOpenAi);
+
+    if (!decision) return '[NO_MATCHING_WORKFLOW]';
+
+    const alreadyExecuted = await this.chatHistoryService.hasIntentionBeenExecuted(sessionId, decision.name);
+    if (alreadyExecuted) {
+      return `Ya te compartí "${decision.name}", ¿quieres otra cosa?`;
+    }
+
+    await this.chatHistoryService.registerExecutedIntention(sessionId, decision.name, decision.tipo);
+
+    await this.workflowService.executeWorkflow(
+      decision?.name,
+      server_url,
+      apikey,
+      instanceName,
+      pureRemoteJid,
+    );
+
+    return `✅ Flujo "${decision.name}" ejecutado correctamente.`;
+  };
 
   /**
    * Descarga un archivo de audio desde una URL.

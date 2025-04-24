@@ -80,6 +80,7 @@ export class WebhookService {
     const sessionStatus = await this.checkOrRegisterSession(remoteJid, instanceId, userId, pushName);
     const conversationMsg = data?.message?.conversation ?? '';
     const sessionHistoryId = `${instanceName}-${pureRemoteJid}`;
+    const apiMsgUrl = `${server_url}/message/sendText/${instanceName}`;
 
     /* Validar si el mensaje proviene de un grupo. */
     if (isGroupChat(remoteJid)) {
@@ -108,19 +109,32 @@ export class WebhookService {
     const extractedContent = await this.messageTypeHandlerService.extractContentByType(messageType, apikeyOpenAi, data);
     const incomingMessage = extractedContent.toString().trim().toLowerCase();
 
-    /* Send */
-    await this.alreadyMsgExecuted({
-      sessionHistoryId,
-      pureRemoteJid,
-      instanceName,
-      server_url,
-      apikey,
-      userId,
-      apikeyOpenAi,
+    /* Get data to process text by Open AI */
+    this.messageBufferService.handleIncomingMessage(
       remoteJid,
       incomingMessage,
       delayConversation,
-    });
+      async (mergedText) => {
+        this.logger.debug(`Merged text ready for AI processing: ${mergedText}`, 'WebhookService');
+
+        // Guardar historial
+        await this.chatHistoryService.saveMessage(sessionHistoryId, mergedText);
+
+        // Si no es un flujo, continuar con respuesta IA
+        const dataProccessInput = {
+          input: mergedText,
+          userId,
+          apikeyOpenAi,
+          sessionId: sessionHistoryId,
+          server_url,
+          apikey,
+          instanceName,
+          pureRemoteJid,
+        };
+
+        const aiResponse = await this.aiAgentService.processInput(dataProccessInput);
+        await this.nodeSenderService.sendTextNode(apiMsgUrl, apikey, pureRemoteJid, aiResponse);
+      })
   }
 
   /**
@@ -198,94 +212,4 @@ export class WebhookService {
     await this.sessionService.updateSessionStatus(remoteJid, instanceId, false);
     this.logger.log(`Chat pausado.`, 'WebhookService');
   }
-
-
-
-  /**
-   * Verifica si ya se ha enviado un flujo/intención al usuario. Si ya fue enviado,
-   * responde con un mensaje alternativo. Si no, lo registra y lo ejecuta.
-   *
-   * @private
-   * @param sessionHistoryId - ID único de sesión (ej: instancia + remoteJid)
-   * @param pureRemoteJid - Número del cliente en formato WhatsApp
-   * @param instanceName - Nombre de la instancia en Evolution API
-   * @param server_url - URL base del servidor Evolution
-   * @param apikey - API Key para autorización con Evolution
-   * @param userId - User ID
-   * @param apikeyOpenAi - API Key Open AI
-   * @returns {Promise<void>}
-   */
-  private async alreadyMsgExecuted({
-    sessionHistoryId,
-    pureRemoteJid,
-    instanceName,
-    server_url,
-    apikey,
-    userId,
-    apikeyOpenAi,
-    remoteJid,
-    incomingMessage,
-    delayConversation,
-  }: processMsg): Promise<void> {
-
-    /* Process text */
-    this.messageBufferService.handleIncomingMessage(
-      remoteJid,
-      incomingMessage,
-      delayConversation,
-      async (mergedText) => {
-        this.logger.debug(`Merged text ready for AI processing: ${mergedText}`, 'WebhookService');
-
-        // Guardar historial
-        await this.chatHistoryService.saveMessage(sessionHistoryId, mergedText);
-
-        // Obtener intenciones posibles
-        const workflows = await this.workflowService.getWorkflow(userId);
-        const posiblesIntenciones: IntentionItem[] = workflows.map((flow) => ({
-          name: flow.name,
-          tipo: 'flujo',
-          frase: flow.description ?? flow.name,
-        }));
-
-        const decision = await this.intentionService.detectIntent(mergedText, posiblesIntenciones, apikeyOpenAi);
-        const url = `${server_url}/message/sendText/${instanceName}`;
-        this.logger.debug(`Decision que retorna la función detectIntent: ${JSON.stringify(decision)}`);
-
-        if (decision) {
-          const alreadyExecuted = await this.chatHistoryService.hasIntentionBeenExecuted(sessionHistoryId, decision.name);
-
-          if (alreadyExecuted) {
-            const msg = `Ya te compartí "${decision?.name}", ¿quieres otra cosa?`;
-            this.logger.log(`Intención ya ejecutada anteriormente: ${decision?.name}`, 'WebhookService');
-
-            await this.nodeSenderService.sendTextNode(url, apikey, pureRemoteJid, msg);
-            return;
-          }
-
-          await this.chatHistoryService.registerExecutedIntention(sessionHistoryId, decision?.name, decision?.tipo);
-          this.logger.log(`Registrando intención: ${decision?.name} (${decision?.tipo})`, 'WebhookService');
-
-          if (decision?.tipo === 'flujo') {
-            this.logger.log(`Intención detectada: ejecutar flujo "${decision?.name}"`, 'WebhookService');
-
-            await this.workflowService.executeWorkflow(
-              decision?.name,
-              server_url,
-              apikey,
-              instanceName,
-              pureRemoteJid,
-            );
-            return;
-          }
-
-          if (decision?.tipo === 'seguimiento') { }
-          if (decision?.tipo === 'notificacion') { }
-        }
-
-        // Si no es un flujo, continuar con respuesta IA
-        const aiResponse = await this.aiAgentService.processInput(mergedText, userId, apikeyOpenAi, sessionHistoryId);
-        await this.nodeSenderService.sendTextNode(url, apikey, pureRemoteJid, aiResponse);
-      })
-  };
-
 }
