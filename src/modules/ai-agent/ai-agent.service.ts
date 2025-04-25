@@ -243,8 +243,9 @@ export class AiAgentService {
       this.logger.debug(`alreadyExecuted ========>: ${alreadyExecuted} para ${decision.name}`);
 
       if (alreadyExecuted) {
-        //TODO: VALIDAR MSG 
+        //TODO: VALIDAR MSG  
         // mensajesEnviados.push(`Ya te compartí "${decision.name}". ¿Te puedo ayudar en algo más?`);
+        mensajesEnviados.push(`Ya te compartí "${decision.name}". ¿Te puedo ayudar en algo más?`);
         continue;
       }
 
@@ -258,6 +259,7 @@ export class AiAgentService {
       );
       //TODO: VALIDAR MSG 
       // mensajesEnviados.push(`Te he enviado la información sobre "${decision.name}". ¿Deseas algo más?`);
+      mensajesEnviados.push(``);
     }
 
     return mensajesEnviados.join('\n');
