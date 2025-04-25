@@ -50,13 +50,14 @@ export class IntentionService {
         for (const item of acciones) {
             const itemEmbedding = await this.createEmbedding(item.frase);
             const similarity = this.cosineSimilarity(inputEmbedding, itemEmbedding);
+            this.logger.debug(`Comparando con: ${item.name} → Similaridad: ${similarity.toFixed(4)}`);
 
             if (!bestMatch || similarity > bestMatch.score) {
                 bestMatch = { item, score: similarity };
             }
         }
 
-        if (bestMatch && bestMatch.score >= 0.7) {
+        if (bestMatch && bestMatch.score >= 0.6) {
             return bestMatch.item;
         }
 
@@ -78,4 +79,3 @@ export class IntentionService {
         return dot / (normA * normB);
     }
 }
-
