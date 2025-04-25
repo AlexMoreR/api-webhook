@@ -208,6 +208,7 @@ export class AiAgentService {
     }));
 
     const decision = await this.intentionService.detectIntent(args.nombre_flujo, posiblesIntenciones, apikeyOpenAi);
+    console.debug(`decision =>>>>>>>>>>>>>>> ${JSON.stringify(decision)}`)
 
     if (!decision) return 'Disculpa, no encontré información relacionada. ¿Te puedo ayudar con algo más?';
 
@@ -313,51 +314,4 @@ export class AiAgentService {
       return '[ERROR_DESCRIBING_IMAGE]';
     }
   }
-
-  /**
-   * Determina si un mensaje debe activar un flujo según el prompt del sistema y la lista de workflows disponibles.
-   *
-   * @param {string} userInput - El mensaje actual del usuario.
-   * @param {string} systemPrompt - El prompt del sistema.
-   * @param {Workflow[]} workflows - Lista de workflows disponibles.
-   * @returns {Promise<string | null>} - Nombre del flujo a ejecutar o null si no se debe ejecutar.
-   */
-  async shouldTriggerWorkflow(
-    userInput: string,
-    systemPrompt: string,
-    workflows: { name: string }[]
-  ): Promise<string | null> {
-    try {
-      const prompt = `
-      El usuario ha escrito: "${userInput}".
-
-      Este es el prompt del sistema:
-      """
-      ${systemPrompt}
-      """
-
-      Estos son los flujos disponibles:
-      ${workflows.map((w) => `- ${w.name}`).join('\n')}
-
-      ¿Hay algún flujo en la lista que se deba activar basándote en el mensaje del usuario? Responde solo con el nombre exacto del flujo o escribe "ninguno" si no aplica.
-      `;
-
-      const response = await this.openAiClient.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0,
-      });
-
-      const decision = response.choices?.[0]?.message?.content?.trim().toLowerCase();
-      if (!decision || decision === 'ninguno') return null;
-
-      const matched = workflows.find((f) => f.name.toLowerCase() === decision);
-      return matched?.name ?? null;
-    } catch (error) {
-      this.logger.error('Error evaluando ejecución de flujo con OpenAI', error?.response?.data || error.message, 'AiAgentService');
-      return null;
-    }
-  }
-
-
 }
