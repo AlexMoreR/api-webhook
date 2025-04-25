@@ -222,13 +222,14 @@ export class AiAgentService {
     pureRemoteJid: string
   ): Promise<string> {
     const workflows = await this.workflowService.getWorkflow(userId);
-    const posiblesIntenciones: IntentionItem[] = workflows.map((flow) => ({
+    const dataWorkflow: IntentionItem[] = workflows.map((flow) => ({
       name: flow.name,
       tipo: 'flujo',
       frase: flow.description ?? flow.name,
+      umbral: flow.umbral
     }));
 
-    const decision = await this.intentionService.detectIntent(args.nombre_flujo, posiblesIntenciones, apikeyOpenAi);
+    const decision = await this.intentionService.detectIntent(args.nombre_flujo, dataWorkflow, apikeyOpenAi);
     this.logger.debug(`decision ========>: ${JSON.stringify(decision)}`);
 
     if (!decision) return 'Disculpa, no encontré información relacionada. ¿Te puedo ayudar con algo más?';

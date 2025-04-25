@@ -37,17 +37,17 @@ export class IntentionService {
     /**
      * Determina si un texto tiene una intención que coincida con alguna acción disponible.
      * @param input Texto enviado por el usuario.
-     * @param acciones Lista de intenciones posibles (flujos, seguimientos, notificaciones).
+     * @param dataWorkflow Lista de intenciones posibles (flujos, seguimientos, notificaciones).
      */
-    async detectIntent(input: string, acciones: IntentionItem[], apikeyOpenAi: string): Promise<IntentionItem | null> {
-        this.logger.debug(`input =>>>${input}, acciones =>>>${JSON.stringify(acciones)}, apikeyOpenAi =>>>${JSON.stringify(apikeyOpenAi)}`, 'detectIntent')
+    async detectIntent(input: string, dataWorkflow: IntentionItem[], apikeyOpenAi: string): Promise<IntentionItem | null> {
+        this.logger.debug(`input =>>>${input}, dataWorkflow =>>>${JSON.stringify(dataWorkflow)}, apikeyOpenAi =>>>${JSON.stringify(apikeyOpenAi)}`, 'detectIntent');
         this.initializeClient(apikeyOpenAi);
 
         const inputEmbedding = await this.createEmbedding(input);
 
         let bestMatch: { item: IntentionItem; score: number } | null = null;
 
-        for (const item of acciones) {
+        for (const item of dataWorkflow) {
             const itemEmbedding = await this.createEmbedding(item.frase);
             const similarity = this.cosineSimilarity(inputEmbedding, itemEmbedding);
             this.logger.debug(`Comparando con: ${item.name} → Similaridad: ${similarity.toFixed(4)}`);
@@ -57,8 +57,13 @@ export class IntentionService {
             }
         }
 
-        if (bestMatch && bestMatch.score >= 0.5) {
-            return bestMatch.item;
+        if (bestMatch) {
+            const umbral = bestMatch.item.umbral ?? 0.5; // Ahora sí puedes acceder a item.umbral
+            this.logger.debug(`Mejor coincidencia: ${bestMatch.item.name} con score ${bestMatch.score.toFixed(4)} y umbral ${umbral}`, 'detectIntent');
+
+            if (bestMatch.score >= umbral) {
+                return bestMatch.item;
+            }
         }
 
         return null;

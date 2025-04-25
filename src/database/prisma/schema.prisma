@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client" // <- Esto falta en tu archivo
 }
 
 datasource db {
@@ -135,6 +136,7 @@ model Workflow {
   status      String
   createdAt   DateTime @default(now())
   updateAt    DateTime @updatedAt
+  umbral      Float    @default(0.5)
 
   @@unique([name, userId])
 }
