@@ -123,13 +123,13 @@ export class AiAgentService {
           type: 'function',
           function: {
             name: 'execute_workflow',
-            description: 'Siempre consulta y ejecuta si existen flujos disponibles en la base de datos que correspondan a la solicitud del usuario. Si se encuentra un flujo, se ejecuta. Si no hay flujos, la IA continúa la conversación normalmente.',
+            description: 'Ejecuta cuando se solicite información  sobre un curso.',
             parameters: {
               type: 'object',
               properties: {
                 nombre_flujo: {
                   type: 'string',
-                  description: 'Nombre del flujo a ejecutar, como "Curso Ambiental" o "Agendar Cita".',
+                  description: 'Nombre del flujo a ejecutar',
                 },
               },
               required: ['nombre_flujo'],
@@ -191,7 +191,7 @@ export class AiAgentService {
   };
 
   private async handleExecuteWorkflowTool(
-    args: any,
+    args,
     userId: string,
     apikeyOpenAi: string,
     sessionId: string,
@@ -209,7 +209,7 @@ export class AiAgentService {
 
     const decision = await this.intentionService.detectIntent(args.nombre_flujo, posiblesIntenciones, apikeyOpenAi);
 
-    if (!decision) return '[NO_MATCHING_WORKFLOW]';
+    if (!decision) return 'Disculpa, no encontré información relacionada. ¿Te puedo ayudar con algo más?';
 
     const alreadyExecuted = await this.chatHistoryService.hasIntentionBeenExecuted(sessionId, decision.name);
     if (alreadyExecuted) {

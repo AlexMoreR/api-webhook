@@ -40,8 +40,7 @@ export class IntentionService {
      * @param acciones Lista de intenciones posibles (flujos, seguimientos, notificaciones).
      */
     async detectIntent(input: string, acciones: IntentionItem[], apikeyOpenAi: string): Promise<IntentionItem | null> {
-        this.logger.debug(`mergedText ${input}`);
-        this.logger.debug(`posiblesIntenciones ${JSON.stringify(acciones)}`);
+        this.logger.debug(`input =>>>${input}, acciones =>>>${JSON.stringify(acciones)}, apikeyOpenAi =>>>${JSON.stringify(apikeyOpenAi)}`, 'detectIntent')
         this.initializeClient(apikeyOpenAi);
 
         const inputEmbedding = await this.createEmbedding(input);
