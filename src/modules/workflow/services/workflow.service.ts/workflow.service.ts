@@ -2,8 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/database/prisma.service';
 import { NodeSenderService } from '../node-sender.service.ts/node-sender.service';
 import { LoggerService } from 'src/core/logger/logger.service';
-import { firstValueFrom } from 'rxjs';
-import { HttpService } from '@nestjs/axios';
+import { SeguimientosService } from 'src/modules/seguimientos/seguimientos.service';
+import { convertDelayToSeconds } from 'src/modules/webhook/utils/convert-delay-to-seconds.helper';
 
 
 @Injectable()
@@ -11,8 +11,8 @@ export class WorkflowService {
     constructor(
         private prisma: PrismaService,
         private nodeSenderService: NodeSenderService,
+        private seguimientosService: SeguimientosService,
         private logger: LoggerService,
-        private http: HttpService
     ) { }
 
     /**
@@ -69,12 +69,28 @@ export class WorkflowService {
                         const url = `${urlevo}/message/sendMedia/${instanceName}`;
                         await this.nodeSenderService.sendMediaNode(url, apikey, remoteJid, node.tipo, node.message, node.url as string);
                         this.logger.log(`${node.tipo} enviado correctamente (nodo ID: ${node.id})`, 'WorkflowService');
+                    } else if (node.tipo.startsWith('seguimiento-')) {
+                        const delaySeguimiento = convertDelayToSeconds(node.delay ?? '');
+
+                        const seguimientoData = {
+                            idNodo: node.id,
+                            serverurl: urlevo,
+                            instancia: instanceName,
+                            apikey,
+                            remoteJid,
+                            mensaje: node.message,
+                            tipo: node.tipo,
+                            media: node.url,
+                            time: delaySeguimiento ?? '',
+                            name_file: node.name_file,
+                            consecutivo: '',
+                        };
+                        await this.seguimientosService.createSeguimiento(seguimientoData)
                     } else {
                         this.logger.warn(`Tipo de nodo desconocido: ${node.tipo} (ID: ${node.id})`, 'WorkflowService');
                     }
                 };
 
-                // ⏳ Tiempo límite por nodo (configurable)
                 const TIMEOUT_MS = 15000;
 
                 await Promise.race([

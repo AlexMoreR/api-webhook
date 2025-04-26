@@ -7,13 +7,14 @@ import { ChatHistoryService } from '../chat-history/chat-history.service';
 import { IntentionService } from './services/intention/intention.service';
 import { NodeSenderService } from '../workflow/services/node-sender.service.ts/node-sender.service';
 import { WorkflowService } from '../workflow/services/workflow.service.ts/workflow.service';
+import { SeguimientosService } from '../seguimientos/seguimientos.service';
 
 @Module({
   imports: [
     HttpModule, 
     ConfigModule, // necesario porque usas ConfigService
   ],
-  providers: [AiAgentService, PromptService, ChatHistoryService, IntentionService, NodeSenderService, WorkflowService, IntentionService],
+  providers: [AiAgentService, PromptService, ChatHistoryService, IntentionService, NodeSenderService, WorkflowService, IntentionService, SeguimientosService],
   exports: [AiAgentService],
 })
 export class AiAgentModule {}

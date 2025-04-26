@@ -7,29 +7,12 @@ import { MessageDirectionService } from './services/message-direction/message-di
 import { MessageTypeHandlerService } from './services/message-type-handler/message-type-handler.service';
 import { InstancesService } from '../instances/instances.service';
 import { AiAgentService } from '../ai-agent/ai-agent.service';
-import { HttpService } from '@nestjs/axios';
 import { UserService } from '../user/user.service';
 import { isGroupChat } from './utils/is-group-chat';
 import { Pausar, User } from '@prisma/client';
 import { MessageBufferService } from './services/message-buffer/message-buffer.service';
 import { ChatHistoryService } from '../chat-history/chat-history.service';
-import { WorkflowService } from '../workflow/services/workflow.service.ts/workflow.service';
-import { IntentionService } from '../ai-agent/services/intention/intention.service';
-import { IntentionItem } from 'src/types/open-ai';
 import { NodeSenderService } from '../workflow/services/node-sender.service.ts/node-sender.service';
-
-interface processMsg {
-  sessionHistoryId: string,
-  pureRemoteJid: string,
-  instanceName: string,
-  server_url: string,
-  apikey: string,
-  userId: string,
-  apikeyOpenAi: string,
-  remoteJid: string,
-  incomingMessage: string,
-  delayConversation: number
-};
 
 @Injectable()
 export class WebhookService {
@@ -43,8 +26,6 @@ export class WebhookService {
     private readonly messageBufferService: MessageBufferService,
     private readonly aiAgentService: AiAgentService,
     private readonly chatHistoryService: ChatHistoryService,
-    private readonly workflowService: WorkflowService,
-    private readonly intentionService: IntentionService,
     private readonly nodeSenderService: NodeSenderService,
   ) { }
 
@@ -133,6 +114,7 @@ export class WebhookService {
         };
 
         const aiResponse = await this.aiAgentService.processInput(dataProccessInput);
+        if (!aiResponse || aiResponse === '') return;
         await this.nodeSenderService.sendTextNode(apiMsgUrl, apikey, pureRemoteJid, aiResponse);
       })
   }
