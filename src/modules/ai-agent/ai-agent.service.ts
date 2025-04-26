@@ -242,12 +242,12 @@ export class AiAgentService {
       const alreadyExecuted = await this.chatHistoryService.hasIntentionBeenExecuted(sessionId, decision.name);
       this.logger.debug(`alreadyExecuted ========>: ${alreadyExecuted} para ${decision.name}`);
 
-      // if (alreadyExecuted) {
-      //   //TODO: VALIDAR MSG  
-      //   // mensajesEnviados.push(`Ya te compartí "${decision.name}". ¿Te puedo ayudar en algo más?`);
-      //   mensajesEnviados.push(``);
-      //   continue;
-      // }
+      if (alreadyExecuted) {
+        //TODO: VALIDAR MSG  
+        // mensajesEnviados.push(`Ya te compartí "${decision.name}". ¿Te puedo ayudar en algo más?`);
+        mensajesEnviados.push(``);
+        continue;
+      }
 
       await this.chatHistoryService.registerExecutedIntention(sessionId, decision.name, decision.tipo);
       await this.workflowService.executeWorkflow(
