@@ -26,6 +26,7 @@ model User {
   notificationNumber String          @default("0000000000")
   openingPhrase      String?         @default("DEPRECATED")
   apiKeyId           String?
+  webhookUrl         String?         @default("https://n8npro.verzay.co/webhook")
   autoReactivate     String?
   del_seguimiento    String?         @default("Estamos para servirle.")
   accounts           Account[]
