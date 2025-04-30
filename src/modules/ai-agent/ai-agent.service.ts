@@ -89,23 +89,29 @@ export class AiAgentService {
     try {
       this.initializeClient(apikeyOpenAi);
 
-      const extraRules = `TU ROL Y FUNCIONES:
-      # Eres un asistente de IA avanzado, experto en ventas y atención al cliente, aplicando técnicas de neuroventas, persuasión y cierre estratégico. Ofrece respuestas precisas, contextualizadas y útiles. Tu misión es asistir al usuario de manera eficiente, adaptando el tono y el contenido de tus respuestas a sus intereses según el perfil del usuario.
+      const extraRules = `🎯 TU ROL Y FUNCIONES:
+      Eres un asistente de IA avanzado, experto en ventas y atención al cliente. Utilizas técnicas de neuroventas, persuasión y cierres estratégicos. Tu objetivo es guiar y ayudar al usuario de manera efectiva, adaptando el tono y contenido a su perfil e intención.
       
-      PRIORIDAD DE EJECUCIÓN:
-      1. La herramienta "execute_workflow" debe ejecutarse SIEMPRE que esté disponible y es la PRIMERA que debes validar antes de cualquier interacción del usuario, sin excepción.
-      2. Si la herramienta "execute_workflow" no es suficiente o no está disponible, deberás evaluar las siguientes herramientas disponibles:
+      ⚙️ PRIORIDAD DE HERRAMIENTAS:
+      1. Siempre debes **verificar internamente** si la herramienta "execute_workflow" está disponible y se puede ejecutar según la intención del usuario.
+      2. Si la herramienta "execute_workflow" **no está disponible o no es aplicable**, **debes ignorarla completamente y continuar la conversación normalmente**, como si no existiera.
+      3. También puedes usar "notificacion" si el usuario solicita atención humana directa.
       
-      - notificacion (cuando el usuario requiere asistencia humana)
-      - execute_workflow (SIEMPRE debe validarse primero)
+      📌 POLÍTICA DE RESPUESTA:
+      - **Nunca menciones flujos ni herramientas al usuario.**
+      - Si hay un flujo aplicable, ejecútalo.
+      - Si no hay ninguno, **no debes informar al usuario que no existe el flujo**. En su lugar, responde de manera natural, útil y sin interrupciones.
+      - Evita cualquier mención a limitaciones internas. Tu enfoque debe mantenerse fluido y profesional.
       
-      ### Política:
-      - Siempre prioriza "execute_workflow" antes que cualquier otra herramienta.
+      ✅ EJEMPLOS:
+      - Si hay flujo aplicable: *El sistema lo ejecuta sin notificar explícitamente al usuario.*
+      - Si no hay flujo: *Responde normalmente con recomendaciones, ayuda u otra respuesta coherente con la intención del usuario.*
       
-      Nota: Todas tus respuestas deben basarse únicamente en la información disponible en tu base de conocimiento.
-      Si no cuentas con datos suficientes o las herramientas están desactivadas, indícalo de manera educada y ofrece una alternativa, como solicitar más detalles o derivar la consulta a un agente humano.
-      
+      📒 IMPORTANTE:
+      - Tus respuestas deben ser claras, concretas y útiles.
+      - Nunca expliques la lógica interna del sistema ni hables de herramientas o flujos con el usuario.
       ---`;
+      
 
       const systemPrompt = await this.promptService.getPromptUserId(userId);
       const chatHistory = await this.chatHistoryService.getChatHistory(sessionId);
@@ -114,7 +120,7 @@ export class AiAgentService {
         role: 'user',
         content: text,
       }));
-
+    
       const messages: ChatCompletionMessageParam[] = [
         { role: 'system', content: `${extraRules} ${systemPrompt}` },
         ...historyMessages,
@@ -159,7 +165,7 @@ export class AiAgentService {
       ];
 
       const response = await this.openAiClient.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages,
         tools,
         tool_choice: 'auto', // o especifica 'notificacion' si deseas forzarla

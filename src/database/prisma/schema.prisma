@@ -1,6 +1,5 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../node_modules/.prisma/client" // <- Esto falta en tu archivo
 }
 
 datasource db {
@@ -27,6 +26,7 @@ model User {
   notificationNumber String          @default("0000000000")
   openingPhrase      String?         @default("DEPRECATED")
   apiKeyId           String?
+  autoReactivate     String?
   del_seguimiento    String?         @default("Estamos para servirle.")
   accounts           Account[]
   instancias         Instancias[]
@@ -35,6 +35,9 @@ model User {
   systemMessages     SystemMessage[]
   tools              Tools[]
   apiKey             ApiKey?         @relation(fields: [apiKeyId], references: [id])
+  // Relaciones inversas
+  clientesAsignados  reseller[]      @relation("RevendedorAsignador")
+  esClienteDe        reseller[]      @relation("ClienteAsignado")
 }
 
 model Session {
@@ -46,9 +49,10 @@ model Session {
   updatedAt    DateTime @updatedAt
   status       Boolean
   id           Int      @id @default(autoincrement())
-  flujos       String?  @default("")
   seguimientos String?  @default("")
   inactividad  String?  @default("")
+  flujos       String?  @default("")
+  sessionDelay String?
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -101,7 +105,7 @@ model VerificationToken {
 
 model Instancias {
   id           Int    @id @default(autoincrement())
-  instanceName String @unique
+  instanceName String
   userId       String
   instanceId   String
   user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -188,12 +192,35 @@ model rr {
 enum Role {
   user
   admin
+  reseller
 }
 
 enum Plan {
   empresarial
   business
   pymes
+}
+
+model reseller {
+  id         Int      @id @default(autoincrement())
+  resellerid String?
+  userId     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relaciones
+  user     User? @relation("ClienteAsignado", fields: [userId], references: [id])
+  reseller User? @relation("RevendedorAsignador", fields: [resellerid], references: [id])
+}
+
+model GuidesUrl {
+  id          String   @id @default(cuid())
+  path        String // Ej: "flow", "tools", "dashboard", "sessions", "auto-replies"
+  title       String
+  description String?
+  url         String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Log {

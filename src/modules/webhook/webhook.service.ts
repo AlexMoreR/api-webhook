@@ -125,7 +125,7 @@ export class WebhookService {
         this.logger.debug(`Merged text ready for AI processing: ${mergedText}`);
 
         // Guardar historial
-        await this.chatHistoryService.saveMessage(sessionHistoryId, mergedText);
+        await this.chatHistoryService.saveMessage(sessionHistoryId, mergedText, 'human');
 
         // Si no es un flujo, continuar con respuesta IA
         const dataProccessInput = {
@@ -141,6 +141,10 @@ export class WebhookService {
 
         const aiResponse = await this.aiAgentService.processInput(dataProccessInput);
         if (!aiResponse || aiResponse === '') return;
+
+        // Guardar historial
+        await this.chatHistoryService.saveMessage(sessionHistoryId, aiResponse, 'ia');
+
         await this.nodeSenderService.sendTextNode(apiMsgUrl, apikey, remoteJid, aiResponse);
       })
   }
