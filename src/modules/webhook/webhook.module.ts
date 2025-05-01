@@ -18,6 +18,7 @@ import { NodeSenderService } from '../workflow/services/node-sender.service.ts/n
 import { SeguimientosService } from '../seguimientos/seguimientos.service';
 import { AutoRepliesService } from '../auto-replies/auto-replies.service';
 import { WorkflowService } from '../workflow/services/workflow.service.ts/workflow.service';
+import { NotificacionToolService } from '../ai-agent/tools/notificacion/notificacion.service';
 
 @Module({
   imports: [HttpModule, WorkflowModule],
@@ -41,7 +42,8 @@ import { WorkflowService } from '../workflow/services/workflow.service.ts/workfl
     NodeSenderService,
     SeguimientosService,
     AutoRepliesService,
-    WorkflowService
+    WorkflowService,
+    NotificacionToolService
   ]
 })
 export class WebhookModule { }

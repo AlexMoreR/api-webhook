@@ -11,6 +11,7 @@ import { NodeSenderService } from '../workflow/services/node-sender.service.ts/n
 import { WorkflowService } from '../workflow/services/workflow.service.ts/workflow.service';
 import { IntentionService } from './services/intention/intention.service';
 import { IntentionItem, proccessInput } from 'src/types/open-ai';
+import { NotificacionToolService } from './tools/notificacion/notificacion.service';
 
 @Injectable()
 export class AiAgentService {
@@ -23,6 +24,7 @@ export class AiAgentService {
     private readonly nodeSenderService: NodeSenderService,
     private readonly workflowService: WorkflowService,
     private readonly intentionService: IntentionService,
+    private readonly notificacionTool: NotificacionToolService,
   ) { }
 
   /**
@@ -182,7 +184,14 @@ export class AiAgentService {
 
         switch (toolCall.function.name) {
           case 'notificacion':
-            return await this.handleNotificacionTool(args);
+            return await this.notificacionTool.handleNotificacionTool(
+              args, 
+              userId,
+              server_url,
+              apikey,
+              instanceName,
+              remoteJid
+            );
 
           case 'execute_workflow':
             return await this.handleExecuteWorkflowTool(
@@ -205,16 +214,6 @@ export class AiAgentService {
       this.logger.error('Error procesando entrada con OpenAI.', error?.response?.data || error.message, 'AiAgentService');
       return '[ERROR_PROCESSING_OPENAI_INPUT]';
     }
-  };
-
-  private async handleNotificacionTool(args: any): Promise<string> {
-    await this.nodeSenderService.sendTextNode(
-      'http://conexion-3.verzay.co/message/sendText/More-Pruebas',
-      '893C5438-0C98-4B60-AA11-D866208D77BC',
-      '573196892277@s.whatsapp.net',
-      'Tienes una notificación del cliente.'
-    );
-    return `✅ Notificación enviada para ${args.nombre} con detalles: ${args.detalles}`;
   };
 
   private async handleExecuteWorkflowTool(

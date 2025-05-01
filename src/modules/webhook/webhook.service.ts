@@ -105,7 +105,7 @@ export class WebhookService {
     }
 
     /* Validar si la session está activa */
-    const sessionActive = await this.sessionService.isSessionActive(remoteJid);
+    const sessionActive = await this.sessionService.isSessionActive(remoteJid, userId);
     this.logger.log(`Estado de la session: ${sessionActive}`, 'WebhookService');
     if (!sessionActive) {
       // Terminar flujo

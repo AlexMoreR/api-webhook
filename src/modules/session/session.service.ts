@@ -76,9 +76,9 @@ export class SessionService {
   }
 
   // Consulta el estado del chat
-  async isSessionActive(remoteJid: string): Promise<boolean> {
+  async isSessionActive(remoteJid: string, userId: string): Promise<boolean> {
     const session = await this.prisma.session.findFirst({
-      where: { remoteJid },
+      where: { remoteJid, userId },
       select: { status: true },
     });
     return session?.status ?? false;
