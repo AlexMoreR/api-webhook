@@ -181,18 +181,39 @@ export class AiAgentService {
 
       if (toolCall) {
         const args = JSON.parse(toolCall.function.arguments);
-
-        switch (toolCall.function.name) {
+        const toolName = toolCall.function.name;
+      
+        switch (toolName) {
           case 'notificacion':
-            return await this.notificacionTool.handleNotificacionTool(
-              args, 
+            // Ejecutar la tool sin retornar nada al usuario
+            await this.notificacionTool.handleNotificacionTool(
+              args,
               userId,
               server_url,
               apikey,
               instanceName,
               remoteJid
             );
-
+      
+            // Luego continuar la conversación con una respuesta generada por la IA
+            const followUp = await this.openAiClient.chat.completions.create({
+              model: 'gpt-4o-mini',
+              messages: [
+                ...messages,
+                {
+                  role: 'assistant',
+                  tool_calls: [toolCall],
+                },
+                {
+                  role: 'tool',
+                  tool_call_id: toolCall.id,
+                  content: '',
+                },
+              ],
+            });
+      
+            return followUp.choices?.[0]?.message?.content?.trim() ?? '✅ Solicitud enviada. En breve te contactará un asesor.';
+      
           case 'execute_workflow':
             return await this.handleExecuteWorkflowTool(
               args,
@@ -202,13 +223,14 @@ export class AiAgentService {
               server_url,
               apikey,
               instanceName,
-              remoteJid);
-
+              remoteJid
+            );
+      
           default:
             this.logger.warn(`Tool no soportada: ${toolCall.function.name}`, 'AiAgentService');
         }
       }
-
+      
       return choice?.message?.content?.trim() ?? '[ERROR_OPENAI_EMPTY_RESPONSE]';
     } catch (error) {
       this.logger.error('Error procesando entrada con OpenAI.', error?.response?.data || error.message, 'AiAgentService');
