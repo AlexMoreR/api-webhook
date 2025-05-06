@@ -12,6 +12,8 @@ import { WorkflowService } from '../workflow/services/workflow.service.ts/workfl
 import { IntentionService } from './services/intention/intention.service';
 import { IntentionItem, proccessInput } from 'src/types/open-ai';
 import { NotificacionToolService } from './tools/notificacion/notificacion.service';
+import { extraRules } from './utils/extraRules';
+import { tools } from './utils/tools';
 
 @Injectable()
 export class AiAgentService {
@@ -91,30 +93,6 @@ export class AiAgentService {
     try {
       this.initializeClient(apikeyOpenAi);
 
-      const extraRules = `🎯 TU ROL Y FUNCIONES:
-      Eres un asistente de IA avanzado, experto en ventas y atención al cliente. Utilizas técnicas de neuroventas, persuasión y cierres estratégicos. Tu objetivo es guiar y ayudar al usuario de manera efectiva, adaptando el tono y contenido a su perfil e intención.
-      
-      ⚙️ PRIORIDAD DE HERRAMIENTAS:
-      1. Siempre debes **verificar internamente** si la herramienta "execute_workflow" está disponible y se puede ejecutar según la intención del usuario.
-      2. Si la herramienta "execute_workflow" **no está disponible o no es aplicable**, **debes ignorarla completamente y continuar la conversación normalmente**, como si no existiera.
-      3. También puedes usar "notificacion" si el usuario solicita atención humana directa.
-      
-      📌 POLÍTICA DE RESPUESTA:
-      - **Nunca menciones flujos ni herramientas al usuario.**
-      - Si hay un flujo aplicable, ejecútalo.
-      - Si no hay ninguno, **no debes informar al usuario que no existe el flujo**. En su lugar, responde de manera natural, útil y sin interrupciones.
-      - Evita cualquier mención a limitaciones internas. Tu enfoque debe mantenerse fluido y profesional.
-      
-      ✅ EJEMPLOS:
-      - Si hay flujo aplicable: *El sistema lo ejecuta sin notificar explícitamente al usuario.*
-      - Si no hay flujo: *Responde normalmente con recomendaciones, ayuda u otra respuesta coherente con la intención del usuario.*
-      
-      📒 IMPORTANTE:
-      - Tus respuestas deben ser claras, concretas y útiles.
-      - Nunca expliques la lógica interna del sistema ni hables de herramientas o flujos con el usuario.
-      ---`;
-      
-
       const systemPrompt = await this.promptService.getPromptUserId(userId);
       const chatHistory = await this.chatHistoryService.getChatHistory(sessionId);
 
@@ -122,48 +100,11 @@ export class AiAgentService {
         role: 'user',
         content: text,
       }));
-    
+
       const messages: ChatCompletionMessageParam[] = [
         { role: 'system', content: `${extraRules} ${systemPrompt}` },
         ...historyMessages,
         { role: 'user', content: input },
-      ];
-
-      const tools: any[] = [
-        {
-          type: 'function',
-          function: {
-            name: 'notificacion',
-            description: 'Utiliza esta herramienta cuando un usuario necesite la asesoría de un asesor, haga una solicitud, reclamo o agendamiento.',
-            parameters: {
-              type: 'object',
-              properties: {
-                nombre: { type: 'string', description: 'Nombre del usuario' },
-                detalles: { type: 'string', description: 'Detalle de la notificación o solicitud' },
-              },
-              required: ['nombre', 'detalles'],
-            },
-          },
-        },
-        {
-          type: 'function',
-          function: {
-            name: 'execute_workflow',
-            description: `Utiliza siempres esta herramienta debe ejecutarse para verificar si existe un flujo automatizado en la base de datos relacionado 
-            con la intención del usuario. Si se encuentra un flujo coincidente, se ejecuta automáticamente. Si no se encuentra ningún flujo, la IA debe continuar 
-            la conversación de forma natural sin interrumpir al usuario.`,
-            parameters: {
-              type: 'object',
-              properties: {
-                nombre_flujo: {
-                  type: 'string',
-                  description: 'Nombre del flujo a ejecutar',
-                },
-              },
-              required: ['nombre_flujo'],
-            },
-          },
-        }
       ];
 
       const response = await this.openAiClient.chat.completions.create({
@@ -180,9 +121,16 @@ export class AiAgentService {
 
 
       if (toolCall) {
-        const args = JSON.parse(toolCall.function.arguments);
+        let args;
+        try {
+          args = JSON.parse(toolCall.function.arguments);
+        } catch (e) {
+          this.logger.error('Error al parsear los argumentos del toolCall', e.message);
+          return '[ERROR_TOOL_ARGS_PARSING]';
+        }
+
         const toolName = toolCall.function.name;
-      
+
         switch (toolName) {
           case 'notificacion':
             // Ejecutar la tool sin retornar nada al usuario
@@ -194,7 +142,7 @@ export class AiAgentService {
               instanceName,
               remoteJid
             );
-      
+
             // Luego continuar la conversación con una respuesta generada por la IA
             const followUp = await this.openAiClient.chat.completions.create({
               model: 'gpt-4o-mini',
@@ -211,9 +159,9 @@ export class AiAgentService {
                 },
               ],
             });
-      
+
             return followUp.choices?.[0]?.message?.content?.trim() ?? '✅ Solicitud enviada. En breve te contactará un asesor.';
-      
+
           case 'execute_workflow':
             return await this.handleExecuteWorkflowTool(
               args,
@@ -225,19 +173,18 @@ export class AiAgentService {
               instanceName,
               remoteJid
             );
-      
+
           default:
             this.logger.warn(`Tool no soportada: ${toolCall.function.name}`, 'AiAgentService');
         }
       }
-      
+
       return choice?.message?.content?.trim() ?? '[ERROR_OPENAI_EMPTY_RESPONSE]';
     } catch (error) {
       this.logger.error('Error procesando entrada con OpenAI.', error?.response?.data || error.message, 'AiAgentService');
       return '[ERROR_PROCESSING_OPENAI_INPUT]';
     }
   };
-
   private async handleExecuteWorkflowTool(
     args,
     userId: string,
