@@ -242,7 +242,6 @@ export class WebhookService {
       }
     };
 
-
     //Flujo de respuestas rapidas
     await this.onAutoReplies({
       userId: userWithRelations.id.toString(),
@@ -288,7 +287,7 @@ export class WebhookService {
         this.logger.log(`AutoReply encontrada: ${matchedReply.mensaje}`);
         this.logger.log(`WorkflowID: ${matchedReply.workflowId}`);
         //Obtener workflow by ID
-        const workflow = await this.workflowService.getWorkflowById(matchedReply.workflowId);
+        const workflow = await this.workflowService.getWorkflowByWorkflowId(matchedReply.workflowId);
         if (!workflow) return;
 
         await this.workflowService.executeWorkflow(

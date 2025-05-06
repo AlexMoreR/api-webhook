@@ -144,7 +144,7 @@ export class WorkflowService {
      * @returns {Promise<any[]>}
      */
     async getWorkflow(userId: string) {
-        this.logger.log('Obteniendo lista de workflows disponibles...', 'WorkflowService');
+        this.logger.log('Obteniendo lista de workflows disponibles by userId...', 'WorkflowService');
 
         if (!userId) {
             return [];
@@ -231,8 +231,8 @@ export class WorkflowService {
         return `${seguimientos}-${current}`;
     }
 
-    async getWorkflowById(workflowId: string) {
-        this.logger.log('Obteniendo lista de workflows disponibles...', 'WorkflowService');
+    async getWorkflowByWorkflowId(workflowId: string) {
+        this.logger.log('Obteniendo lista de workflows disponibles by workflowId...', 'WorkflowService');
         try {
             const workflows = await this.prisma.workflow.findFirst({
                 where: {

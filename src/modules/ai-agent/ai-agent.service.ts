@@ -88,6 +88,9 @@ export class AiAgentService {
         (flow) => `- ${flow.name}: ${flow.description ?? 'sin descripción'}`
       ).join('\n');
 
+      this.logger.log(`OpenAIToolDetection workflows ========>: ${JSON.stringify(workflows)}`);
+      this.logger.log(`OpenAIToolDetection formattedList ========>: ${JSON.stringify(formattedList)}`);
+
       const systemPrompt = `
       Esta es la lista de flujos reales disponibles:
       
@@ -114,8 +117,8 @@ export class AiAgentService {
 
       const choice: any = response.choices?.[0];
       const toolCall = choice?.message?.tool_calls?.[0];
-      this.logger.debug(`Choice ========>: ${JSON.stringify(choice)}`);
-      this.logger.debug(`ToolCall ========>: ${JSON.stringify(toolCall)}`);
+      this.logger.debug(`OpenAIToolDetection Choice ========>: ${JSON.stringify(choice)}`);
+      this.logger.debug(`OpenAIToolDetection ToolCall ========>: ${JSON.stringify(toolCall)}`);
 
       if (!toolCall || !toolCall.function?.name) {
         return { choice, toolCall: null };
@@ -185,9 +188,8 @@ export class AiAgentService {
 
       const choice: any = response.choices?.[0];
       const toolCall = choice?.message?.tool_calls?.[0];
-      this.logger.debug(`Choice ========>: ${JSON.stringify(choice)}`);
-      this.logger.debug(`ToolCall ========>: ${JSON.stringify(toolCall)}`);
-
+      this.logger.debug(`ProcessInput Choice ========>: ${JSON.stringify(choice)}`);
+      this.logger.debug(`ProcessInput ToolCall ========>: ${JSON.stringify(toolCall)}`);
 
       if (toolCall) {
         let args;
@@ -265,18 +267,8 @@ export class AiAgentService {
     instanceName: string,
     remoteJid: string
   ): Promise<string> {
-
-    /* OLD 
-    // const decisions = await this.intentionService.detectIntent(args.nombre_flujo, dataWorkflow, apikeyOpenAi);
-    this.logger.debug(`decisions ========>: ${JSON.stringify(decisions)}`);
-
-    if (!decisions.length) {
-      return 'Disculpa, no encontré información relacionada. ¿Te puedo ayudar con algo más?';
-    }
-
-    let mensajesEnviados: string[] = [];
-    */
-    /* NEW */
+    this.logger.log(`Entrando a handleExecuteWorkflowTool...`);
+    this.logger.log(`HandleExecuteWorkflowTool ARGS =======> ${JSON.stringify(args)}`);
 
     const detectionResult = await this.openAIToolDetection({
       input: args.nombre_flujo,
@@ -284,38 +276,41 @@ export class AiAgentService {
       userId
     });
 
-    const flujoDetectado = detectionResult.toolCall?.function?.arguments;
+    // const flujoDetectado = detectionResult.toolCall?.function?.arguments;
+    const flujoDetectado = detectionResult.choice?.message;
 
     if (!flujoDetectado) {
       return 'Disculpa, no encontré información relacionada. ¿Te puedo ayudar con algo más?';
     }
 
-    let nombreFlujo: string;
-    try {
-      const parsed = JSON.parse(flujoDetectado);
-      nombreFlujo = parsed.nombre_flujo;
-    } catch (e) {
-      this.logger.error('Error al interpretar nombre_flujo desde toolCall', e.message);
-      return '[ERROR_PARSE_NOMBRE_FLUJO]';
-    }
+    let nombreFlujo = flujoDetectado?.content ?? '';
+    // try {
+    //   const parsed = JSON.parse(flujoDetectado);
+    //   nombreFlujo = parsed.nombre_flujo;
+    // } catch (e) {
+    //   this.logger.error('Error al interpretar nombre_flujo desde toolCall', e.message);
+    //   return '[ERROR_PARSE_NOMBRE_FLUJO]';
+    // }
+
+    this.logger.log(`Workflow info ========>: ${JSON.stringify(flujoDetectado)}`);
 
     const workflows = await this.workflowService.getWorkflow(userId);
-    const decision = workflows.find(w => w.name.toLowerCase() === nombreFlujo.toLowerCase());
+    const currentWorkflow = workflows.find(w => w.name.toLowerCase() === nombreFlujo.toLowerCase());
 
-    if (!decision) {
+    if (!currentWorkflow) {
       return `El flujo "${nombreFlujo}" no está disponible actualmente.`;
     }
 
-    const alreadyExecuted = await this.chatHistoryService.hasIntentionBeenExecuted(sessionId, decision.name);
-    this.logger.debug(`alreadyExecuted ========>: ${alreadyExecuted} para ${decision.name}`);
+    const alreadyExecuted = await this.chatHistoryService.hasIntentionBeenExecuted(sessionId, currentWorkflow.name);
+    this.logger.debug(`alreadyExecuted ========>: ${alreadyExecuted} para ${currentWorkflow.name}`);
 
     // if (alreadyExecuted) {
-    //   return `Ya ejecutamos el flujo *${decision.name}*. ¿Deseas otra ayuda?`;
+    //   return `Ya ejecutamos el flujo *${currentWorkflow.name}*. ¿Deseas otra ayuda?`;
     // }
 
-    await this.chatHistoryService.registerExecutedIntention(sessionId, decision.name, 'intention');
+    await this.chatHistoryService.registerExecutedIntention(sessionId, currentWorkflow.name, 'intention');
     await this.workflowService.executeWorkflow(
-      decision.name,
+      currentWorkflow.name,
       server_url,
       apikey,
       instanceName,
@@ -323,36 +318,7 @@ export class AiAgentService {
       userId
     );
 
-    return `✅ He ejecutado el flujo *${decision.name}*. ¿Puedo ayudarte con algo más?`;
-
-    // for (const decision of decisions) {
-    // const alreadyExecuted = await this.chatHistoryService.hasIntentionBeenExecuted(sessionId, decision.name);
-    // this.logger.debug(`alreadyExecuted ========>: ${alreadyExecuted} para ${decision.name}`);
-
-    // if (alreadyExecuted) {
-    //   //TODO: VALIDAR MSG  
-    //   // mensajesEnviados.push(`Ya te compartí "${decision.name}". ¿Te puedo ayudar en algo más?`);
-    //   mensajesEnviados.push(``);
-    //   this.logger.log(`El flujo ${decision.name} ya fue ejecutado, revise el historial para ejecutar nuevamente.`);
-    //   continue;
-    // }
-
-    // await this.chatHistoryService.registerExecutedIntention(sessionId, decision.name, decision.tipo);
-    // await this.workflowService.executeWorkflow(
-    //   decision.name,
-    //   server_url,
-    //   apikey,
-    //   instanceName,
-    //   remoteJid,
-    //   userId
-    // );
-    //TODO: VALIDAR MSG 
-    // mensajesEnviados.push(`Te he enviado la información sobre "${decision.name}". ¿Deseas algo más?`);
-    // mensajesEnviados.push(``);
-    // }
-
-    // return mensajesEnviados.join('\n');
-
+    return "";
   };
 
   /**
