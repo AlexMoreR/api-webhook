@@ -85,7 +85,6 @@ export class AiAgentService {
       const chatHistory = await this.chatHistoryService.getChatHistory(sessionId);
       const workflows = await this.workflowService.getWorkflow(userId);
 
-
       const formattedList = workflows.map((flow, index) => {
         return `{
         "id": ${index + 1},
@@ -93,7 +92,6 @@ export class AiAgentService {
         "descripcion": "${flow.description || 'Sin descripción'}"
       }`;
       }).join(',\n');
-
 
       this.logger.log(`Lista de flujos: ${JSON.stringify(formattedList)}`);
 
@@ -166,14 +164,25 @@ export class AiAgentService {
 
       const systemPrompt = await this.promptService.getPromptUserId(userId);
       const chatHistory = await this.chatHistoryService.getChatHistory(sessionId);
+      const workflows = await this.workflowService.getWorkflow(userId);
 
       const historyMessages: ChatCompletionMessageParam[] = chatHistory.map((text) => ({
         role: 'user',
         content: text,
       }));
+      
+      const formattedList = workflows.map((flow, index) => {
+        return `{
+        "id": ${index + 1},
+        "nombre": "${flow.name}",
+        "descripcion": "${flow.description || 'Sin descripción'}"
+      }`;
+      }).join(',\n');
+
+      const customWorkflowPrompt = systemPromptWorkflow(input, JSON.stringify(formattedList));
 
       const messages: ChatCompletionMessageParam[] = [
-        { role: 'system', content: `${extraRules} ${systemPrompt}` },
+        { role: 'system', content: `${extraRules} ${systemPrompt} ${customWorkflowPrompt}` },
         ...historyMessages,
         { role: 'user', content: input },
       ];
@@ -271,7 +280,6 @@ export class AiAgentService {
       userId
     });
     this.logger.debug(`detectionResult: ${JSON.stringify(detectionResult)}`);
-
 
     const res = detectionResult.content;
     const rawContent = res?.trim().toUpperCase();
