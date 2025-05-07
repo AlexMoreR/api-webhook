@@ -26,8 +26,14 @@ export interface proccessInput {
     instanceName: string,
     remoteJid: string,
 }
+
+export interface inputWorkflow {
+    nombre_flujo: { type: string, description: string }
+    detalles: { type: string, description: string }
+}
+
 export interface openAIToolDetection {
-    input: string,
+    input: inputWorkflow,
     sessionId: string,
     userId: string,
 

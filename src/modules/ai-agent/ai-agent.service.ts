@@ -10,7 +10,7 @@ import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { NodeSenderService } from '../workflow/services/node-sender.service.ts/node-sender.service';
 import { WorkflowService } from '../workflow/services/workflow.service.ts/workflow.service';
 import { IntentionService } from './services/intention/intention.service';
-import { IntentionItem, OpenAIDetectionResult, openAIToolDetection, proccessInput } from 'src/types/open-ai';
+import { inputWorkflow, IntentionItem, OpenAIDetectionResult, openAIToolDetection, proccessInput } from 'src/types/open-ai';
 import { NotificacionToolService } from './tools/notificacion/notificacion.service';
 import { tools } from './utils/tools';
 import { extraRules, systemPromptWorkflow } from './utils/rulesPrompt';
@@ -81,14 +81,19 @@ export class AiAgentService {
     userId
   }: openAIToolDetection): Promise<OpenAIDetectionResult> {
     try {
-      this.logger.debug(`openAIToolDetection INPUT ===>: ${input}}`);
+      this.logger.debug(`openAIToolDetection INPUT ===>: ${JSON.stringify(input)}}`);
       const chatHistory = await this.chatHistoryService.getChatHistory(sessionId);
       const workflows = await this.workflowService.getWorkflow(userId);
 
 
-      const formattedList = workflows.map(
-        (flow) => `- ${flow.name}: ${flow.description ?? 'sin descripción'}`
-      ).join('\n');
+      const formattedList = workflows.map((flow, index) => {
+        return `{
+        "id": ${index + 1},
+        "nombre": "${flow.name}",
+        "descripcion": "${flow.description || 'Sin descripción'}"
+      }`;
+      }).join(',\n');
+
 
       this.logger.log(`Lista de flujos: ${JSON.stringify(formattedList)}`);
 
@@ -97,13 +102,14 @@ export class AiAgentService {
         content: text,
       }));
 
-      const customSystemPrompt = `${systemPromptWorkflow} ${formattedList}`;
-      this.logger.debug(`customSystemPrompt: ${JSON.stringify(customSystemPrompt)}}`);
+      const customWorkflowPrompt = systemPromptWorkflow(input, JSON.stringify(formattedList));
+
+      this.logger.debug(`customSystemPrompt: ${JSON.stringify(customWorkflowPrompt)}}`);
 
       const messages: ChatCompletionMessageParam[] = [
-        { role: 'system', content: customSystemPrompt },
+        { role: 'system', content: customWorkflowPrompt },
         ...historyMessages,
-        { role: 'user', content: input },
+        { role: 'user', content: JSON.stringify(input) },
       ];
 
       const response = await this.openAiClient.chat.completions.create({
@@ -249,7 +255,7 @@ export class AiAgentService {
   };
 
   private async handleExecuteWorkflowTool(
-    args,
+    args: inputWorkflow,
     userId: string,
     apikeyOpenAi: string,
     sessionId: string,
@@ -259,10 +265,13 @@ export class AiAgentService {
     remoteJid: string
   ): Promise<string> {
     const detectionResult = await this.openAIToolDetection({
-      input: args.nombre_flujo,
+      // input: args.nombre_flujo,
+      input: args,
       sessionId,
       userId
     });
+    this.logger.debug(`detectionResult: ${JSON.stringify(detectionResult)}`);
+
 
     const res = detectionResult.content;
     const rawContent = res?.trim().toUpperCase();
@@ -275,11 +284,21 @@ export class AiAgentService {
       return "Disculpa, no encontré información relacionada. ¿Te puedo ayudar con algo más?";
     }
 
-    const nombresDetectados = rawContent
-      .split('\n')
-      .map((n) => n.trim())
-      .filter(Boolean);
+    let nombresDetectados: string[];
 
+    try {
+      const parsed = JSON.parse(rawContent);
+      nombresDetectados = parsed?.NOMBRE_FLUJO || [];
+    
+      if (!Array.isArray(nombresDetectados) || nombresDetectados.length === 0) {
+        this.logger.warn('No se encontraron flujos válidos en la respuesta.');
+        return 'No se detectó ningún flujo compatible con tu solicitud.';
+      }
+    } catch (e) {
+      this.logger.error('Error al parsear el contenido JSON de OpenAI', e.message);
+      return '[ERROR_PARSE_RAW_CONTENT]';
+    }
+    
     this.logger.log(`Flujos detectados: ${JSON.stringify(nombresDetectados)}`);
 
     const workflows = await this.workflowService.getWorkflow(userId);

@@ -22,12 +22,10 @@ export const tools: any[] = [
             parameters: {
                 type: 'object',
                 properties: {
-                    nombre_flujo: {
-                        type: 'string',
-                        description: 'Nombre del flujo a ejecutar',
-                    },
+                    nombre_flujo: { type: 'string', description: 'Nombre del flujo' },
+                    detalles: { type: 'string', description: 'Solicitud del usuario' },
                 },
-                required: ['nombre_flujo'],
+                required: ['nombre_flujo', 'detalles'],
             },
         },
     },
