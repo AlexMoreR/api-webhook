@@ -102,7 +102,7 @@ export class AiAgentService {
 
       const customWorkflowPrompt = systemPromptWorkflow(input, JSON.stringify(formattedList));
 
-      this.logger.debug(`customSystemPrompt: ${JSON.stringify(customWorkflowPrompt)}}`);
+      // this.logger.debug(`customSystemPrompt: ${JSON.stringify(customWorkflowPrompt)}}`);
 
       const messages: ChatCompletionMessageParam[] = [
         { role: 'system', content: customWorkflowPrompt },
@@ -180,9 +180,11 @@ export class AiAgentService {
       }).join(',\n');
 
       const customWorkflowPrompt = systemPromptWorkflow(input, JSON.stringify(formattedList));
+      const promptAI =  `${extraRules} ${systemPrompt} ${customWorkflowPrompt}`
+      this.logger.debug(`promptAI =======>: ${JSON.stringify(promptAI)}}`);
 
       const messages: ChatCompletionMessageParam[] = [
-        { role: 'system', content: `${extraRules} ${systemPrompt} ${customWorkflowPrompt}` },
+        { role: 'system', content: promptAI },
         ...historyMessages,
         { role: 'user', content: input },
       ];
@@ -279,13 +281,10 @@ export class AiAgentService {
       sessionId,
       userId
     });
-    this.logger.debug(`detectionResult: ${JSON.stringify(detectionResult)}`);
-
     const res = detectionResult.content;
     const rawContent = res?.trim().toUpperCase();
 
-    this.logger.debug(`handleExecuteWorkflowTool rawContent: ${JSON.stringify(rawContent)}`);
-
+    this.logger.debug(`detectionResult: ${JSON.stringify(detectionResult)}`);
 
     if (!rawContent || rawContent === 'NINGUNO') {
       this.logger.log(`No se encontró ningun flujo asociado al input.`);
