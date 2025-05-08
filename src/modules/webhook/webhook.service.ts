@@ -67,7 +67,7 @@ export class WebhookService {
       apikey,
       data,
     } = body;
-
+    
     const delayConversation = 10000;
     const remoteJid = data?.key?.remoteJid ?? '';
     const pushName = data?.pushName || 'Desconocido';
