@@ -4,22 +4,25 @@ import { PrismaService } from 'src/database/prisma.service';
 
 @Injectable()
 export class AiCreditsService {
+
+    private readonly TOKENS_PER_CREDIT = 1000;
+
     constructor(
         private readonly logger: LoggerService,
         private readonly prisma: PrismaService
     ) { }
 
-  /**
-   * trackTokens
-   * Incrementa el contador de tokens usados por un usuario en el modelo IaCredit.
-   *
-   * - Si el usuario no tiene un registro, se crea automáticamente con valores iniciales.
-   * - Si ya existe, solo se incrementa el campo "used".
-   * - Se ignoran tokens <= 0 para evitar escrituras innecesarias.
-   *
-   * @param {string} userId - ID del usuario al que se le están registrando tokens.
-   * @param {number} tokens - Número total de tokens usados a sumar.
-   */
+    /**
+     * trackTokens
+     * Incrementa el contador de tokens usados por un usuario en el modelo IaCredit.
+     *
+     * - Si el usuario no tiene un registro, se crea automáticamente con valores iniciales.
+     * - Si ya existe, solo se incrementa el campo "used".
+     * - Se ignoran tokens <= 0 para evitar escrituras innecesarias.
+     *
+     * @param {string} userId - ID del usuario al que se le están registrando tokens.
+     * @param {number} tokens - Número total de tokens usados a sumar.
+     */
     public async trackTokens(userId: string, tokens: number): Promise<void> {
         if (!userId || typeof userId !== 'string') {
             this.logger.warn('trackTokens: userId inválido.');
@@ -54,6 +57,51 @@ export class AiCreditsService {
                 error?.message || error,
                 'AiCreditsService'
             );
+        }
+    }
+
+    /**
+      * 🔍 getCreditsByUser
+      * Obtiene los créditos de IA actuales para un usuario.
+      *
+      * @param {string} userId - ID del usuario
+      * @returns {Promise<{ total: number, used: number, available: number, renewalDate: Date } | null>}
+      */
+    public async getCreditsByUser(userId: string): Promise<{
+        total: number;
+        used: number;
+        available: number;
+        renewalDate: Date;
+    } | null> {
+        if (!userId || typeof userId !== 'string') {
+            this.logger.error('getCreditsByUser: userId inválido o no proporcionado');
+            return null;
+        }
+
+        try {
+            const credit = await this.prisma.iaCredit.findUnique({
+                where: { userId },
+            });
+
+            if (!credit) {
+                this.logger.error(`No se encontraron créditos para userId=${userId}`);
+                return null;
+            }
+
+            const usedCredits = Math.floor(credit.used / this.TOKENS_PER_CREDIT);
+            const availableCredits = Math.max(credit.total - usedCredits, 0);
+
+            this.logger.log(`Créditos de usuario ${userId} → Total: ${credit.total}, Usados: ${usedCredits}, Disponibles: ${availableCredits}`);
+
+            return {
+                total: credit.total,
+                used: usedCredits,
+                available: availableCredits,
+                renewalDate: credit.renewalDate,
+            };
+        } catch (error) {
+            this.logger.error(`Error al obtener créditos de userId=${userId}`, error?.message || error);
+            return null;
         }
     }
 }

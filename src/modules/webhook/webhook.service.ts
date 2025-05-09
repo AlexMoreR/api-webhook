@@ -15,26 +15,8 @@ import { NodeSenderService } from '../workflow/services/node-sender.service.ts/n
 import { SeguimientosService } from '../seguimientos/seguimientos.service';
 import { AutoRepliesService } from '../auto-replies/auto-replies.service';
 import { WorkflowService } from '../workflow/services/workflow.service.ts/workflow.service';
-
-interface stopOrResumeConversation {
-  conversationMsg: string,
-  remoteJid: string,
-  instanceId: string,
-  sessionStatus: boolean,
-  userWithRelations: User & { pausar: Pausar[] },
-  instanceName: string,
-  apikey: string,
-  server_url: string
-};
-
-interface onAutoRepliesInterface {
-  userId: string
-  conversationMsg: string
-  server_url: string
-  apikey: string
-  instanceName: string
-  remoteJid: string
-};
+import { AiCreditsService } from '../ai-credits/ai-credits.service';
+import { CreditValidationInput, onAutoRepliesInterface, stopOrResumeConversation, flags } from 'src/types/open-ai';
 
 @Injectable()
 export class WebhookService {
@@ -52,6 +34,7 @@ export class WebhookService {
     private readonly seguimientosService: SeguimientosService,
     private readonly autoRepliesService: AutoRepliesService,
     private readonly workflowService: WorkflowService,
+    private readonly aiCreditsService: AiCreditsService,
   ) { }
 
   /**
@@ -67,7 +50,7 @@ export class WebhookService {
       apikey,
       data,
     } = body;
-    
+
     const delayConversation = 10000;
     const remoteJid = data?.key?.remoteJid ?? '';
     const pushName = data?.pushName || 'Desconocido';
@@ -87,6 +70,20 @@ export class WebhookService {
     const conversationMsg = msgChat.trim().toLowerCase();
     const sessionHistoryId = `${instanceName}-${remoteJid}`;
     const apiMsgUrl = `${server_url}/message/sendText/${instanceName}`;
+
+    /* Validar créditos */
+    const creditOk = await this.creditValidation({
+      flags,
+      userId,
+      webhookUrl: userWithRelations.webhookUrl ?? '',
+      apikey,
+      apiUrl: apiMsgUrl,
+      userPhone: userWithRelations.notificationNumber
+    });
+
+    if (!creditOk) {
+      return;
+    }
 
     /* Validar si el mensaje proviene de un grupo. */
     if (isGroupChat(remoteJid)) {
@@ -146,6 +143,58 @@ export class WebhookService {
 
         await this.nodeSenderService.sendTextNode(apiMsgUrl, apikey, remoteJid, aiResponse);
       })
+  };
+
+  private async creditValidation({ userId, flags, webhookUrl, apiUrl, apikey, userPhone }: CreditValidationInput): Promise<boolean> {
+    try {
+      if (!webhookUrl || webhookUrl.trim() === '') {
+        this.logger.warn(`creditValidation: webhookUrl vacío para userId=${userId}`);
+        return false;
+      }
+
+      const credits = await this.aiCreditsService.getCreditsByUser(userId);
+
+      if (!credits) {
+        this.logger.warn(`creditValidation: no se pudo obtener créditos para userId=${userId}`);
+        return false;
+      }
+
+      const { available } = credits;
+
+      this.logger.log(`creditValidation: Créditos disponibles para ${userId} → ${available}`);
+
+      // 1. Analizar flags y notificar si corresponde
+      const range = 5; // margen de ±5 créditos
+
+      for (const flag of flags) {
+        const min = flag.value - range;
+        const max = flag.value + range;
+
+        if (available >= min && available <= max) {
+          this.logger.log(
+            `⚠️ userId=${userId} alcanzó rango de créditos ${flag.value} (dentro de ${min}-${max}). Enviando mensaje... "${flag.message}"`
+          );
+
+          try {
+            await this.nodeSenderService.sendTextNode(apiUrl, apikey, userPhone, flag.message);
+          } catch (error) {
+            this.logger.error(`Error enviando notificación por flag ${flag.value}`, error?.message || error);
+          }
+        }
+      }
+
+
+      // 2. Detener el flujo si no hay créditos
+      if (available <= 0) {
+        this.logger.error(`❌ SIN CRÉDITOS: Deteniendo flujo para userId=${userId}`);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      this.logger.error('Error en creditValidation', error?.message || error, 'WebhookService');
+      return false;
+    }
   }
 
   /**
@@ -173,7 +222,7 @@ export class WebhookService {
     }
 
     return session?.status ?? false;
-  }
+  };
 
   /**
    * Envía un mensaje de texto a un cliente de WhatsApp a través de la Evolution API.
@@ -254,7 +303,7 @@ export class WebhookService {
     // Poner el estado del chat en falso
     await this.sessionService.updateSessionStatus(remoteJid, instanceId, false);
     this.logger.log(`Chat pausado.`, 'WebhookService');
-  }
+  };
 
   /**
    * Busca coincidencias de mensajes automáticos configurados para un usuario
@@ -301,6 +350,6 @@ export class WebhookService {
     } catch (error) {
       this.logger.error('Error al procesar autoReplies', error);
     }
-  }
+  };
 
 }

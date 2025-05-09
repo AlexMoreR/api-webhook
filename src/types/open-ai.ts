@@ -1,3 +1,4 @@
+import { Pausar, User } from "@prisma/client";
 import { ChatCompletionMessageToolCall } from "openai/resources/chat";
 
 export interface IntentionItem {
@@ -57,3 +58,52 @@ export interface OpenAIDetectionResult {
     // toolCall: ChatCompletionMessageToolCall | null;
     content: string | null;
 }
+
+export interface stopOrResumeConversation {
+    conversationMsg: string,
+    remoteJid: string,
+    instanceId: string,
+    sessionStatus: boolean,
+    userWithRelations: User & { pausar: Pausar[] },
+    instanceName: string,
+    apikey: string,
+    server_url: string
+};
+
+export interface onAutoRepliesInterface {
+    userId: string
+    conversationMsg: string
+    server_url: string
+    apikey: string
+    instanceName: string
+    remoteJid: string
+};
+
+export interface CreditFlag {
+    value: number; // valor en créditos requeridos
+    message: string; // mensaje a mostrar si se activa esta flag
+};
+
+export interface CreditValidationInput {
+    userId: string;
+    flags: { value: number; message: string }[];
+    webhookUrl: string;
+    apiUrl: string,
+    apikey: string,
+    userPhone: string,
+};
+
+export const flags = [
+    {
+        value: 500,
+        message: "🚨 Tienes menos de *500 créditos* disponibles. Tu cuenta podría ser pausada pronto. Considera recargar urgentemente.",
+    },
+    {
+        value: 1000,
+        message: "⚠️ Estás por debajo de *1000 créditos*. Te recomendamos recargar antes de que se agoten.",
+    },
+    {
+        value: 2000,
+        message: "🔔 Aviso: tienes menos de *2000 créditos* disponibles. Aún estás a tiempo de recargar.",
+    },
+];

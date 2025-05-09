@@ -20,6 +20,7 @@ import { AutoRepliesService } from '../auto-replies/auto-replies.service';
 import { WorkflowService } from '../workflow/services/workflow.service.ts/workflow.service';
 import { NotificacionToolService } from '../ai-agent/tools/notificacion/notificacion.service';
 import { AiCreditsService } from '../ai-credits/ai-credits.service';
+import { WebhookControlService } from './services/webhook-control/webhook-control.service';
 
 @Module({
   imports: [HttpModule, WorkflowModule],
@@ -45,7 +46,8 @@ import { AiCreditsService } from '../ai-credits/ai-credits.service';
     AutoRepliesService,
     WorkflowService,
     NotificacionToolService,
-    AiCreditsService
+    AiCreditsService,
+    WebhookControlService
   ]
 })
 export class WebhookModule { }
