@@ -148,14 +148,19 @@ export class WebhookService {
   private async creditValidation({ userId, flags, webhookUrl, apiUrl, apikey, userPhone }: CreditValidationInput): Promise<boolean> {
     try {
       if (!webhookUrl || webhookUrl.trim() === '') {
+
         this.logger.warn(`creditValidation: webhookUrl vacío para userId=${userId}`);
         return false;
       }
 
       const credits = await this.aiCreditsService.getCreditsByUser(userId);
 
-      if (!credits) {
-        this.logger.warn(`creditValidation: no se pudo obtener créditos para userId=${userId}`);
+      if (!credits.success) {
+        try {
+          await this.nodeSenderService.sendTextNode(apiUrl, apikey, userPhone, flags[0].message);
+        } catch (error) {
+          this.logger.error(`Error enviando notificación por flag ${credits.msg}`, error?.message || error);
+        }
         return false;
       }
 

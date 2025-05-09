@@ -2,6 +2,17 @@ import { Injectable } from '@nestjs/common';
 import { LoggerService } from 'src/core/logger/logger.service';
 import { PrismaService } from 'src/database/prisma.service';
 
+type CreditResult = {
+    success: true;
+    total: number;
+    used: number;
+    available: number;
+    renewalDate: Date;
+} | {
+    success: false;
+    msg: string;
+};
+
 @Injectable()
 export class AiCreditsService {
 
@@ -65,17 +76,15 @@ export class AiCreditsService {
       * Obtiene los créditos de IA actuales para un usuario.
       *
       * @param {string} userId - ID del usuario
-      * @returns {Promise<{ total: number, used: number, available: number, renewalDate: Date } | null>}
+      * @returns {Promise<CreditResult>}
       */
-    public async getCreditsByUser(userId: string): Promise<{
-        total: number;
-        used: number;
-        available: number;
-        renewalDate: Date;
-    } | null> {
+    public async getCreditsByUser(userId: string): Promise<CreditResult> {
         if (!userId || typeof userId !== 'string') {
             this.logger.error('getCreditsByUser: userId inválido o no proporcionado');
-            return null;
+            return {
+                success: false,
+                msg: 'userId inválido o no proporcionado',
+            };
         }
 
         try {
@@ -85,15 +94,22 @@ export class AiCreditsService {
 
             if (!credit) {
                 this.logger.error(`No se encontraron créditos para userId=${userId}`);
-                return null;
+                return {
+                    success: false,
+                    msg: 'No se encontraron créditos',
+                };
             }
 
-            const usedCredits = Math.floor(credit.used / this.TOKENS_PER_CREDIT);
+            const TOKENS_PER_CREDIT = 1000;
+            const usedCredits = Math.floor(credit.used / TOKENS_PER_CREDIT);
             const availableCredits = Math.max(credit.total - usedCredits, 0);
 
-            this.logger.log(`Créditos de usuario ${userId} → Total: ${credit.total}, Usados: ${usedCredits}, Disponibles: ${availableCredits}`);
+            this.logger.log(
+                `Créditos de usuario ${userId} → Total: ${credit.total}, Usados: ${usedCredits}, Disponibles: ${availableCredits}`
+            );
 
             return {
+                success: true,
                 total: credit.total,
                 used: usedCredits,
                 available: availableCredits,
@@ -101,7 +117,11 @@ export class AiCreditsService {
             };
         } catch (error) {
             this.logger.error(`Error al obtener créditos de userId=${userId}`, error?.message || error);
-            return null;
+            return {
+                success: false,
+                msg: 'Error al obtener créditos',
+            };
         }
     }
+
 }

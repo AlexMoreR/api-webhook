@@ -1,6 +1,7 @@
 import { Pausar, User } from "@prisma/client";
 import { ChatCompletionMessageToolCall } from "openai/resources/chat";
 
+const whatsappCreditsMsg = 'https://w.app/verzay';
 export interface IntentionItem {
     name: string;
     tipo: 'flujo' | 'seguimiento' | 'notificacion';
@@ -94,6 +95,10 @@ export interface CreditValidationInput {
 };
 
 export const flags = [
+    {
+        value: 0,
+        message: `🛑 CRÍTICO: ¡Te has quedado *SIN CRÉDITOS*! \n\n• Tu servicio está *SUSPENDIDO* \n• No podrás recibir mensajes \n• Perderás números asociados \n\n🔴 *RECARGA URGENTE* para reactivar: ${whatsappCreditsMsg}`,
+    },
     {
         value: 500,
         message: "🚨 Tienes menos de *500 créditos* disponibles. Tu cuenta podría ser pausada pronto. Considera recargar urgentemente.",
