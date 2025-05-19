@@ -124,31 +124,9 @@ export class WebhookService {
 
     // Luego evaluamos
     if (this.antifloodService.isSynchronizedPattern(remoteJid)) {
-      this.logger.warn(`🚫 Patrón de IA detectado para ${remoteJid}. Posible bot.`, 'WebhookService');
       await this.sessionService.updateSessionStatus(remoteJid, instanceName, false, userWithRelations.id);
       return;
     }
-
-
-    // if (this.antifloodService.isSynchronizedPattern(remoteJid)) {
-    //   this.logger.warn(`🚨 Patrón de sincronía detectado para ${remoteJid}. Posible bot.`, 'WebhookService');
-    //   await this.sessionService.updateSessionStatus(remoteJid, instanceName, false, userWithRelations.id);
-    //   return; // Cancelamos procesamiento
-    // }
-
-    /* Valida spam o multiple mensajería por parte de una IA */
-    // if (this.antifloodService.isFlooding(remoteJid)) {
-    //   await this.sessionService.updateSessionStatus(remoteJid, instanceName, false, userWithRelations.id);
-    //   this.logger.warn(`🚫 Flood detectado para ${remoteJid}. Ignorando mensaje.`, 'WebhookService');
-    //   return;
-    // };
-
-    /* valida si el mensaje proviene de una IA */
-    // if (this.antifloodService.isMessageFromIA(incomingMessage)) {
-    //   await this.sessionService.updateSessionStatus(remoteJid, instanceName, false, userWithRelations.id);
-    //   this.logger.warn(`🚫 Mensaje tipo IA detectado: "${incomingMessage}"`, 'WebhookService');
-    //   return;
-    // }
 
     /* Get data to process text by Open AI */
     this.messageBufferService.handleIncomingMessage(
