@@ -14,9 +14,12 @@ model User {
   password           String?
   emailVerified      DateTime?
   image              String?
+  theme              ThemeApp?       @default(Default) // Tema asignado al reseller
   role               Role            @default(user)
+  plan               Plan            @default(pymes)
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
+  muteAgentResponses Boolean         @default(false) //true → el agente no responde mensajes directamente.
   apiUrl             String          @default("https://api.openAI.co")
   company            String          @default("Empresa Demo")
   lat                String          @default("0.0000")
@@ -25,10 +28,9 @@ model User {
   notificationNumber String          @default("0000000000")
   openingPhrase      String?         @default("DEPRECATED")
   apiKeyId           String?
-  del_seguimiento    String?         @default("Estamos para servirle.")
-  plan               Plan            @default(pymes)
-  autoReactivate     String?
   webhookUrl         String?         @default("https://n8npro.verzay.co/webhook")
+  autoReactivate     String?
+  del_seguimiento    String?         @default("Estamos para servirle.")
   accounts           Account[]
   instancias         Instancias[]
   pausar             Pausar[]
@@ -37,11 +39,43 @@ model User {
   tools              Tools[]
   apiKey             ApiKey?         @relation(fields: [apiKeyId], references: [id])
   iaCredit           IaCredit?
+  // Relaciones inversas
   clientesAsignados  reseller[]      @relation("RevendedorAsignador")
   esClienteDe        reseller[]      @relation("ClienteAsignado")
+  modules            Module[]        @relation("UserModules")
 }
+
+model Module {
+  id                     String  @id @default(cuid())
+  label                  String
+  route                  String  @unique
+  icon                   String
+  showInSidebar          Boolean @default(true)
+  hiddenModuleToSelector Boolean @default(false)
+  adminOnly              Boolean @default(false)
+  requiresPremium        Boolean @default(false)
+  showOnlySelectedPlans  Boolean @default(false)
+  allowedPlans           Plan[]
+  order                  Int     @default(0) // ORDEN 
+
+  users     User[]       @relation("UserModules")
+  items     ModuleItem[] @relation("ParentModule")
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+model ModuleItem {
+  id       String @id @default(cuid())
+  title    String
+  url      String
+  moduleId String
+  module   Module @relation("ParentModule", fields: [moduleId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Session {
-  id           Int      @id @default(autoincrement())
   userId       String
   remoteJid    String
   pushName     String
@@ -49,15 +83,14 @@ model Session {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   status       Boolean
+  id           Int      @id @default(autoincrement())
   seguimientos String?  @default("")
   inactividad  String?  @default("")
-  sessionDelay String?
   flujos       String?  @default("")
+  sessionDelay String?
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Relación inversa
-  triggers     SessionTrigger[]
 }
+
 model Pausar {
   userId      String
   mensaje     String   @default("Fue un gusto ayudarte.")
@@ -114,13 +147,14 @@ model Instancias {
 }
 
 model SystemMessage {
-  id        String   @id @default(cuid())
-  message   String
-  userId    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  title     String   @default("Sin título")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String        @id @default(cuid())
+  title      String        @default("Sin título")
+  message    String
+  typePrompt TypePromptAi? @default(TRAINING)
+  userId     String
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Tools {
@@ -176,40 +210,52 @@ model seguimientos {
   remoteJid   String?
   mensaje     String?
   tipo        String?
+  media       String?
   time        String?
   name_file   String?
   consecutivo String?
-  media       String?
 }
 
 model rr {
   id         Int      @id @default(autoincrement())
   workflowId String
   mensaje    String?
+  userId     String
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-  userId     String
 }
 
 model reseller {
   id         Int      @id @default(autoincrement())
   resellerid String?
   userId     String?
+  theme      ThemeApp @default(Default) //TODO: DEPRECATED
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-  reseller   User?    @relation("RevendedorAsignador", fields: [resellerid], references: [id])
-  user       User?    @relation("ClienteAsignado", fields: [userId], references: [id])
+
+  // Relaciones
+  user     User? @relation("ClienteAsignado", fields: [userId], references: [id])
+  reseller User? @relation("RevendedorAsignador", fields: [resellerid], references: [id])
 }
 
 model GuidesUrl {
   id          String   @id @default(cuid())
-  path        String
+  path        String // Ej: "flow", "tools", "dashboard", "sessions", "auto-replies"
   title       String
+  description String?
+  tipo        String?
+  url         String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Manual {
+  id          String   @id @default(uuid())
+  name        String
   description String?
   url         String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  tipo        String?
 }
 
 model Log {
@@ -223,44 +269,69 @@ model Log {
 model IaCredit {
   id          String   @id @default(cuid())
   userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   total       Int      @default(0)
   used        Int      @default(0)
   renewalDate DateTime
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("ia_credits")
 }
 
 model Reminders {
-  id           String     @id
+  id           String     @id @default(cuid())
   title        String
   description  String?
-  time         String
+  time         String // Primera ejecución o próxima ejecución
   repeatType   RepeatType @default(NONE)
-  repeatEvery  Int?
-  endsAt       DateTime?
+  repeatEvery  Int? // Cada X días/semanas/meses/años, si aplica (por ejemplo, cada 3 días)
+  endsAt       DateTime? // Opcional, para detener la recurrencia
   instanceName String
+  pushName     String
   serverUrl    String
   apikey       String
   userId       String
-  workflowId   String
+  workflowId   String?
   remoteJid    String
   createdAt    DateTime   @default(now())
-  updatedAt    DateTime
-  pushName     String
+  updatedAt    DateTime   @updatedAt
 }
 
 model SessionTrigger {
   id        Int      @id @default(autoincrement())
-  sessionId Int      // <- cambiar de String a Int
+  sessionId String
   time      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
 
-  // Relación con Session
-  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+enum RepeatType {
+  NONE
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+  WEEKDAYS // Lunes a viernes
+  EVERYDAY // Todos los días
+}
+
+enum ThemeApp {
+  Default
+  Red
+  Rose
+  Orange
+  Green
+  Blue
+  Yellow
+  Violet
+  Cyan
+  Black
+  White
+  Teal
+  MidnightBlue
+  AquaBlue
+  LightBlue
 }
 
 enum Role {
@@ -275,12 +346,10 @@ enum Plan {
   pymes
 }
 
-enum RepeatType {
-  NONE
-  DAILY
-  WEEKLY
-  MONTHLY
-  YEARLY
-  WEEKDAYS
-  EVERYDAY
+enum TypePromptAi {
+  TRAINING //Entrenamiento
+  FAQs //Preguntas frecuentes
+  ACTIONS //Acciones
+  DATA_CAPTURE // Captura de datos
+  DATA_QUERY // Consulta de datos
 }

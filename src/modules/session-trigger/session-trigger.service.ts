@@ -18,8 +18,8 @@ export class SessionTriggerService {
      * @param time - Hora programada como string (ej: "15/05/2025 18:30").
      * @returns El trigger creado.
      */
-    async create(sessionId: number, time: string): Promise<SessionTrigger> {
-        if (!Number.isInteger(sessionId) || !time?.trim()) {
+    async create(sessionId: string, time: string): Promise<SessionTrigger> {
+        if (!sessionId || !time?.trim()) {
             this.logger.warn('create: Datos incompletos');
             throw new BadRequestException('sessionId y time son obligatorios.');
         }
@@ -71,8 +71,8 @@ export class SessionTriggerService {
      * @param newTime - Nueva hora formateada.
      * @returns El registro actualizado.
      */
-    async updateTimeBySessionId(sessionId: number, newTime: string): Promise<SessionTrigger> {
-        if (!Number.isInteger(sessionId) || !newTime?.trim()) {
+    async updateTimeBySessionId(sessionId: string, newTime: string): Promise<SessionTrigger> {
+        if (!sessionId || !newTime?.trim()) {
             this.logger.warn('updateTimeBySessionId: Parámetros inválidos');
             throw new BadRequestException('sessionId y newTime son obligatorios.');
         }
@@ -99,8 +99,8 @@ export class SessionTriggerService {
      * @param sessionId - ID único de la sesión.
      * @returns El SessionTrigger encontrado o null si no existe.
      */
-    async findBySessionId(sessionId: number): Promise<SessionTrigger | null> {
-        if (!Number.isInteger(sessionId)) {
+    async findBySessionId(sessionId: string): Promise<SessionTrigger | null> {
+        if (!sessionId) {
             this.logger.warn('findBySessionId: sessionId inválido');
             throw new BadRequestException('El sessionId debe ser un número válido');
         }

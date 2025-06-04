@@ -152,6 +152,12 @@ export class WebhookService {
         const aiResponse = await this.aiAgentService.processInput(dataProccessInput);
         if (!aiResponse || aiResponse === '') return;
 
+        /* Mutea el agente si muteAgentResponses es verdadero*/
+        if (userWithRelations.muteAgentResponses) {
+          this.logger.warn(`🔇 Agente muteado, no se enviará respuesta.`, 'muteAgentResponses');
+          return;
+        };
+
         // Guardar historial
         await this.chatHistoryService.saveMessage(sessionHistoryId, aiResponse, 'ia');
 
@@ -255,21 +261,20 @@ export class WebhookService {
     userWithRelations: User & { pausar: Pausar[] }
   ): Promise<boolean> {
     const session = await this.sessionService.getSession(remoteJid, instanceName, userId);
-
     if (session) {
       this.logger.log(`[SESSION] Usuario ya registrado: ${remoteJid}`, 'WebhookService');
 
-      const hasTrigger = await this.sessionTriggerService.findBySessionId(session.id);
+      const hasTrigger = await this.sessionTriggerService.findBySessionId(session.id.toString());
       const dateReactivate = await this.getReactivateDate({ userWithRelations });
 
       if (!hasTrigger) {
         if (dateReactivate) {
-          await this.sessionTriggerService.create(session.id, dateReactivate);
+          await this.sessionTriggerService.create(session.id.toString(), dateReactivate);
           this.logger.log(`[TRIGGER] Reactivación programada para: ${dateReactivate}`, 'WebhookService');
         }
       } else {
         if (dateReactivate) {
-          await this.sessionTriggerService.updateTimeBySessionId(session.id, dateReactivate);
+          await this.sessionTriggerService.updateTimeBySessionId(session.id.toString(), dateReactivate);
           this.logger.log(`[TRIGGER] Fecha actualizada a: ${dateReactivate}`, 'WebhookService');
         }
       }
