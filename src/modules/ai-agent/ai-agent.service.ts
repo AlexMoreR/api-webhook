@@ -92,12 +92,13 @@ export class AiAgentService {
 
       this.logger.log(`Lista de flujos: ${JSON.stringify(formattedList)}`);
 
+
+      const customWorkflowPrompt = systemPromptWorkflow(input, JSON.stringify(formattedList));
+
       const historyMessages: ChatCompletionMessageParam[] = chatHistory.map((text) => ({
         role: 'user',
         content: text,
       }));
-
-      const customWorkflowPrompt = systemPromptWorkflow(input, JSON.stringify(formattedList));
 
       const messages: ChatCompletionMessageParam[] = [
         { role: 'system', content: customWorkflowPrompt },
@@ -158,17 +159,14 @@ export class AiAgentService {
     instanceName,
     remoteJid
   }: proccessInput) {
+    let promptAI = ''; // Declarar aquí para que esté disponible en el catch
+
     try {
       this.initializeClient(apikeyOpenAi);
 
       const systemPrompt = await this.promptService.getPromptUserId(userId);
       const chatHistory = await this.chatHistoryService.getChatHistory(sessionId);
       const workflows = await this.workflowService.getWorkflow(userId);
-
-      const historyMessages: ChatCompletionMessageParam[] = chatHistory.map((text) => ({
-        role: 'user',
-        content: text,
-      }));
 
       const formattedList = workflows.map((flow, index) => {
         return `{
@@ -179,8 +177,12 @@ export class AiAgentService {
       }).join(',\n');
 
       const workflowTrigger = `lista de flujos disponibles ${formattedList}`
+      promptAI = `${extraRules} ${workflowTrigger} ${systemPrompt}`;
 
-      const promptAI = `${extraRules} ${workflowTrigger} ${systemPrompt} `
+      const historyMessages: ChatCompletionMessageParam[] = chatHistory.map((text) => ({
+        role: 'user',
+        content: text,
+      }));
 
       const messages: ChatCompletionMessageParam[] = [
         { role: 'system', content: promptAI },
@@ -211,7 +213,10 @@ export class AiAgentService {
           args = JSON.parse(toolCall.function.arguments);
         } catch (e) {
           this.logger.error('Error al parsear los argumentos del toolCall', e.message);
-          return '[ERROR_TOOL_ARGS_PARSING]';
+          const followupText = '[ERROR_TOOL_ARGS_PARSING]';
+          const aiResponse = this.processAgentFollowup(followupText, promptAI);
+
+          return aiResponse;
         }
 
         const toolName = toolCall.function.name;
@@ -249,7 +254,10 @@ export class AiAgentService {
             const tokensUsed = followUp.usage?.total_tokens ?? 0;
             await this.aiCredits.trackTokens(userId, tokensUsed);
 
-            return followUp.choices?.[0]?.message?.content?.trim() ?? '✅ Solicitud enviada. En breve te contactará un asesor.';
+            const followupText = '✅ Solicitud enviada. En breve te contactará un asesor.';
+            const aiResponse = this.processAgentFollowup(followupText, promptAI);
+
+            return followUp.choices?.[0]?.message?.content?.trim() ?? aiResponse;
 
 
           case 'execute_workflow':
@@ -261,18 +269,24 @@ export class AiAgentService {
               server_url,
               apikey,
               instanceName,
-              remoteJid
+              remoteJid,
+              promptAI,
             );
 
           default:
             this.logger.warn(`Tool no soportada: ${toolCall.function.name}`, 'AiAgentService');
         }
       }
+      const followupText = ERROR_OPENAI_EMPTY_RESPONSE;
+      const aiResponse = this.processAgentFollowup(followupText, promptAI);
 
-      return choice?.message?.content?.trim() ?? ERROR_OPENAI_EMPTY_RESPONSE;
+      return choice?.message?.content?.trim() ?? aiResponse;
     } catch (error) {
       this.logger.error('Error procesando entrada con OpenAI.', error?.response?.data || error.message, 'AiAgentService');
-      return '[ERROR_PROCESSING_OPENAI_INPUT]';
+      const followupText = '[ERROR_PROCESSING_OPENAI_INPUT]';
+      const aiResponse = this.processAgentFollowup(followupText, promptAI);
+
+      return aiResponse;
     }
   };
 
@@ -284,7 +298,8 @@ export class AiAgentService {
     server_url: string,
     apikey: string,
     instanceName: string,
-    remoteJid: string
+    remoteJid: string,
+    userPrompt: string
   ): Promise<string> {
     const detectionResult = await this.openAIToolDetection({
       // input: args.nombre_flujo,
@@ -295,10 +310,11 @@ export class AiAgentService {
     const res = detectionResult.content;
     const rawContent = res?.trim().toUpperCase();
 
-
     if (!rawContent || rawContent === 'NINGUNO') {
       this.logger.log(`No se encontró ningun flujo asociado al input.`);
-      return "Disculpa, no encontré información relacionada. ¿Te puedo ayudar con algo más?";
+      const followupText = 'Disculpa, no encontré información relacionada. ¿Te puedo ayudar con algo más?';
+      const aiResponse = this.processAgentFollowup(followupText, userPrompt);
+      return aiResponse;
     }
 
     let nombresDetectados: string[];
@@ -309,17 +325,23 @@ export class AiAgentService {
 
       if (!Array.isArray(nombresDetectados) || nombresDetectados.length === 0) {
         this.logger.warn('No se encontraron flujos válidos en la respuesta.');
-        return 'No se detectó ningún flujo compatible con tu solicitud.';
+        const followupText = 'No se detectó ningún flujo compatible con tu solicitud.';
+        const aiResponse = this.processAgentFollowup(followupText, userPrompt);
+        return aiResponse;
+
       }
     } catch (e) {
       this.logger.error('Error al parsear el contenido JSON de OpenAI', e.message);
-      return '[ERROR_PARSE_RAW_CONTENT]';
+      const followupText = '[ERROR_PARSE_RAW_CONTENT]';
+      const aiResponse = this.processAgentFollowup(followupText, userPrompt);
+      return aiResponse;
+
     }
 
     this.logger.log(`Flujos detectados: ${JSON.stringify(nombresDetectados)}`);
 
     const workflows = await this.workflowService.getWorkflow(userId);
-    let mensajes: string[] = [];
+    let workflowMessages: string[] = [];
 
     for (const nombre of nombresDetectados) {
       const currentWorkflow = workflows.find(
@@ -330,14 +352,12 @@ export class AiAgentService {
         this.logger.warn(`El flujo "${nombre}" no fue encontrado.`);
         continue;
       }
-
-      const yaEjecutado = await this.chatHistoryService.hasIntentionBeenExecuted(
+      const alreadyExecuted = await this.chatHistoryService.hasIntentionBeenExecuted(
         sessionId,
         currentWorkflow.name
       );
 
-      
-      if (!yaEjecutado) {
+      if (!alreadyExecuted) {
         await this.chatHistoryService.registerExecutedIntention(
           sessionId,
           currentWorkflow.name,
@@ -351,17 +371,41 @@ export class AiAgentService {
           remoteJid,
           userId
         );
-        mensajes.push(`✅ Se ejecutó: *${currentWorkflow.name}*`);
+        workflowMessages.push(`✅ Se ejecutó: *${currentWorkflow.name}*`);
       } else {
-        mensajes.push(`ℹ️ Ya ejecutado: *${currentWorkflow.name}*`);
+        const followupText = `ℹ️ Ya ejecutado: *${currentWorkflow.name}*`;
+        workflowMessages.push(followupText);
+        const aiResponse = this.processAgentFollowup(followupText, userPrompt);
+        return aiResponse
       }
     }
 
-    this.logger.log(`Workflow result: ${JSON.stringify(mensajes.join('\n'))}`);
+    this.logger.log(`Workflow result: ${JSON.stringify(workflowMessages.join('\n'))}`);
 
     /* Se corta el ciclo  para evitar que el agente conteste despues de ejecutar una tool*/
     return '';
   };
+
+  private async processAgentFollowup(
+    followupText: string,
+    userPrompt: string,
+  ): Promise<string> {
+    const finalPrompt = `El flujo automatizado respondió: "${followupText}". Ahora responde al usuario de manera natural y útil.`;
+
+    const completion = await this.openAiClient.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        { role: "system", content: "Eres un asistente útil que traduce resultados de flujos automatizados a lenguaje natural para el usuario final." },
+        { role: "user", content: userPrompt },
+        { role: "assistant", content: followupText },
+        { role: "user", content: finalPrompt },
+      ],
+    });
+
+    const finalMessage = completion.choices[0].message.content || followupText;
+
+    return finalMessage;
+  }
 
   /**
    * Descarga un archivo de audio desde una URL.
