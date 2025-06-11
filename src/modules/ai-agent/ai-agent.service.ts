@@ -198,6 +198,7 @@ export class AiAgentService {
             messages,
             tools,
             tool_choice: 'auto',
+            max_tokens: 300
           });
         } catch (err: any) {
           this.logger.error(`[PROCESS_INPUT_ERR_OPENAICLIENT]`);
