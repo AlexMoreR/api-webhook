@@ -190,13 +190,32 @@ export class AiAgentService {
         { role: 'user', content: input },
       ];
 
-      const response = await this.openAiClient.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages,
-        tools,
-        tool_choice: 'auto', // o especifica 'notificacion' si deseas forzarla
-      });
+      // Función auxiliar con retry automático
+      const createChatCompletion = async (): Promise<OpenAI.Chat.Completions.ChatCompletion> => {
+        try {
+          return await this.openAiClient.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages,
+            tools,
+            tool_choice: 'auto',
+          });
+        } catch (err: any) {
+          if (err.code === 'rate_limit_exceeded' && err.type === 'tokens') {
+            this.logger.warn(`Rate limit excedido por tokens, esperando 60s para reintentar...`);
+            await new Promise((res) => setTimeout(res, 60000));
+            return await this.openAiClient.chat.completions.create({
+              model: 'gpt-4o-mini',
+              messages,
+              tools,
+              tool_choice: 'auto',
+            });
+          } else {
+            throw err;
+          }
+        }
+      };
 
+      const response = await createChatCompletion();
       const choice: any = response.choices?.[0];
       const toolCall = choice?.message?.tool_calls?.[0];
 
@@ -205,6 +224,7 @@ export class AiAgentService {
       await this.aiCredits.trackTokens(userId, tokensUsed);
 
 
+      // Procesamiento de tool
       if (toolCall) {
         this.logger.log(`Tool encontrada, preparando ejecución...`);
 
