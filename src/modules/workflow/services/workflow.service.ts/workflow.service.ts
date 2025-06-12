@@ -41,7 +41,14 @@ export class WorkflowService {
         remoteJid: string,
         userId: string,
     ) {
-        const result = await this.prisma.workflow.findFirst({ where: { name: name_flujo, userId } });
+        const result = await this.prisma.workflow.findFirst({
+            where: { name: name_flujo, userId },
+            orderBy: {
+                createdAt: "asc"
+            }
+        });
+
+        console.log({ result: JSON.stringify(result) })
 
         if (!result) {
             this.logger.warn(`Workflow no encontrado: ${name_flujo}`, 'WorkflowService');
@@ -50,7 +57,7 @@ export class WorkflowService {
 
         const nodes = await this.prisma.workflowNode.findMany({
             where: { workflowId: result.id },
-            orderBy: { id: 'asc' }, //TODO: Se debe agregar campo order a futuro.
+            orderBy: { createdAt: 'asc' }, //TODO: Se debe agregar campo order a futuro.
         });
 
         if (!nodes.length) {
