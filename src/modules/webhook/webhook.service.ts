@@ -163,7 +163,7 @@ export class WebhookService {
 
         /* Envió de mensajes */
         const msgBlocks = aiResponse
-          .split('\n\n')
+          .split('\n\n\n')
           .map((b) => b.trim())
           .filter((b) => b.length > 0);
 
