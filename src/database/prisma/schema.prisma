@@ -8,46 +8,49 @@ datasource db {
 }
 
 model User {
-  id                 String          @id @default(cuid())
+  id                 String             @id @default(cuid())
   name               String?
-  email              String          @unique
+  email              String             @unique
   password           String?
   emailVerified      DateTime?
   image              String?
-  role               Role            @default(user)
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
-  apiUrl             String          @default("https://api.openAI.co")
-  company            String          @default("Empresa Demo")
-  lat                String          @default("0.0000")
-  lng                String          @default("0.0000")
-  mapsUrl            String          @default("https://maps.google.com/?q=0,0")
-  notificationNumber String          @default("0000000000")
-  openingPhrase      String?         @default("DEPRECATED")
+  role               Role               @default(user)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  apiUrl             String             @default("https://api.openAI.co")
+  company            String             @default("Empresa Demo")
+  lat                String             @default("0.0000")
+  lng                String             @default("0.0000")
+  mapsUrl            String             @default("https://maps.google.com/?q=0,0")
+  notificationNumber String             @default("0000000000")
+  openingPhrase      String?            @default("DEPRECATED")
   apiKeyId           String?
-  del_seguimiento    String?         @default("Estamos para servirle.")
-  plan               Plan            @default(pymes)
+  del_seguimiento    String?            @default("Estamos para servirle.")
+  plan               Plan               @default(basico)
   autoReactivate     String?
-  webhookUrl         String?         @default("https://n8npro.verzay.co/webhook")
-  theme              ThemeApp?       @default(Default)
-  muteAgentResponses Boolean         @default(false)
+  webhookUrl         String?            @default("https://n8npro.verzay.co/webhook")
+  theme              ThemeApp?          @default(Default)
+  muteAgentResponses Boolean            @default(false)
   accounts           Account[]
+  Appointment        Appointment[]
   instancias         Instancias[]
   pausar             Pausar[]
+  Service            Service[]
   sessions           Session[]
   systemMessages     SystemMessage[]
   tools              Tools[]
-  apiKey             ApiKey?         @relation(fields: [apiKeyId], references: [id])
+  apiKey             ApiKey?            @relation(fields: [apiKeyId], references: [id])
+  UserAvailability   UserAvailability[]
   iaCredit           IaCredit?
-  clientesAsignados  reseller[]      @relation("RevendedorAsignador")
-  esClienteDe        reseller[]      @relation("ClienteAsignado")
-  modules            Module[]        @relation("UserModules")
+  clientesAsignados  reseller[]         @relation("RevendedorAsignador")
+  esClienteDe        reseller[]         @relation("ClienteAsignado")
+  modules            Module[]           @relation("UserModules")
 }
 
 model Module {
   id                     String       @id @default(cuid())
   label                  String
-  route                  String       @unique
+  route                  String
   icon                   String
   showInSidebar          Boolean?     @default(true)
   hiddenModuleToSelector Boolean?     @default(false)
@@ -58,6 +61,7 @@ model Module {
   createdAt              DateTime     @default(now())
   updatedAt              DateTime     @updatedAt
   showOnlySelectedPlans  Boolean?     @default(false)
+  customUrl              String?
   items                  ModuleItem[] @relation("ParentModule")
   users                  User[]       @relation("UserModules")
 }
@@ -77,15 +81,16 @@ model Session {
   remoteJid    String
   pushName     String
   instanceId   String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
   status       Boolean
-  id           Int      @id @default(autoincrement())
-  seguimientos String?  @default("")
-  inactividad  String?  @default("")
+  id           Int           @id @default(autoincrement())
+  seguimientos String?       @default("")
+  inactividad  String?       @default("")
   sessionDelay String?
-  flujos       String?  @default("")
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  flujos       String?       @default("")
+  Appointment  Appointment[]
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Pausar {
@@ -200,7 +205,7 @@ model n8n_chat_histories {
 
 model seguimientos {
   id          Int     @id @default(autoincrement())
-  idNodo      String
+  idNodo      String?
   serverurl   String?
   instancia   String?
   apikey      String?
@@ -275,22 +280,72 @@ model IaCredit {
 }
 
 model Reminders {
-  id           String     @id @default(cuid())
+  id           String      @id @default(cuid())
   title        String
   description  String?
-  time         String
-  repeatType   RepeatType @default(NONE)
+  time         String?
+  repeatType   RepeatType? @default(NONE)
   repeatEvery  Int?
   endsAt       DateTime?
-  instanceName String
-  serverUrl    String
-  apikey       String
-  userId       String
+  instanceName String?
+  serverUrl    String?
+  apikey       String?
+  userId       String?
   workflowId   String?
-  remoteJid    String
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  pushName     String
+  remoteJid    String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  pushName     String?
+  isSchedule   Boolean?    @default(false)
+}
+
+model PromptTemplate {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  content     String
+  category    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model UserAvailability {
+  id        String @id @default(cuid())
+  userId    String
+  dayOfWeek Int
+  startTime String
+  endTime   String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dayOfWeek, startTime, endTime])
+}
+
+model Appointment {
+  id        String            @id @default(cuid())
+  userId    String
+  sessionId Int
+  startTime DateTime
+  endTime   DateTime
+  timezone  String
+  status    AppointmentStatus @default(PENDIENTE)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  serviceId String?
+  service   Service?          @relation(fields: [serviceId], references: [id])
+  session   Session           @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Service {
+  id           String        @id @default(cuid())
+  userId       String
+  name         String
+  description  String?
+  messageText  String
+  createdAt    DateTime      @default(now())
+  appointments Appointment[]
+  user         User          @relation(fields: [userId], references: [id])
 }
 
 model SessionTrigger {
@@ -336,12 +391,13 @@ enum Role {
 }
 
 enum Plan {
-  empresarial
-  business
-  pymes
-  standard
-  intermediate
-  advanced
+  admin         @map("empresarial")
+  lite
+  unico
+  basico
+  intermedio
+  avanzado
+  personalizado
 }
 
 enum TypePromptAi {
@@ -350,4 +406,10 @@ enum TypePromptAi {
   ACTIONS
   DATA_CAPTURE
   DATA_QUERY
+}
+
+enum AppointmentStatus {
+  PENDIENTE
+  CONFIRMADA
+  CANCELADA
 }
