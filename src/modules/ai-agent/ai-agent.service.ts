@@ -232,6 +232,8 @@ export class AiAgentService {
         });
       }
 
+      this.logger.debug(`HISTORIAL =======> ${JSON.stringify(historyMessages)}`);
+
       const messages: ChatCompletionMessageParam[] = [
         { role: 'system', content: promptAI },
         ...historyMessages,
