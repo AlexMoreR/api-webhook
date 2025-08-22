@@ -12,6 +12,7 @@ import { SessionService } from '../session/session.service';
 import { NotificacionToolService } from './tools/notificacion/notificacion.service';
 import { WorkflowModule } from '../workflow/workflow.module';
 import { AiCreditsService } from '../ai-credits/ai-credits.service';
+import { PromptCompressorService } from './services/prompt-compressor/prompt-compressor.service';
 
 @Module({
   imports: [
@@ -25,7 +26,7 @@ import { AiCreditsService } from '../ai-credits/ai-credits.service';
     IntentionService,
     NodeSenderService,
     WorkflowService,
-    IntentionService,
+    PromptCompressorService,
     SeguimientosService,
     SessionService,
     NotificacionToolService,

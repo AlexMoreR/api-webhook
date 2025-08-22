@@ -13,6 +13,7 @@ import { NotificacionToolService } from './tools/notificacion/notificacion.servi
 import { AiCreditsService } from '../ai-credits/ai-credits.service';
 import { tools } from './utils/tools';
 import { ERROR_OPENAI_EMPTY_RESPONSE, extraRules, systemPromptWorkflow } from './utils/rulesPrompt';
+import { PromptCompressorService } from './services/prompt-compressor/prompt-compressor.service';
 
 @Injectable()
 export class AiAgentService {
@@ -25,6 +26,7 @@ export class AiAgentService {
     private readonly workflowService: WorkflowService,
     private readonly notificacionTool: NotificacionToolService,
     private readonly aiCredits: AiCreditsService,
+    private readonly promptCompressor: PromptCompressorService,
   ) { }
 
   /**
@@ -179,45 +181,90 @@ export class AiAgentService {
       const workflowTrigger = `lista de flujos disponibles ${formattedList}`
       promptAI = `${extraRules} ${workflowTrigger} ${systemPrompt}`;
 
-      const historyMessages: ChatCompletionMessageParam[] = chatHistory.map((text) => ({
-        role: 'user',
-        content: text,
-      }));
+
+      // 1) Comprimir historial a un único bloque
+      let condensedHistory = '';
+      if (chatHistory?.length) {
+        try {
+          condensedHistory = await this.promptCompressor.compressHistory({
+            client: this.openAiClient,
+            messages: chatHistory,
+            maxTokens: 350,
+          });
+        } catch (e) {
+          this.logger.warn('No se pudo condensar historial, usando original', 'AiAgentService');
+        }
+      }
+
+      // 2) Comprimir input del usuario
+      let compressedInput = '';
+      try {
+        compressedInput = await this.promptCompressor.compress({
+          client: this.openAiClient,
+          input: input,
+          format: 'yaml',         // o 'json' si prefieres
+          maxTokens: 300,
+          temperature: 0.1,
+        });
+
+        // Verificar cobertura mínima (números, fechas, términos críticos)
+        const { ok, missing } = this.promptCompressor.verifyCoverage({
+          original: input,
+          compressed: compressedInput,
+          requiredTerms: [], // puedes inyectar endpoints/palabras clave si aplica
+        });
+
+        if (!ok) {
+          this.logger.warn(`Compresión perdió términos críticos: ${missing.join(', ')}`, 'AiAgentService');
+          compressedInput = input; // fallback
+        }
+      } catch (e) {
+        this.logger.warn('Fallo en compresión de input, usando original', 'AiAgentService');
+        compressedInput = input;
+      }
+
+      // 3) Construcción de mensajes (historial condensado + input comprimido)
+      const historyMessages: ChatCompletionMessageParam[] = [];
+      if (condensedHistory) {
+        historyMessages.push({
+          role: 'user',
+          content: `[HISTORIAL-RESUMIDO]\n${condensedHistory}`,
+        });
+      }
 
       const messages: ChatCompletionMessageParam[] = [
         { role: 'system', content: promptAI },
         ...historyMessages,
-        { role: 'user', content: input },
+        { role: 'user', content: compressedInput },
       ];
+
+      //Reemplaza el retry fijo de 60s por exponencial con jitter:0
+      const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 
       // Función auxiliar con retry automático
       const createChatCompletion = async (): Promise<OpenAI.Chat.Completions.ChatCompletion> => {
-        try {
-          return await this.openAiClient.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages,
-            tools,
-            tool_choice: 'auto',
-            max_tokens: 300
-          });
-        } catch (err: any) {
-          this.logger.error(`[PROCESS_INPUT_ERR_OPENAICLIENT]`);
-          if (err.code === 'rate_limit_exceeded' && err.type === 'tokens') {
-            this.logger.warn(`Rate limit excedido por tokens, esperando 60s para reintentar...`);
-            await new Promise((res) => setTimeout(res, 60000));
+        let attempt = 0;
+        const maxAttempts = 3;
+        while (true) {
+          try {
             return await this.openAiClient.chat.completions.create({
               model: 'gpt-4o-mini',
               messages,
               tools,
               tool_choice: 'auto',
-              max_tokens: 300
+              max_tokens: 300,
             });
-          } else {
-            throw err;
+          } catch (err: any) {
+            attempt++;
+            const isRate = err?.code === 'rate_limit_exceeded' || err?.status === 429;
+            if (!isRate || attempt >= maxAttempts) throw err;
+            const backoff = Math.floor((2 ** attempt) * 1000 + Math.random() * 1000); // 2s,4s,8s + jitter
+            this.logger.warn(`Rate limit: reintento #${attempt} en ${backoff}ms`);
+            await sleep(backoff);
           }
         }
       };
-
+      
       const response = await createChatCompletion();
       const choice: any = response.choices?.[0];
       const toolCall = choice?.message?.tool_calls?.[0];
@@ -330,34 +377,31 @@ export class AiAgentService {
       userId
     });
     const res = detectionResult.content;
-    const rawContent = res?.trim().toUpperCase();
+    const raw = res?.trim();
 
-    if (!rawContent || rawContent === 'NINGUNO') {
+    if (!raw || raw.toLowerCase() === 'ninguno') {
       this.logger.log(`No se encontró ningun flujo asociado al input.`);
       const followupText = 'Disculpa, no encontré información relacionada. ¿Te puedo ayudar con algo más?';
       const aiResponse = this.processAgentFollowup(followupText, userPrompt);
       return aiResponse;
     }
 
-    let nombresDetectados: string[];
-
+    let nombresDetectados: string[] = [];
     try {
-      const parsed = JSON.parse(rawContent);
+      // Intenta parsear tal cual
+      const parsed = JSON.parse(raw);
       nombresDetectados = parsed?.NOMBRE_FLUJO || [];
-
       if (!Array.isArray(nombresDetectados) || nombresDetectados.length === 0) {
         this.logger.warn('No se encontraron flujos válidos en la respuesta.');
         const followupText = 'No se detectó ningún flujo compatible con tu solicitud.';
         const aiResponse = this.processAgentFollowup(followupText, userPrompt);
         return aiResponse;
-
       }
     } catch (e) {
       this.logger.error('Error al parsear el contenido JSON de OpenAI', e.message);
       const followupText = '[ERROR_PARSE_RAW_CONTENT]';
       const aiResponse = this.processAgentFollowup(followupText, userPrompt);
       return aiResponse;
-
     }
 
     this.logger.log(`Flujos detectados: ${JSON.stringify(nombresDetectados)}`);
@@ -415,7 +459,7 @@ export class AiAgentService {
     const finalPrompt = `El flujo automatizado respondió: "${followupText}". Ahora responde al usuario de manera natural y útil.`;
 
     const completion = await this.openAiClient.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: "Eres un asistente útil que traduce resultados de flujos automatizados a lenguaje natural para el usuario final." },
         { role: "user", content: userPrompt },
@@ -491,7 +535,7 @@ export class AiAgentService {
       this.initializeClient(apikeyOpenAi);
 
       const response = await this.openAiClient.responses.create({
-        model: 'gpt-4.1',
+        model: 'gpt-4o-mini',
         input: [
           { role: 'user', content: 'Describe de forma clara y detallada el contenido de esta imagen.' },
           {

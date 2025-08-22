@@ -23,6 +23,7 @@ import { AiCreditsService } from '../ai-credits/ai-credits.service';
 import { WebhookControlService } from './services/webhook-control/webhook-control.service';
 import { SessionTriggerService } from '../session-trigger/session-trigger.service';
 import { AntifloodService } from './services/antiflood/antiflood.service';
+import { PromptCompressorService } from '../ai-agent/services/prompt-compressor/prompt-compressor.service';
 
 @Module({
   imports: [HttpModule, WorkflowModule],
@@ -43,6 +44,7 @@ import { AntifloodService } from './services/antiflood/antiflood.service';
     MessageBufferService,
     ChatHistoryService,
     IntentionService,
+    PromptCompressorService,
     NodeSenderService,
     SeguimientosService,
     AutoRepliesService,
