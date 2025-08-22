@@ -264,7 +264,7 @@ export class AiAgentService {
           }
         }
       };
-      
+
       const response = await createChatCompletion();
       const choice: any = response.choices?.[0];
       const toolCall = choice?.message?.tool_calls?.[0];
@@ -386,11 +386,16 @@ export class AiAgentService {
       return aiResponse;
     }
 
+    // this.logger.debug(`RAW =======> ${JSON.stringify(raw)}`);
+
     let nombresDetectados: string[] = [];
     try {
       // Intenta parsear tal cual
       const parsed = JSON.parse(raw);
-      nombresDetectados = parsed?.NOMBRE_FLUJO || [];
+      // this.logger.debug(`PARSED =======> ${JSON.stringify(parsed)}`);
+      nombresDetectados = parsed?.nombre_flujo || [];
+      // this.logger.debug(`nombresDetectados =======> ${JSON.stringify(nombresDetectados)}`);
+
       if (!Array.isArray(nombresDetectados) || nombresDetectados.length === 0) {
         this.logger.warn('No se encontraron flujos válidos en la respuesta.');
         const followupText = 'No se detectó ningún flujo compatible con tu solicitud.';
