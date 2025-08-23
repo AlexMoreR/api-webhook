@@ -18,6 +18,7 @@ import { PromptCompressorService } from './services/prompt-compressor/prompt-com
 @Injectable()
 export class AiAgentService {
   private openAiClient: OpenAI;
+  private readonly initWorkflowName: string = 'INICIO_BIENVENIDA';
 
   constructor(
     private readonly logger: LoggerService,
@@ -94,7 +95,6 @@ export class AiAgentService {
 
       this.logger.log(`Lista de flujos: ${JSON.stringify(formattedList)}`);
 
-
       const customWorkflowPrompt = systemPromptWorkflow(input, JSON.stringify(formattedList));
 
       const historyMessages: ChatCompletionMessageParam[] = chatHistory.map((text) => ({
@@ -168,6 +168,8 @@ export class AiAgentService {
 
       const systemPrompt = await this.promptService.getPromptUserId(userId);
       const chatHistory = await this.chatHistoryService.getChatHistory(sessionId);
+      // 1) Validar la respuesta de chatHistory (sin historial)
+      const noHistory = !Array.isArray(chatHistory) || chatHistory.length === 0;
       const workflows = await this.workflowService.getWorkflow(userId);
 
       const formattedList = workflows.map((flow, index) => {
@@ -177,6 +179,36 @@ export class AiAgentService {
         "descripcion": "${flow.description || 'Sin descripción'}"
       }`;
       }).join(',\n');
+
+      // 2) Validar que en la lista (formattedList/workflows) exista this.initWorkflowName
+      const hasInicioBienvenida = workflows?.some(
+        (w: any) =>
+          typeof w?.name === 'string' &&
+          w.name.trim().toLowerCase() === this.initWorkflowName
+      );
+
+      // 3) Si NO hay historial y existe el flujo, ejecutarlo vía tool "execute_workflow"
+      if (noHistory && hasInicioBienvenida) {
+        // Mantengo tu misma ruta de ejecución de tools para no duplicar lógica:
+        await this.handleExecuteWorkflowTool(
+          { nombre_flujo: [this.initWorkflowName] } as any, // <- args esperados por tu tool
+          userId,
+          apikeyOpenAi,
+          sessionId,
+          server_url,
+          apikey,
+          instanceName,
+          remoteJid,
+          this.initWorkflowName // userPrompt (no se usa para responder; handle... retorna '')
+        );
+
+        // Importante: corta aquí para que el agente NO responda después de ejecutar el flujo
+        return '';
+      }
+
+      this.logger.debug(`workflows =======> ${JSON.stringify(workflows)}`);
+      this.logger.debug(`noHistory =======> ${JSON.stringify(noHistory)}`);
+      this.logger.debug(`hasInicioBienvenida =======> ${JSON.stringify(hasInicioBienvenida)}`);
 
       const workflowTrigger = `lista de flujos disponibles ${formattedList}`
       promptAI = `${extraRules} ${workflowTrigger} ${systemPrompt}`;
@@ -232,7 +264,7 @@ export class AiAgentService {
         });
       }
 
-      this.logger.debug(`HISTORIAL =======> ${JSON.stringify(historyMessages)}`);
+      // this.logger.debug(`HISTORIAL =======> ${JSON.stringify(historyMessages)}`);
 
       const messages: ChatCompletionMessageParam[] = [
         { role: 'system', content: promptAI },

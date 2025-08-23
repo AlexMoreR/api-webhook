@@ -42,7 +42,7 @@ export class SessionTriggerService {
             orderBy: { createdAt: 'desc' },
         });
 
-        this.logger.debug(`findAll: Se recuperaron ${triggers.length} triggers`);
+        // this.logger.debug(`findAll: Se recuperaron ${triggers.length} triggers`);
         return triggers;
     }
 
@@ -60,7 +60,7 @@ export class SessionTriggerService {
             throw new NotFoundException(`Trigger con ID ${id} no existe`);
         }
 
-        this.logger.debug(`findById: Se encontró el trigger con ID ${id}`);
+        // this.logger.debug(`findById: Se encontró el trigger con ID ${id}`);
         return trigger;
     }
 
@@ -111,7 +111,7 @@ export class SessionTriggerService {
         });
 
         if (!trigger) {
-            this.logger.debug(`findBySessionId: No se encontró trigger con sessionId=${sessionId}`);
+            // this.logger.debug(`findBySessionId: No se encontró trigger con sessionId=${sessionId}`);
             return null;
         }
 

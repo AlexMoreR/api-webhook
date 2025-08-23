@@ -50,7 +50,7 @@ export class AntifloodService {
      */
     isSynchronizedPattern(remoteJid: string): boolean {
         const entry = this.messageMap.get(remoteJid);
-        this.logger.debug(`entry ===> ${JSON.stringify(entry)} MODULE: isSynchronizedPattern`);
+        // this.logger.debug(`entry ===> ${JSON.stringify(entry)} MODULE: isSynchronizedPattern`);
 
         if (!entry || entry.timestamps.length < this.minRequired) return false;
 
@@ -58,7 +58,7 @@ export class AntifloodService {
             .map((t, i, arr) => (i === 0 ? 0 : t - arr[i - 1]))
             .filter((d) => d > 0);
 
-        this.logger.debug(`deltas ===> ${JSON.stringify(deltas)} MODULE: isSynchronizedPattern`);
+        // this.logger.debug(`deltas ===> ${JSON.stringify(deltas)} MODULE: isSynchronizedPattern`);
 
         if (deltas.length < this.minRequired - 1) return false;
 
@@ -68,7 +68,7 @@ export class AntifloodService {
             (delta) => Math.abs(delta - ref) <= this.toleranceMs
         );
 
-        this.logger.debug(`Media: ${ref}ms, Similares: ${similares.length}/${deltas.length}`, 'isSynchronizedPattern');
+        // this.logger.debug(`Media: ${ref}ms, Similares: ${similares.length}/${deltas.length}`, 'isSynchronizedPattern');
 
         if (similares.length >= this.minSimilarCount) {
             this.logger.warn(
