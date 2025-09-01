@@ -24,24 +24,22 @@ import { WebhookControlService } from './services/webhook-control/webhook-contro
 import { SessionTriggerService } from '../session-trigger/session-trigger.service';
 import { AntifloodService } from './services/antiflood/antiflood.service';
 import { PromptCompressorService } from '../ai-agent/services/prompt-compressor/prompt-compressor.service';
+import { LlmClientFactory } from '../ai-agent/services/llmClientFactory/llmClientFactory.service';
+import { AiAgentModule } from '../ai-agent/ai-agent.module';
 
 @Module({
-  imports: [HttpModule, WorkflowModule],
+  imports: [HttpModule,
+     WorkflowModule, AiAgentModule,],
 
   controllers: [WebhookController],
 
   providers: [
-    WebhookService,
     PrismaService,
     SessionService,
     UserService,
     InstancesService,
-    MessageDirectionService,
-    MessageBufferService,
-    MessageTypeHandlerService,
     AiAgentService,
     PromptService,
-    MessageBufferService,
     ChatHistoryService,
     IntentionService,
     PromptCompressorService,
@@ -51,9 +49,14 @@ import { PromptCompressorService } from '../ai-agent/services/prompt-compressor/
     WorkflowService,
     NotificacionToolService,
     AiCreditsService,
-    WebhookControlService,
     SessionTriggerService,
-    AntifloodService
+    // pertenece
+    WebhookService,
+    WebhookControlService,
+    MessageDirectionService,
+    AntifloodService,
+    MessageBufferService,
+    MessageTypeHandlerService,
   ]
 })
 export class WebhookModule { }
