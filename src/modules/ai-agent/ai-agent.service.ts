@@ -150,7 +150,7 @@ export class AiAgentService {
       ]
 
       const responseR = await this.aiClient.invoke(messagesR)
-      console.log('primera invocacion:',responseR)
+      
       // const choice: any = response.choices?.[0];
       // const choice: any = response.choices?.[0];
       // const content = choice?.message?.content?.trim();
@@ -261,7 +261,6 @@ export class AiAgentService {
             messages: chatHistory,
             maxTokens: 350,
           });
-          console.log('historial comprimido de este:', ...chatHistory, 'a este:', condensedHistory);
         } catch (e) {
           this.logger.warn('No se pudo condensar historial, usando original', 'AiAgentService');
         }
@@ -277,7 +276,6 @@ export class AiAgentService {
           maxTokens: 300,
           temperature: 0.1,
         });
-        console.log("Input optimizado de:", input, "A este:", compressedInput);
 
         // Verificar cobertura mínima (números, fechas, términos críticos)
         const { ok, missing } = this.promptCompressor.verifyCoverage({
@@ -285,7 +283,6 @@ export class AiAgentService {
           compressed: compressedInput,
           requiredTerms: [], // puedes inyectar endpoints/palabras clave si aplica
         });
-        console.log('verificacion de compresion', 'ok:', ok, 'missing:', missing)
 
         if (!ok) {
           this.logger.warn(`Compresión perdió términos críticos: ${missing.join(', ')}`, 'AiAgentService');
@@ -331,7 +328,6 @@ export class AiAgentService {
               },
               { role: 'user', content: compressedInput },
             ])
-            console.log('segunda invocacion:',clientResp.content.toString())
             return clientResp
           } catch (err: any) {
             attempt++;
@@ -415,7 +411,6 @@ export class AiAgentService {
                 tool_call_id:toolCall.id||''
               })
             ])
-            console.log('tercera invocacion:',followUp.content.toString())
 
             //Registro de créditos por usuario
             // const tokensUsed = followUp.usage?.total_tokens ?? 0;
@@ -583,7 +578,6 @@ export class AiAgentService {
 
 
     const finalMessageR = completionR.content.toString() || followupText;
-    console.log('cuarta invocacion:',finalMessageR)
 
     return finalMessageR;
   }
@@ -603,7 +597,7 @@ export class AiAgentService {
     }
     const writer = fs.createWriteStream(outputPath);
     const response = await axios.get(url, { responseType: 'stream' });
-
+    
     response.data.pipe(writer);
 
     return new Promise((resolve, reject) => {
@@ -618,13 +612,14 @@ export class AiAgentService {
    * @param {string} audioUrl
    * @returns {Promise<string>}
    */
-  async transcribeAudio(audioUrl: string, apikeyOpenAi: string): Promise<string> {
+  async transcribeAudio(audioUrl: string,audioType:string, apikeyOpenAi: string,data:any): Promise<string> {
     try {
       this.initializeClient(apikeyOpenAi);
-      this.initializeClient(apikeyOpenAi);
-
-      const tempFilePath = path.resolve(__dirname, '../../tmp/temp_audio_file.oga');
-      await this.downloadAudioFile(audioUrl, tempFilePath);
+      // const tempFilePath = path.resolve(__dirname, '../../tmp/temp_audio_file.oga');
+      // await this.downloadAudioFile(audioUrl, tempFilePath);
+      const axiosRes = await axios.get(audioUrl, { responseType: "arraybuffer" });
+      const base64Audio = Buffer.from(axiosRes.data).toString("base64");
+      // fs.createReadStream(base64Audio)
       const message = new HumanMessage({
         content: [
           {
@@ -633,18 +628,15 @@ export class AiAgentService {
           },
           {
             "type": "media",
-            "data": fs.createReadStream(tempFilePath),  // Use base64 string directly
+            "data": base64Audio,  // Use base64 string directly
+            "mimeType":`${audioType}`
           },
         ],
       })
       const state = await this.aiClient.invoke([message])
-      const transcription = await this.openAiClient.audio.transcriptions.create({
-        file: fs.createReadStream(tempFilePath),
-        model: 'whisper-1',
-        language: 'es',
-      });
+      
 
-      fs.unlinkSync(tempFilePath);
+      // fs.unlinkSync(tempFilePath);
       return state.content.toString()
       // return transcription.text;
     } catch (error) {
@@ -659,8 +651,11 @@ export class AiAgentService {
    * @param {string} imageUrl
    * @returns {Promise<string>}
    */
-  async describeImage(imageUrl: string, apikeyOpenAi: string): Promise<string> {
+  async describeImage(data:any,imageBase64: string,imageType:string, apikeyOpenAi: string): Promise<string> {
     try {
+      
+      
+      
       this.initializeClient(apikeyOpenAi);
       // Refactor
       const message = new HumanMessage({
@@ -671,11 +666,12 @@ export class AiAgentService {
           },
           {
             type: "image_url",
-            image_url: { url: imageUrl },
+            image_url: { url:  `data:${imageType == '' ? 'image/jpeg':imageType};base64,${imageBase64}` },
 
           },
         ],
       })
+      
       const response = await this.aiClient.invoke([message])
       return response.content.toString() ?? '[ERROR_DESCRIBING_IMAGE]'
 
