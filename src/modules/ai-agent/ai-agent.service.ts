@@ -1,6 +1,4 @@
 import axios from 'axios';
-import * as fs from 'fs';
-import * as path from 'path';
 import OpenAI from 'openai';
 import { Injectable } from '@nestjs/common';
 import { LoggerService } from 'src/core/logger/logger.service';
@@ -19,7 +17,6 @@ import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 // Refactor
 import { LlmClientFactory } from './services/llmClientFactory/llmClientFactory.service';
 import { AIMessage, AIMessageChunk, HumanMessage, SystemMessage, ToolMessage } from "@langchain/core/messages";
-import { createReactAgent } from "@langchain/langgraph/prebuilt";
 
 @Injectable()
 export class AiAgentService {
@@ -583,43 +580,17 @@ export class AiAgentService {
   }
 
   /**
-   * Descarga un archivo de audio desde una URL.
-   *
-   * @param {string} url
-   * @param {string} outputPath
-   * @returns {Promise<void>}
-   */
-  private async downloadAudioFile(url: string, outputPath: string): Promise<void> {
-    // Verifica que la carpeta destino exista. Crea la carpeta si no existe
-    const dir = path.dirname(outputPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    const writer = fs.createWriteStream(outputPath);
-    const response = await axios.get(url, { responseType: 'stream' });
-    
-    response.data.pipe(writer);
-
-    return new Promise((resolve, reject) => {
-      writer.on('finish', resolve);
-      writer.on('error', reject);
-    });
-  };
-
-  /**
-   * Transcribe un archivo de audio utilizando OpenAI Whisper.
+   * Transcribe un archivo de audio utilizando el agente.
+   * y devuelve su transcripcion
    *
    * @param {string} audioUrl
-   * @returns {Promise<string>}
+   * @returns {Promise<string>
    */
   async transcribeAudio(audioUrl: string,audioType:string, apikeyOpenAi: string,data:any): Promise<string> {
     try {
       this.initializeClient(apikeyOpenAi);
-      // const tempFilePath = path.resolve(__dirname, '../../tmp/temp_audio_file.oga');
-      // await this.downloadAudioFile(audioUrl, tempFilePath);
       const axiosRes = await axios.get(audioUrl, { responseType: "arraybuffer" });
       const base64Audio = Buffer.from(axiosRes.data).toString("base64");
-      // fs.createReadStream(base64Audio)
       const message = new HumanMessage({
         content: [
           {
