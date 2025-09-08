@@ -22,7 +22,7 @@ import { AIMessage, AIMessageChunk, HumanMessage, SystemMessage, ToolMessage } f
 export class AiAgentService {
   private openAiClient: OpenAI;
   // Refactor
-  private aiClient: BaseChatModel;
+  private aiClient;
   // Refactor
   private readonly initWorkflowName: string = 'INICIO_BIENVENIDA';
 
@@ -42,13 +42,14 @@ export class AiAgentService {
    *
    * @param {string} apikeyOpenAi
    */
-  private initializeClient(apikeyOpenAi: string): void {
+  private initializeClient(apikeyOpenAi: string): BaseChatModel {
     if (!this.isValidApiKey(apikeyOpenAi)) {
       this.logger.error('API Key inválida o no proporcionada.', '', 'AiAgentService');
     }
     this.openAiClient = new OpenAI({ apiKey: apikeyOpenAi });
     const apiKey = 'AIzaSyAD9lijxH_RCeKTOi0YEuTI4CznvKdP3jA'
-    this.aiClient = this.llmClientFactory.getClient('google', apiKey, 'gemini-2.5-flash')
+    this.aiClient = this.llmClientFactory.getClient({provider:'google',apiKey,model:'gemini-2.5-flash'})  
+    return this.aiClient
   };
 
   /**
@@ -147,7 +148,7 @@ export class AiAgentService {
       ]
 
       const responseR = await this.aiClient.invoke(messagesR)
-      
+
       // const choice: any = response.choices?.[0];
       // const choice: any = response.choices?.[0];
       // const content = choice?.message?.content?.trim();
@@ -317,6 +318,7 @@ export class AiAgentService {
         const maxAttempts = 3;
         while (true) {
           try {
+            this.aiClient.bindTools(tools)
             const clientResp = await this.aiClient.invoke([
               { role: 'system', content: promptAI },
               {
@@ -375,21 +377,21 @@ export class AiAgentService {
             );
 
             // Luego continuar la conversación con una respuesta generada por la IA
-           /*  const followUpr = await this.openAiClient.chat.completions.create({
-              model: 'gpt-4o-mini',
-              messages: [
-                ...messages,
-                {
-                  role: 'assistant',
-                  tool_calls: [toolCall],
-                },
-                {
-                  role: 'tool',
-                  tool_call_id: toolCall.id,
-                  content: '',
-                },
-              ],
-            });             */ 
+            /*  const followUpr = await this.openAiClient.chat.completions.create({
+               model: 'gpt-4o-mini',
+               messages: [
+                 ...messages,
+                 {
+                   role: 'assistant',
+                   tool_calls: [toolCall],
+                 },
+                 {
+                   role: 'tool',
+                   tool_call_id: toolCall.id,
+                   content: '',
+                 },
+               ],
+             });             */
             const followUp = await this.aiClient.invoke([
               ...[
                 { role: 'system', content: promptAI },
@@ -400,12 +402,12 @@ export class AiAgentService {
                 { role: 'user', content: compressedInput },
               ],
               new AIMessage({
-                content:'',
-                tool_calls:[toolCall]
+                content: '',
+                tool_calls: [toolCall]
               }),
               new ToolMessage({
-                content:'',
-                tool_call_id:toolCall.id||''
+                content: '',
+                tool_call_id: toolCall.id || ''
               })
             ])
 
@@ -586,7 +588,7 @@ export class AiAgentService {
    * @param {string} audioUrl
    * @returns {Promise<string>
    */
-  async transcribeAudio(audioUrl: string,audioType:string, apikeyOpenAi: string,data:any): Promise<string> {
+  async transcribeAudio(audioUrl: string, audioType: string, apikeyOpenAi: string, data: any): Promise<string> {
     try {
       this.initializeClient(apikeyOpenAi);
       const axiosRes = await axios.get(audioUrl, { responseType: "arraybuffer" });
@@ -600,12 +602,12 @@ export class AiAgentService {
           {
             "type": "media",
             "data": base64Audio,  // Use base64 string directly
-            "mimeType":`${audioType}`
+            "mimeType": `${audioType}`
           },
         ],
       })
       const state = await this.aiClient.invoke([message])
-      
+
 
       // fs.unlinkSync(tempFilePath);
       return state.content.toString()
@@ -622,11 +624,11 @@ export class AiAgentService {
    * @param {string} imageUrl
    * @returns {Promise<string>}
    */
-  async describeImage(data:any,imageBase64: string,imageType:string, apikeyOpenAi: string): Promise<string> {
+  async describeImage(data: any, imageBase64: string, imageType: string, apikeyOpenAi: string): Promise<string> {
     try {
-      
-      
-      
+
+
+
       this.initializeClient(apikeyOpenAi);
       // Refactor
       const message = new HumanMessage({
@@ -637,12 +639,12 @@ export class AiAgentService {
           },
           {
             type: "image_url",
-            image_url: { url:  `data:${imageType == '' ? 'image/jpeg':imageType};base64,${imageBase64}` },
+            image_url: { url: `data:${imageType == '' ? 'image/jpeg' : imageType};base64,${imageBase64}` },
 
           },
         ],
       })
-      
+
       const response = await this.aiClient.invoke([message])
       return response.content.toString() ?? '[ERROR_DESCRIBING_IMAGE]'
 
