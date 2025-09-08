@@ -13,6 +13,7 @@ import { NotificacionToolService } from './tools/notificacion/notificacion.servi
 import { WorkflowModule } from '../workflow/workflow.module';
 import { AiCreditsService } from '../ai-credits/ai-credits.service';
 import { PromptCompressorService } from './services/prompt-compressor/prompt-compressor.service';
+import { LlmClientFactory } from './services/llmClientFactory/llmClientFactory.service';
 
 @Module({
   imports: [
@@ -30,9 +31,10 @@ import { PromptCompressorService } from './services/prompt-compressor/prompt-com
     SeguimientosService,
     SessionService,
     NotificacionToolService,
-    AiCreditsService
+    AiCreditsService,
+    LlmClientFactory
   ],
 
-  exports: [AiAgentService, NotificacionToolService, NodeSenderService, AiCreditsService ],
+  exports: [AiAgentService, NotificacionToolService, NodeSenderService, AiCreditsService,LlmClientFactory ],
 })
 export class AiAgentModule { }

@@ -1,6 +1,4 @@
 import axios from 'axios';
-import * as fs from 'fs';
-import * as path from 'path';
 import OpenAI from 'openai';
 import { Injectable } from '@nestjs/common';
 import { LoggerService } from 'src/core/logger/logger.service';
@@ -14,10 +12,18 @@ import { AiCreditsService } from '../ai-credits/ai-credits.service';
 import { tools } from './utils/tools';
 import { ERROR_OPENAI_EMPTY_RESPONSE, extraRules, systemPromptWorkflow } from './utils/rulesPrompt';
 import { PromptCompressorService } from './services/prompt-compressor/prompt-compressor.service';
+import { BaseChatModel } from '@langchain/core/language_models/chat_models';
+
+// Refactor
+import { LlmClientFactory } from './services/llmClientFactory/llmClientFactory.service';
+import { AIMessage, AIMessageChunk, HumanMessage, SystemMessage, ToolMessage } from "@langchain/core/messages";
 
 @Injectable()
 export class AiAgentService {
   private openAiClient: OpenAI;
+  // Refactor
+  private aiClient;
+  // Refactor
   private readonly initWorkflowName: string = 'INICIO_BIENVENIDA';
 
   constructor(
@@ -28,6 +34,7 @@ export class AiAgentService {
     private readonly notificacionTool: NotificacionToolService,
     private readonly aiCredits: AiCreditsService,
     private readonly promptCompressor: PromptCompressorService,
+    private readonly llmClientFactory: LlmClientFactory,
   ) { }
 
   /**
@@ -35,11 +42,14 @@ export class AiAgentService {
    *
    * @param {string} apikeyOpenAi
    */
-  private initializeClient(apikeyOpenAi: string): void {
+  private initializeClient(apikeyOpenAi: string): BaseChatModel {
     if (!this.isValidApiKey(apikeyOpenAi)) {
       this.logger.error('API Key inválida o no proporcionada.', '', 'AiAgentService');
     }
     this.openAiClient = new OpenAI({ apiKey: apikeyOpenAi });
+    const apiKey = 'AIzaSyAD9lijxH_RCeKTOi0YEuTI4CznvKdP3jA'
+    this.aiClient = this.llmClientFactory.getClient({provider:'google',apiKey,model:'gemini-2.5-flash'})  
+    return this.aiClient
   };
 
   /**
@@ -67,6 +77,8 @@ export class AiAgentService {
     return `Soleado y 25°C en ${location}`; // Respuesta simulada
   };
 
+
+
   /**
    * Se procesa la tool con openAI - segundo agente
    *
@@ -85,6 +97,8 @@ export class AiAgentService {
       const chatHistory = await this.chatHistoryService.getChatHistory(sessionId);
       const workflows = await this.workflowService.getWorkflow(userId);
 
+
+
       const formattedList = workflows.map((flow, index) => {
         return `{
         "id": ${index + 1},
@@ -92,6 +106,8 @@ export class AiAgentService {
         "descripcion": "${flow.description || 'Sin descripción'}"
       }`;
       }).join(',\n');
+
+
 
       this.logger.log(`Lista de flujos: ${JSON.stringify(formattedList)}`);
 
@@ -108,16 +124,40 @@ export class AiAgentService {
         { role: 'user', content: JSON.stringify(input) },
       ];
 
-      const response = await this.openAiClient.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages,
-      });
+      const messagesR = [
+        new SystemMessage({
+          content: [
+            {
+              type: "text",
+              text: customWorkflowPrompt
+            },
+          ]
+        }),
+        ...chatHistory.map(text => new HumanMessage({
+          content: [{
+            type: "text",
+            text: text
+          }],
+        })),
+        new HumanMessage({
+          content: [{
+            type: "text",
+            text: JSON.stringify(input)
+          }],
+        })
+      ]
 
-      const choice: any = response.choices?.[0];
-      const content = choice?.message?.content?.trim();
+      const responseR = await this.aiClient.invoke(messagesR)
+
+      // const choice: any = response.choices?.[0];
+      // const choice: any = response.choices?.[0];
+      // const content = choice?.message?.content?.trim();
+
+      const choice = responseR.content.toString()
+      const content = choice.trim()
 
       //Registro de créditos por usuario
-      const tokensUsed = response.usage?.total_tokens ?? 0;
+      const tokensUsed = responseR.lc_kwargs.response_metadata.token_usage ?? 0;
       await this.aiCredits.trackTokens(userId, tokensUsed);
 
       if (!choice || !content) {
@@ -215,7 +255,7 @@ export class AiAgentService {
       if (chatHistory?.length) {
         try {
           condensedHistory = await this.promptCompressor.compressHistory({
-            client: this.openAiClient,
+            client: this.aiClient,
             messages: chatHistory,
             maxTokens: 350,
           });
@@ -228,7 +268,7 @@ export class AiAgentService {
       let compressedInput = '';
       try {
         compressedInput = await this.promptCompressor.compress({
-          client: this.openAiClient,
+          client: this.aiClient,
           input: input,
           format: 'yaml',         // o 'json' si prefieres
           maxTokens: 300,
@@ -273,18 +313,21 @@ export class AiAgentService {
       const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 
       // Función auxiliar con retry automático
-      const createChatCompletion = async (): Promise<OpenAI.Chat.Completions.ChatCompletion> => {
+      const createChatCompletion = async (): Promise<AIMessageChunk> => {
         let attempt = 0;
         const maxAttempts = 3;
         while (true) {
           try {
-            return await this.openAiClient.chat.completions.create({
-              model: 'gpt-4o-mini',
-              messages,
-              tools,
-              tool_choice: 'auto',
-              max_tokens: 300,
-            });
+            this.aiClient.bindTools(tools)
+            const clientResp = await this.aiClient.invoke([
+              { role: 'system', content: promptAI },
+              {
+                role: 'user',
+                content: `[HISTORIAL-RESUMIDO]\n${condensedHistory}`,
+              },
+              { role: 'user', content: compressedInput },
+            ])
+            return clientResp
           } catch (err: any) {
             attempt++;
             const isRate = err?.code === 'rate_limit_exceeded' || err?.status === 429;
@@ -297,11 +340,11 @@ export class AiAgentService {
       };
 
       const response = await createChatCompletion();
-      const choice: any = response.choices?.[0];
-      const toolCall = choice?.message?.tool_calls?.[0];
+      const choice = response;
+      const toolCall = choice.tool_calls?.shift();
 
       //Registro de créditos por usuario
-      const tokensUsed = response.usage?.total_tokens ?? 0;
+      const tokensUsed = response.lc_kwargs.response_metadata.token_usage ?? 0;
       await this.aiCredits.trackTokens(userId, tokensUsed);
 
       // Procesamiento de tool
@@ -310,7 +353,7 @@ export class AiAgentService {
 
         let args;
         try {
-          args = JSON.parse(toolCall.function.arguments);
+          args = toolCall.args;
         } catch (e) {
           this.logger.error('Error al parsear los argumentos del toolCall', e.message);
           const followupText = '[ERROR_TOOL_ARGS_PARSING]';
@@ -319,7 +362,7 @@ export class AiAgentService {
           return aiResponse;
         }
 
-        const toolName = toolCall.function.name;
+        const toolName = toolCall.name;
 
         switch (toolName) {
           case 'notificacion':
@@ -334,30 +377,49 @@ export class AiAgentService {
             );
 
             // Luego continuar la conversación con una respuesta generada por la IA
-            const followUp = await this.openAiClient.chat.completions.create({
-              model: 'gpt-4o-mini',
-              messages: [
-                ...messages,
+            /*  const followUpr = await this.openAiClient.chat.completions.create({
+               model: 'gpt-4o-mini',
+               messages: [
+                 ...messages,
+                 {
+                   role: 'assistant',
+                   tool_calls: [toolCall],
+                 },
+                 {
+                   role: 'tool',
+                   tool_call_id: toolCall.id,
+                   content: '',
+                 },
+               ],
+             });             */
+            const followUp = await this.aiClient.invoke([
+              ...[
+                { role: 'system', content: promptAI },
                 {
-                  role: 'assistant',
-                  tool_calls: [toolCall],
+                  role: 'user',
+                  content: `[HISTORIAL-RESUMIDO]\n${condensedHistory}`,
                 },
-                {
-                  role: 'tool',
-                  tool_call_id: toolCall.id,
-                  content: '',
-                },
+                { role: 'user', content: compressedInput },
               ],
-            });
+              new AIMessage({
+                content: '',
+                tool_calls: [toolCall]
+              }),
+              new ToolMessage({
+                content: '',
+                tool_call_id: toolCall.id || ''
+              })
+            ])
 
             //Registro de créditos por usuario
-            const tokensUsed = followUp.usage?.total_tokens ?? 0;
+            // const tokensUsed = followUp.usage?.total_tokens ?? 0;
+            const tokensUsed = response.lc_kwargs.response_metadata.token_usage ?? 0;
             await this.aiCredits.trackTokens(userId, tokensUsed);
 
             const followupText = '✅ Solicitud enviada. En breve te contactará un asesor.';
             const aiResponse = this.processAgentFollowup(followupText, promptAI);
 
-            return followUp.choices?.[0]?.message?.content?.trim() ?? aiResponse;
+            return followUp.content.toString().trim() ?? aiResponse;
 
 
           case 'execute_workflow':
@@ -374,13 +436,13 @@ export class AiAgentService {
             );
 
           default:
-            this.logger.warn(`Tool no soportada: ${toolCall.function.name}`, 'AiAgentService');
+            this.logger.warn(`Tool no soportada: ${toolCall.name}`, 'AiAgentService');
         }
       }
       const followupText = ERROR_OPENAI_EMPTY_RESPONSE;
       const aiResponse = this.processAgentFollowup(followupText, promptAI);
 
-      return choice?.message?.content?.trim() ?? aiResponse;
+      return choice.content?.toString().trim() ?? aiResponse;
     } catch (error) {
       this.logger.error('Error procesando entrada con OpenAI.', error?.response?.data || error.message, 'AiAgentService');
       const followupText = '[ERROR_PROCESSING_OPENAI_INPUT]';
@@ -489,69 +551,69 @@ export class AiAgentService {
     userPrompt: string,
   ): Promise<string> {
     const finalPrompt = `El flujo automatizado respondió: "${followupText}". Ahora responde al usuario de manera natural y útil.`;
+    const messages = [
+      new SystemMessage({
+        content: [
+          {
+            type: "text",
+            text: "Eres un asistente útil que traduce resultados de flujos automatizados a lenguaje natural para el usuario final."
+          },
+          { type: 'text', text: followupText }
+        ]
+      }),
+      new HumanMessage({
+        content: [
+          { type: 'text', text: userPrompt },
+        ]
+      }),
+      new HumanMessage({
+        content: [
+          { type: 'text', text: finalPrompt },
+        ]
+      }),
+    ]
 
-    const completion = await this.openAiClient.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "Eres un asistente útil que traduce resultados de flujos automatizados a lenguaje natural para el usuario final." },
-        { role: "user", content: userPrompt },
-        { role: "assistant", content: followupText },
-        { role: "user", content: finalPrompt },
-      ],
-    });
+    const completionR = await this.aiClient.invoke(messages)
 
-    const finalMessage = completion.choices[0].message.content || followupText;
 
-    return finalMessage;
+    const finalMessageR = completionR.content.toString() || followupText;
+
+    return finalMessageR;
   }
 
   /**
-   * Descarga un archivo de audio desde una URL.
-   *
-   * @param {string} url
-   * @param {string} outputPath
-   * @returns {Promise<void>}
-   */
-  private async downloadAudioFile(url: string, outputPath: string): Promise<void> {
-    // Verifica que la carpeta destino exista. Crea la carpeta si no existe
-    const dir = path.dirname(outputPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    const writer = fs.createWriteStream(outputPath);
-    const response = await axios.get(url, { responseType: 'stream' });
-
-    response.data.pipe(writer);
-
-    return new Promise((resolve, reject) => {
-      writer.on('finish', resolve);
-      writer.on('error', reject);
-    });
-  };
-
-  /**
-   * Transcribe un archivo de audio utilizando OpenAI Whisper.
+   * Transcribe un archivo de audio utilizando el agente.
+   * y devuelve su transcripcion
    *
    * @param {string} audioUrl
-   * @returns {Promise<string>}
+   * @returns {Promise<string>
    */
-  async transcribeAudio(audioUrl: string, apikeyOpenAi: string): Promise<string> {
+  async transcribeAudio(audioUrl: string, audioType: string, apikeyOpenAi: string, data: any): Promise<string> {
     try {
       this.initializeClient(apikeyOpenAi);
+      const axiosRes = await axios.get(audioUrl, { responseType: "arraybuffer" });
+      const base64Audio = Buffer.from(axiosRes.data).toString("base64");
+      const message = new HumanMessage({
+        content: [
+          {
+            type: "text",
+            text: "Transcribe de forma clara y detallada este audio.",
+          },
+          {
+            "type": "media",
+            "data": base64Audio,  // Use base64 string directly
+            "mimeType": `${audioType}`
+          },
+        ],
+      })
+      const state = await this.aiClient.invoke([message])
 
-      const tempFilePath = path.resolve(__dirname, '../../tmp/temp_audio_file.oga');
-      await this.downloadAudioFile(audioUrl, tempFilePath);
 
-      const transcription = await this.openAiClient.audio.transcriptions.create({
-        file: fs.createReadStream(tempFilePath),
-        model: 'whisper-1',
-        language: 'es',
-      });
-
-      fs.unlinkSync(tempFilePath);
-      return transcription.text;
+      // fs.unlinkSync(tempFilePath);
+      return state.content.toString()
+      // return transcription.text;
     } catch (error) {
-      this.logger.error('Error transcribiendo audio con OpenAI.', error?.response?.data || error.message, 'AiAgentService');
+      this.logger.error('Error transcribiendo audio.', error?.response?.data || error.message, 'AiAgentService');
       return '[ERROR_TRANSCRIBING_AUDIO]';
     }
   };
@@ -562,30 +624,32 @@ export class AiAgentService {
    * @param {string} imageUrl
    * @returns {Promise<string>}
    */
-  async describeImage(imageUrl: string, apikeyOpenAi: string): Promise<string> {
+  async describeImage(data: any, imageBase64: string, imageType: string, apikeyOpenAi: string): Promise<string> {
     try {
-      this.initializeClient(apikeyOpenAi);
 
-      const response = await this.openAiClient.responses.create({
-        model: 'gpt-4o-mini',
-        input: [
-          { role: 'user', content: 'Describe de forma clara y detallada el contenido de esta imagen.' },
+
+
+      this.initializeClient(apikeyOpenAi);
+      // Refactor
+      const message = new HumanMessage({
+        content: [
           {
-            role: 'user',
-            content: [
-              {
-                type: 'input_image',
-                image_url: imageUrl,
-                detail: 'auto',
-              },
-            ],
+            type: "text",
+            text: "Describe de forma clara y detallada el contenido de esta imagen.",
+          },
+          {
+            type: "image_url",
+            image_url: { url: `data:${imageType == '' ? 'image/jpeg' : imageType};base64,${imageBase64}` },
+
           },
         ],
-      });
+      })
 
-      return response.output_text ?? '[ERROR_DESCRIBING_IMAGE]';
+      const response = await this.aiClient.invoke([message])
+      return response.content.toString() ?? '[ERROR_DESCRIBING_IMAGE]'
+
     } catch (error) {
-      this.logger.error('Error describiendo imagen con OpenAI.', error?.response?.data || error.message, 'AiAgentService');
+      this.logger.error('Error describiendo imagen.', error?.response?.data || error.message, 'AiAgentService');
       return '[ERROR_DESCRIBING_IMAGE]';
     }
   };

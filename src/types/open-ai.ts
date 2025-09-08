@@ -1,5 +1,6 @@
 import { Pausar, User } from "@prisma/client";
-import { ChatCompletionMessageToolCall } from "openai/resources/chat";
+// import { ChatCompletionMessageToolCall } from "openai/resources/chat";
+import { ChatCompletionMessageToolCall } from "openai/resources/index.mjs";
 
 const whatsappCreditsMsg = 'https://w.app/verzay';
 export interface IntentionItem {

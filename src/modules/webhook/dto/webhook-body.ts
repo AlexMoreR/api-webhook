@@ -11,41 +11,54 @@ export class WebhookBodyDto {
   
   export class WebhookDataDto {
     key: {
-      remoteJid: string;
-      fromMe: boolean;
-      id: string;
+        remoteJid: string;
+        fromMe: boolean;
+        id: string;
+        senderLid?: string; // Add this field, as it is present in the object but not the original type
     };
     pushName: string;
     status: string;
     message?: {
-      conversation?: string;
-      mediaUrl?: string;
-      imageMessage?: {
-        url: string;
-        mimetype: string;
-        fileSha256: string;
-        fileLength: string;
-        height: number;
-        width: number;
-        mediaKey: string;
-        fileEncSha256: string;
-        directPath: string;
-        mediaKeyTimestamp: string;
-        jpegThumbnail: string;
-        contextInfo: {
-          disappearingMode: {
-            initiator: string;
-          };
+        conversation?: string;
+        mediaUrl?: string;
+        imageMessage?: {
+            url: string;
+            mimetype: string;
+            fileSha256: string;
+            fileLength: string;
+            height: number;
+            width: number;
+            mediaKey: string;
+            fileEncSha256: string;
+            directPath: string;
+            mediaKeyTimestamp: string;
+            jpegThumbnail: string;
+            contextInfo: {
+                disappearingMode: {
+                    initiator: string;
+                };
+            };
+            viewOnce: boolean;
         };
-        viewOnce: boolean;
-      };
-      messageContextInfo?: any;
-      base64?: string;
+        audioMessage?: {
+            url: string;
+            mimetype: string;
+            fileSha256: string;
+            fileLength: string;
+            seconds: number;
+            ptt: boolean;
+            mediaKey: string;
+            fileEncSha256: string;
+            directPath: string;
+            mediaKeyTimestamp: string;
+            waveform: string;
+        };
+        messageContextInfo?: any;
+        base64?: string;
     };
     contextInfo?: any;
     messageType: string;
     messageTimestamp: number;
     instanceId: string;
     source: string;
-  }
-  
+}
