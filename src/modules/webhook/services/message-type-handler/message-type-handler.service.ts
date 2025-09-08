@@ -24,7 +24,7 @@ export class MessageTypeHandlerService {
       case 'audioMessage':
         const audioUrl = data?.message?.mediaUrl;
         const audioType = data?.message?.audioMessage?.mimetype ?? ''
-        console.log('Audio type is...',audioType)
+        
         if (audioUrl) {
           return await this.aiAgentService.transcribeAudio(audioUrl,audioType, userApiKey,data);
         }
@@ -48,7 +48,6 @@ export class MessageTypeHandlerService {
 
 
           } catch (error) {
-            console.error('Error al descargar o procesar la imagen:', error);
             return '[IMAGE_DOWNLOAD_FAILED]';
           }
         }
