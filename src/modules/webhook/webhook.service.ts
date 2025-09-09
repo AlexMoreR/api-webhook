@@ -22,6 +22,7 @@ import { AntifloodService } from './services/antiflood/antiflood.service';
 
 @Injectable()
 export class WebhookService {
+  public static readonly DELAYCONVERSATION = 10000
   constructor(
     private readonly logger: LoggerService,
     private readonly sessionService: SessionService,
@@ -48,6 +49,12 @@ export class WebhookService {
    * @returns {Promise<void>}
    */
   async processWebhook(body: WebhookBodyDto): Promise<void> {
+    
+
+    // Tiempo de respuesta del bot para mayor naturalidad
+    const delayConversation = WebhookService.DELAYCONVERSATION;
+
+    // Se extraen los datos de la llamada del webhook
     const {
       instance: instanceName,
       server_url,
@@ -55,20 +62,25 @@ export class WebhookService {
       data,
     } = body;
 
-    const delayConversation = 10000;
+    //Se extraen los datos del usuario emisor dentro de "data" de la llamada del webhook
     const remoteJid = data?.key?.remoteJid ?? '';
     const pushName = data?.pushName || 'Desconocido';
 
+    //Se busca la informacion del usuario en la aplicacion a partir de su instancia en evolution api
     const prismaInstancia = await this.instancesService.getUserId(instanceName);
     const userId = prismaInstancia?.userId ?? '';
     const instanceId = prismaInstancia?.instanceId ?? '';
-    const fromMe = data?.key?.fromMe ?? false;
-    const messageType = data?.messageType ?? '';
+
     /* user information */
     const userWithRelations = await this.userService.getUserWithPausar(userId) as User & { pausar: Pausar[] };
     /* apikey */
     const apikeyOpenAi = userWithRelations?.apiUrl as string;
-
+    
+    //Informacion del tipo de mensaje 
+    const fromMe = data?.key?.fromMe ?? false;
+    const messageType = data?.messageType ?? '';
+    
+    
     const sessionStatus = await this.checkOrRegisterSession(remoteJid, instanceName, userId, pushName, userWithRelations);
     const msgChat = data?.message?.conversation ?? '';
     const conversationMsg = msgChat.trim().toLowerCase();
