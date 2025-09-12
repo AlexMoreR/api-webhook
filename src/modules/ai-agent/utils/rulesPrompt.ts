@@ -65,6 +65,10 @@ export const systemPromptWorkflow = (input, formattedList) => {
   - Si no hay coincidencias, devolver:
     { "nombre_flujo": [], "detalles": "${input}" }
   - No inventar nombres ni modificar los existentes.
+   - La respuesta debe ser **únicamente el objeto JSON**, sin texto adicional, explicaciones, o encabezados.
+    - **NO** uses backticks (\`\`\`), bloques de código, ni la palabra 'json'.
+     - La respuesta debe poder ser procesada directamente por un parser de JSON.
+
   
   # 🚫 Prohibido
   - No agregar contexto, explicaciones ni mensajes adicionales.

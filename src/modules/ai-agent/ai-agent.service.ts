@@ -13,10 +13,12 @@ import { tools } from './utils/tools';
 import { ERROR_OPENAI_EMPTY_RESPONSE, extraRules, systemPromptWorkflow } from './utils/rulesPrompt';
 import { PromptCompressorService } from './services/prompt-compressor/prompt-compressor.service';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
+import { tool } from '@langchain/core/tools';
 
 // Refactor
 import { LlmClientFactory } from './services/llmClientFactory/llmClientFactory.service';
 import { AIMessage, AIMessageChunk, HumanMessage, SystemMessage, ToolMessage } from "@langchain/core/messages";
+import { langchainTools } from './utils/langchainTools';
 
 @Injectable()
 export class AiAgentService {
@@ -104,10 +106,10 @@ export class AiAgentService {
         "id": ${index + 1},
         "nombre": "${flow.name}",
         "descripcion": "${flow.description || 'Sin descripción'}"
-      }`;
+      }`
       }).join(',\n');
 
-
+      
 
       this.logger.log(`Lista de flujos: ${JSON.stringify(formattedList)}`);
 
@@ -313,13 +315,14 @@ export class AiAgentService {
       const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 
       // Función auxiliar con retry automático
-      const createChatCompletion = async (): Promise<AIMessageChunk> => {
+      const createChatCompletion = async (): Promise<any> => {
         let attempt = 0;
         const maxAttempts = 3;
         while (true) {
           try {
-            this.aiClient.bindTools(tools)
-            const clientResp = await this.aiClient.invoke([
+            
+            
+            const clientResp = await this.aiClient.bindTools(langchainTools).invoke([
               { role: 'system', content: promptAI },
               {
                 role: 'user',
@@ -341,10 +344,10 @@ export class AiAgentService {
 
       const response = await createChatCompletion();
       const choice = response;
-      const toolCall = choice.tool_calls?.shift();
+      const toolCall = choice.tool_calls.shift();
 
       //Registro de créditos por usuario
-      const tokensUsed = response.lc_kwargs.response_metadata.token_usage ?? 0;
+      const tokensUsed = response.usage_metadata.total_tokens ?? 0;
       await this.aiCredits.trackTokens(userId, tokensUsed);
 
       // Procesamiento de tool
@@ -367,6 +370,8 @@ export class AiAgentService {
         switch (toolName) {
           case 'notificacion':
             // Ejecutar la tool sin retornar nada al usuario
+            console.log('Enviando notificacion a un asesor 😎')
+            this.logger.log('Activada notificacion a...',remoteJid)
             await this.notificacionTool.handleNotificacionTool(
               args,
               userId,
@@ -463,13 +468,14 @@ export class AiAgentService {
     remoteJid: string,
     userPrompt: string
   ): Promise<string> {
+    this.logger.log('Se esta ejecutando una tool... 😎')
     const detectionResult = await this.openAIToolDetection({
       // input: args.nombre_flujo,
       input: args,
       sessionId,
       userId
     });
-    const res = detectionResult.content;
+    const res = detectionResult.content?.toString();
     const raw = res?.trim();
 
     if (!raw || raw.toLowerCase() === 'ninguno') {
