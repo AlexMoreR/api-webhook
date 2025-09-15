@@ -58,4 +58,17 @@ export class UserService {
             },
         });
     }
+
+    async getPausarForUser(userId: string): Promise<Pausar[] | null> {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                pausar: true,
+            },
+        });
+
+        return user ? user.pausar : null;
+    }
+
 }
+
