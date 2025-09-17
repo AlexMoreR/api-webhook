@@ -594,7 +594,7 @@ export class AiAgentService {
    * @param {string} audioUrl
    * @returns {Promise<string>
    */
-  async transcribeAudio(audioUrl: string, audioType: string, apikeyOpenAi: string, data: any): Promise<string> {
+  async transcribeAudio(audioUrl: string, audioType: string, apikeyOpenAi: string): Promise<string> {
     try {
       this.initializeClient(apikeyOpenAi);
       const axiosRes = await axios.get(audioUrl, { responseType: "arraybuffer" });
@@ -630,7 +630,7 @@ export class AiAgentService {
    * @param {string} imageUrl
    * @returns {Promise<string>}
    */
-  async describeImage(data: any, imageBase64: string, imageType: string, apikeyOpenAi: string): Promise<string> {
+  async describeImage( imageBase64: string, imageType: string, apikeyOpenAi: string): Promise<string> {
     try {
 
 

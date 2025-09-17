@@ -26,10 +26,11 @@ import { AntifloodService } from './services/antiflood/antiflood.service';
 import { PromptCompressorService } from '../ai-agent/services/prompt-compressor/prompt-compressor.service';
 import { LlmClientFactory } from '../ai-agent/services/llmClientFactory/llmClientFactory.service';
 import { AiAgentModule } from '../ai-agent/ai-agent.module';
+import { WebhookOrchestatorModule } from './modules/orchestator/WebhookOrchestator.module';
 
 @Module({
   imports: [HttpModule,
-     WorkflowModule, AiAgentModule,],
+     WorkflowModule, AiAgentModule,WebhookOrchestatorModule],
 
   controllers: [WebhookController],
 

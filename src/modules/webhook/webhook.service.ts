@@ -19,6 +19,7 @@ import { AiCreditsService } from '../ai-credits/ai-credits.service';
 import { SessionTriggerService } from '../session-trigger/session-trigger.service';
 import { CreditValidationInput, onAutoRepliesInterface, stopOrResumeConversation, flags, getReactivateDate } from 'src/types/open-ai';
 import { AntifloodService } from './services/antiflood/antiflood.service';
+import { WebhookOrchestatorService } from './modules/orchestator/WebhookOrchestator.service';
 
 @Injectable()
 export class WebhookService {
@@ -40,6 +41,7 @@ export class WebhookService {
     private readonly aiCreditsService: AiCreditsService,
     private readonly sessionTriggerService: SessionTriggerService,
     private readonly antifloodService: AntifloodService,
+    private readonly webhookOrchestatorService: WebhookOrchestatorService,
   ) { }
 
   /**
@@ -61,6 +63,15 @@ export class WebhookService {
       apikey,
       data,
     } = body;
+    
+    const {clientData,userContext} = await this.webhookOrchestatorService.extractRequest(body)
+
+    const validate = await this.webhookOrchestatorService.validateRequest(clientData,userContext)    
+    
+    if(!validate){
+      this.logger.error('Error validating fields')
+    }
+    
 
     //Se extraen los datos del usuario emisor dentro de "data" de la llamada del webhook
     const remoteJid = data?.key?.remoteJid ?? '';

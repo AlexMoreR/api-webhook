@@ -9,6 +9,7 @@ export class UserContext {
         public readonly instanceId: string,
         public readonly instanceName: string,
         public readonly evoApikey: string,
+        public readonly llmClientApiKey: string,
         public readonly apiUrl: string,
         public readonly webhookUrl: string,
         public readonly notificationNumber: string,
@@ -30,6 +31,5 @@ export class UserContext {
         const pausar = await this.userService.getPausarForUser(this.id)    
         return pausar
     }
-
 
 }
