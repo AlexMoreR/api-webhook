@@ -41,10 +41,10 @@ export class AiAgentService {
   ) { }
 
   /**
-   * Inicializa el cliente de OpenAI con una API Key proporcionada.
-   *
-   * @param {string} apikeyOpenAi
-   */
+  * Inicializa el cliente de OpenAI con una API Key proporcionada.
+  *
+  * @param {string} apikeyOpenAi
+  */
   private initializeClient(apikeyOpenAi: string): BaseChatModel {
     if (!this.isValidApiKey(apikeyOpenAi)) {
       this.logger.error('API Key inválida o no proporcionada.', '', 'AiAgentService');
@@ -57,24 +57,24 @@ export class AiAgentService {
   };
 
   /**
-   * Valida si una API Key parece válida.
-   *
-   * @param {string} apikeyOpenAi
-   * @returns {boolean}
-   */
+  * Valida si una API Key parece válida.
+  *
+  * @param {string} apikeyOpenAi
+  * @returns {boolean}
+  */
   private isValidApiKey(apikeyOpenAi: string): boolean {
     return typeof apikeyOpenAi === 'string' && apikeyOpenAi.startsWith('sk-') && apikeyOpenAi.length >= 40;
   };
 
   /**
-   * Procesa la entrada de texto del usuario.
-   *
-   * @param {string} input
-   * @param {string} userId
-   * @param {string} apikeyOpenAi
-   * @param {string} sessionId - ID de la sesión (ej: instance_name + remotejid)
-   * @returns {Promise<string>}
-   */
+  * Procesa la entrada de texto del usuario.
+  *
+  * @param {string} input
+  * @param {string} userId
+  * @param {string} apikeyOpenAi
+  * @param {string} sessionId - ID de la sesión (ej: instance_name + remotejid)
+  * @returns {Promise<string>}
+  */
 
   private async getWeather(location: string): Promise<string> {
     // Aquí podrías hacer una llamada real a una API de clima
@@ -84,14 +84,14 @@ export class AiAgentService {
 
 
   /**
-   * Se procesa la tool con openAI - segundo agente
-   *
-   * @private
-   * @param input - msg
-   * @param sessionId - Nombre de la instancia en Evolution API
-   * @param userId - Identificador del usuario
-   * @returns {Promise<string>}
-   */
+  * Se procesa la tool con openAI - segundo agente
+  *
+  * @private
+  * @param input - msg
+  * @param sessionId - Nombre de la instancia en Evolution API
+  * @param userId - Identificador del usuario
+  * @returns {Promise<string>}
+  */
   private async openAIToolDetection({
     input,
     sessionId,
@@ -105,10 +105,10 @@ export class AiAgentService {
 
       const formattedList = workflows.map((flow, index) => {
         return `{
-        "id": ${index + 1},
-        "nombre": "${flow.name}",
-        "descripcion": "${flow.description || 'Sin descripción'}"
-      }`
+    "id": ${index + 1},
+    "nombre": "${flow.name}",
+    "descripcion": "${flow.description || 'Sin descripción'}"
+   }`
       }).join(',\n');
 
 
@@ -185,19 +185,19 @@ export class AiAgentService {
   };
 
   /**
-   * Se procesa el texto 
-   *
-   * @private
-   * @param input - msg
-   * @param userId - User ID
-   * @param apikeyOpenAi - API Key Open AI
-   * @param sessionId - Nombre de la instancia en Evolution API
-   * @param server_url - URL base del servidor Evolution
-   * @param apikey - API Key para autorización con Evolution
-   * @param instanceName - Nombre de la instancia en Evolution API
-   * @param remoteJid - Número del cliente en formato WhatsApp
-   * @returns {Promise<string>}
-   */
+  * Se procesa el texto 
+  *
+  * @private
+  * @param input - msg
+  * @param userId - User ID
+  * @param apikeyOpenAi - API Key Open AI
+  * @param sessionId - Nombre de la instancia en Evolution API
+  * @param server_url - URL base del servidor Evolution
+  * @param apikey - API Key para autorización con Evolution
+  * @param instanceName - Nombre de la instancia en Evolution API
+  * @param remoteJid - Número del cliente en formato WhatsApp
+  * @returns {Promise<string>}
+  */
   async processInput({
     input,
     userId,
@@ -207,9 +207,9 @@ export class AiAgentService {
     apikey,
     instanceName,
     remoteJid
-  }: proccessInput) {
+  }: proccessInput): Promise<string> {
     let promptAI = ''; // Declarar aquí para que esté disponible en el catch
-    console.log('esto son los datos que estoy obteniendo para userId',userId)
+    console.log('esto son los datos que estoy obteniendo para userId', userId)
 
     try {
       this.initializeClient(apikeyOpenAi);
@@ -222,23 +222,32 @@ export class AiAgentService {
 
       const formattedList = workflows.map((flow, index) => {
         return `{
-        "id": ${index + 1},
-        "nombre": "${flow.name}",
-        "descripcion": "${flow.description || 'Sin descripción'}"
-      }`;
+    "id": ${index + 1},
+    "nombre": "${flow.name}",
+    "descripcion": "${flow.description || 'Sin descripción'}"
+   }`;
       }).join(',\n');
+
+      // ** Lógica para extraer la respuesta literal de la BD **
+      // Busca el texto que sigue a la regla "Comportamiento: Después de ejecutar el flujo, tu única respuesta es la que se te indique en Regla/parámetro."
+      const match = systemPrompt.match(/Comportamiento: Después de ejecutar el flujo, tu única respuesta es la que se te indique en Regla\/parámetro\.\n\n\*\s*([^\n]+)/i);
+      // Usa la respuesta extraída (ej: "Ya te ayudo.") o un fallback por defecto
+      const workflowSuccessResponse = match ? match[1].trim() : "¡Hola! ¿En qué puedo ayudarte?";
+      this.logger.log(`Respuesta literal de workflow extraída: ${workflowSuccessResponse}`);
+      // ** Fin Lógica para extraer la respuesta literal de la BD **
 
       // 2) Validar que en la lista (formattedList/workflows) exista this.initWorkflowName
       const hasInicioBienvenida = workflows?.some(
         (w: any) =>
           typeof w?.name === 'string' &&
-          w.name.trim().toLowerCase() === this.initWorkflowName
+          w.name.trim().toLowerCase() === this.initWorkflowName.toLowerCase()
       );
 
       // 3) Si NO hay historial y existe el flujo, ejecutarlo vía tool "execute_workflow"
       if (noHistory && hasInicioBienvenida) {
-        // Mantengo tu misma ruta de ejecución de tools para no duplicar lógica:
-        await this.handleExecuteWorkflowTool(
+
+        // Ejecuta y retorna la respuesta (será la literal si fue exitoso)
+        return await this.handleExecuteWorkflowTool(
           { nombre_flujo: [this.initWorkflowName] } as any, // <- args esperados por tu tool
           userId,
           apikeyOpenAi,
@@ -247,11 +256,9 @@ export class AiAgentService {
           apikey,
           instanceName,
           remoteJid,
-          this.initWorkflowName // userPrompt (no se usa para responder; handle... retorna '')
+          this.initWorkflowName, // userPrompt (no se usa para responder; handle... retorna '')
+          workflowSuccessResponse // <-- **Pasando la respuesta literal**
         );
-
-        // Importante: corta aquí para que el agente NO responda después de ejecutar el flujo
-        // return '';
       }
 
       const workflowTrigger = `lista de flujos disponibles ${formattedList}`
@@ -259,22 +266,21 @@ export class AiAgentService {
 
 
       // =====================================================================
-      // CAMBIO: Se elimina toda lógica de compresión de historial e input.
-      // Se usan los datos crudos directamente.
+      // INICIO - Construcción de mensajes para el LLM
       // =====================================================================
 
       // 1) Historial (NO COMPRIMIDO)
       const historyMessages = chatHistory.map(text => new HumanMessage({
-          content: [{ type: "text", text: text }],
+        content: [{ type: "text", text: text }],
       }));
 
       // 2) Input del usuario (NO COMPRIMIDO)
       const rawInputMessage = new HumanMessage({
-          content: [{ type: "text", text: input }],
+        content: [{ type: "text", text: input }],
       });
-      
+
       const systemMessage = new SystemMessage({
-          content: [{ type: "text", text: promptAI }],
+        content: [{ type: "text", text: promptAI }],
       });
 
       this.logger.debug(`PROMPT AI =======> ${JSON.stringify(promptAI)}`);
@@ -282,12 +288,12 @@ export class AiAgentService {
 
       // 3) Construcción de mensajes para la invocación (System + History + Input)
       const messagesForLlm = [
-          systemMessage,
-          ...historyMessages,
-          rawInputMessage,
+        systemMessage,
+        ...historyMessages,
+        rawInputMessage,
       ];
       // =====================================================================
-      // FIN CAMBIO
+      // FIN - Construcción de mensajes para el LLM
       // =====================================================================
 
 
@@ -346,6 +352,8 @@ export class AiAgentService {
             // Ejecutar la tool sin retornar nada al usuario
             console.log('Enviando notificacion a un asesor 😎')
             this.logger.log('Activada notificacion a...', remoteJid)
+
+            // 1. Ejecutar la lógica de la herramienta (asíncrona)
             await this.notificacionTool.handleNotificacionTool(
               args,
               userId,
@@ -355,32 +363,34 @@ export class AiAgentService {
               remoteJid
             );
 
-            // Reconstruir el contexto para el follow-up sin compresión
+            // ** 2. Define el resultado/notificación para el LLM (el ToolMessage content) **
+            const toolExecutionResult = "Notificación a asesor enviada exitosamente.";
+
+            // 3. Reconstruir el contexto para el follow-up 
             const followUpMessages = [
               systemMessage,
               ...historyMessages,
               rawInputMessage,
-              new AIMessage({
+              new AIMessage({ // Mensaje original del LLM llamando a la tool
                 content: '',
                 tool_calls: [toolCall]
               }),
-              new ToolMessage({
-                content: '',
+              new ToolMessage({ // ** El mensaje de notificación del resultado al LLM **
+                content: toolExecutionResult,
                 tool_call_id: toolCall.id || ''
               })
             ];
 
+            // 4. Invocar al LLM por segunda vez (follow-up)
             const followUp = await this.aiClient.invoke(followUpMessages)
 
-            // ⭐ CORRECCIÓN: Eliminar 'await' y validar la ruta de propiedades de forma segura.
+            // ⭐ Manejo de Créditos
             const totalTokensFollowUp = followUp?.usage_metadata?.total_tokens;
             const tokensUsedFollowUp = totalTokensFollowUp ? parseInt(totalTokensFollowUp.toString(), 10) : 0;
             await this.aiCredits.trackTokens(userId, tokensUsedFollowUp);
 
-            const followupText = '✅ Solicitud enviada. En breve te contactará un asesor.';
-            const aiResponse = this.processAgentFollowup(followupText, promptAI);
-
-            return followUp.content.toString().trim() ?? aiResponse;
+            // Retorna la respuesta generada por el LLM o un fallback
+            return followUp.content.toString().trim() ?? 'Tu solicitud ha sido procesada.';
 
 
           case 'execute_workflow':
@@ -394,6 +404,7 @@ export class AiAgentService {
               instanceName,
               remoteJid,
               promptAI,
+              workflowSuccessResponse // <-- Pasando la respuesta literal
             );
 
           default:
@@ -422,8 +433,9 @@ export class AiAgentService {
     apikey: string,
     instanceName: string,
     remoteJid: string,
-    userPrompt: string
-  ): Promise<string|void> {
+    userPrompt: string,
+    successResponseLiteral?: string // <-- Nuevo parámetro para la respuesta literal
+  ): Promise<string> {
     this.logger.log('Se esta ejecutando una tool... 😎')
     const detectionResult = await this.openAIToolDetection({
       // input: args.nombre_flujo,
@@ -464,6 +476,7 @@ export class AiAgentService {
 
     const workflows = await this.workflowService.getWorkflow(userId);
     let workflowMessages: string[] = [];
+    // let executedFlowsCount = 0; // Se remueve ya que la lógica retorna en el primer flujo
 
     for (const nombre of nombresDetectados) {
       const currentWorkflow = workflows.find(
@@ -494,6 +507,17 @@ export class AiAgentService {
           userId
         );
         workflowMessages.push(`✅ Se ejecutó: *${currentWorkflow.name}*`);
+
+        // ** Lógica de Respuesta Literal para INICIO_BIENVENIDA (corregida previamente) **
+        if (currentWorkflow.name.trim().toUpperCase() === this.initWorkflowName.toUpperCase() && successResponseLiteral) {
+          this.logger.log(`Devolviendo respuesta literal de la BD para ${this.initWorkflowName}: ${successResponseLiteral}`);
+          return successResponseLiteral; // <-- Retorno Inmediato del texto exacto
+        }
+
+        // Para cualquier otro flujo, usamos el LLM para seguimiento
+        const followupText = `✅ Flujo *${currentWorkflow.name}* iniciado correctamente.`;
+        return this.processAgentFollowup(followupText, userPrompt);
+
       } else {
         const followupText = `ℹ️ Ya ejecutado: *${currentWorkflow.name}*`;
         workflowMessages.push(followupText);
@@ -504,8 +528,9 @@ export class AiAgentService {
 
     this.logger.log(`Workflow result: ${JSON.stringify(workflowMessages.join('\n'))}`);
 
-    /* Se corta el ciclo  para evitar que el agente conteste despues de ejecutar una tool*/
-    // return '';
+    // Fallback por si no se encontró o se pudo ejecutar nada.
+    const fallbackText = 'No pude iniciar ningún flujo en este momento. ¿Te puedo ayudar con otra cosa?';
+    return this.processAgentFollowup(fallbackText, userPrompt);
   };
 
   private async processAgentFollowup(
@@ -544,12 +569,12 @@ export class AiAgentService {
   }
 
   /**
-   * Transcribe un archivo de audio utilizando el agente.
-   * y devuelve su transcripcion
-   *
-   * @param {string} audioUrl
-   * @returns {Promise<string>
-   */
+  * Transcribe un archivo de audio utilizando el agente.
+  * y devuelve su transcripcion
+  *
+  * @param {string} audioUrl
+  * @returns {Promise<string>
+  */
   async transcribeAudio(audioUrl: string, audioType: string, apikeyOpenAi: string, data: any): Promise<string> {
     try {
       this.initializeClient(apikeyOpenAi);
@@ -563,7 +588,7 @@ export class AiAgentService {
           },
           {
             "type": "media",
-            "data": base64Audio,  // Use base64 string directly
+            "data": base64Audio, // Use base64 string directly
             "mimeType": `${audioType}`
           },
         ],
@@ -581,11 +606,11 @@ export class AiAgentService {
   };
 
   /**
-   * Describe una imagen utilizando OpenAI GPT-4 con input de imagen.
-   *
-   * @param {string} imageUrl
-   * @returns {Promise<string>}
-   */
+  * Describe una imagen utilizando OpenAI GPT-4 con input de imagen.
+  *
+  * @param {string} imageUrl
+  * @returns {Promise<string>}
+  */
   async describeImage(data: any, imageBase64: string, imageType: string, apikeyOpenAi: string): Promise<string> {
     try {
 
