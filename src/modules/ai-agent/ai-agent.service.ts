@@ -54,7 +54,7 @@ export class AiAgentService {
     //const apiKey = 'AIzaSyAD9lijxH_RCeKTOi0YEuTI4CznvKdP3jA' // solo para pruebas con gemini
     const apikeyAlternativa = 'AIzaSyD-Llg1QYeLc39gM02FEA_TdxGpsInfclQ'
     //Modelo de ia a utilizar
-    this.aiClient = this.llmClientFactory.getClient({ provider: provider,apiKey:apikeyAlternativa, model:model })
+    this.aiClient = this.llmClientFactory.getClient({ provider: provider,apiKey:apikeyOpenAi, model:model })
     return this.aiClient
   };
 
