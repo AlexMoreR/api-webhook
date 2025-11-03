@@ -2,7 +2,10 @@ import axios from 'axios';
 import OpenAI from 'openai';
 import { Injectable } from '@nestjs/common';
 import { LoggerService } from 'src/core/logger/logger.service';
-
+import fs from "fs";
+import path from "path";
+import os from "os";
+import { promisify } from "util";
 import { PromptService } from '../prompt/prompt.service';
 import { ChatHistoryService } from '../chat-history/chat-history.service';
 import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
@@ -20,6 +23,9 @@ import { tool } from '@langchain/core/tools';
 import { LlmClientFactory } from './services/llmClientFactory/llmClientFactory.service';
 import { AIMessage, AIMessageChunk, HumanMessage, SystemMessage, ToolMessage } from "@langchain/core/messages";
 import { langchainTools } from './utils/langchainTools';
+
+const writeFile = promisify(fs.writeFile);
+const unlink = promisify(fs.unlink);
 
 @Injectable()
 export class AiAgentService {
@@ -615,62 +621,67 @@ ${followupText}`
     return finalMessageR;
   }
 
-  /**
-  * Transcribe un archivo de audio utilizando el agente.
-  * y devuelve su transcripcion
-  *
-  * @param {string} audioUrl
-  * @returns {Promise<string>
-  */
-  async transcribeAudio(audioUrl: string, audioType: string, apikeyOpenAi: string, data: any, defaultModel: string,
-    defaultProvider: string,): Promise<string> {
-    const axiosRes = await axios.get(audioUrl, {
-      responseType:
-        defaultProvider == 'openai' ?
-          "stream" : "arraybuffer"
-    });
-    const base64Audio = Buffer.from(axiosRes.data).toString("base64");
-    try {
-      if (defaultProvider == 'openai') {
-        this.initializeClient(apikeyOpenAi, 'whisper-1',
-          defaultProvider,);
-        const transcription = await this.aiClient.audio.transcriptions.create({
-          file: axiosRes.data,
-          model: 'whisper-1',
-          response_format: 'text',
-        })
-        return transcription
-      }
-      this.initializeClient(apikeyOpenAi, defaultModel,
-        defaultProvider,);
+/**
+ * Transcribe un archivo de audio utilizando el agente y devuelve su transcripción.
+ *
+ * Compatible con OGG → MP3 (usa conversión temporal para Whisper)
+ */
+async transcribeAudio(
+  audioUrl: string,
+  audioType: string,
+  apikeyOpenAi: string,
+  data: any,
+  defaultModel: string,
+  defaultProvider: string,
+): Promise<string> {
+  try {
+    const axiosRes = await axios.get(audioUrl, { responseType: "arraybuffer" });
+    const audioBuffer = Buffer.from(axiosRes.data);
 
+    // 🔹 Si el proveedor es OpenAI, usamos whisper-1
+    if (defaultProvider === "openai") {
+      const openai = new OpenAI({ apiKey: apikeyOpenAi });
 
+      // Crear un archivo temporal (Whisper requiere un archivo físico)
+      const tmpPath = path.join(os.tmpdir(), `temp_audio_${Date.now()}.mp3`);
+      await writeFile(tmpPath, audioBuffer);
 
-      const message = new HumanMessage({
-        content: [
-          { type: "text", text: "Transcribe de forma clara y detallada este audio." },
-          defaultProvider == 'openai' ?
-            {
-              type: "input_audio",
-              input_audio: {
-                data: base64Audio, format: `${audioType}`
-              }
-            } :
-            {
-              "type": "media",
-              "data": base64Audio,
-              "mimeType": `${audioType}`
-            },
-        ],
-      })
-      const state = await this.aiClient.invoke([message])
-      return state.content.toString()
-    } catch (error) {
-      this.logger.error('Error transcribiendo audio.', error?.response?.data || error.message, 'AiAgentService');
-      return '[ERROR_TRANSCRIBING_AUDIO]';
+      const transcription = await openai.audio.transcriptions.create({
+        file: fs.createReadStream(tmpPath), // ✅ fs estándar, no fs/promises
+        model: "whisper-1",
+        response_format: "text",
+      });
+
+      await unlink(tmpPath).catch(() => null); // Limpieza
+      return transcription.trim();
     }
-  };
 
+    // 🔹 Si el proveedor no es OpenAI (por ejemplo Gemini, Anthropic, etc.)
+    this.initializeClient(apikeyOpenAi, defaultModel, defaultProvider);
+    const base64Audio = audioBuffer.toString("base64");
+
+    const message = new HumanMessage({
+      content: [
+        { type: "text", text: "Transcribe de forma clara y detallada este audio." },
+        {
+          type: "media",
+          data: base64Audio,
+          mimeType: audioType.includes("ogg") ? "audio/mp3" : audioType,
+        },
+      ],
+    });
+
+    const result = await this.aiClient.invoke([message]);
+    return result.content?.toString()?.trim() ?? "[ERROR_TRANSCRIBING_AUDIO_GENERIC]";
+  } catch (error) {
+    this.logger.error(
+      "Error transcribiendo audio.",
+      error?.response?.data || error.message,
+      "AiAgentService",
+    );
+    return "[ERROR_TRANSCRIBING_AUDIO]";
+  }
+}
   /**
   * Describe una imagen utilizando OpenAI GPT-4 con input de imagen.
   *
