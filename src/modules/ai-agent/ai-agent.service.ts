@@ -15,6 +15,7 @@ import { ERROR_OPENAI_EMPTY_RESPONSE, extraRules, systemPromptWorkflow } from '.
 import { PromptCompressorService } from './services/prompt-compressor/prompt-compressor.service';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { tool } from '@langchain/core/tools';
+import { convertOggToMp3 } from './utils/ConvertOggToMp3';
 
 // Refactor
 import { LlmClientFactory } from './services/llmClientFactory/llmClientFactory.service';
@@ -625,24 +626,30 @@ ${followupText}`
   async transcribeAudio(audioUrl: string, audioType: string, apikeyOpenAi: string, data: any, defaultModel: string,
     defaultProvider: string,): Promise<string> {
     try {
-      this.initializeClient(apikeyOpenAi, defaultModel,
-        defaultProvider,);
+      if (defaultProvider == 'openai') {
+        this.initializeClient(apikeyOpenAi,'whisper-1',
+          defaultProvider,);
+      } else {
+        this.initializeClient(apikeyOpenAi, defaultModel,
+          defaultProvider,);
+      }
       const axiosRes = await axios.get(audioUrl, { responseType: "arraybuffer" });
       const base64Audio = Buffer.from(axiosRes.data).toString("base64");
 
       const message = new HumanMessage({
         content: [
           { type: "text", text: "Transcribe de forma clara y detallada este audio." },
-          // {
-          //   "type": "media",
-          //   "data": base64Audio,
-          //   "mimeType": `${audioType}`
-          // },
+          defaultProvider == 'openai'?
           {
             type: "input_audio",
             input_audio: {
               data: base64Audio, format: `${audioType}`
             }
+          }:
+          {
+            "type": "media",
+            "data": base64Audio,
+            "mimeType": `${audioType}`
           },
         ],
       })
