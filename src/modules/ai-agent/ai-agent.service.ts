@@ -15,7 +15,6 @@ import { ERROR_OPENAI_EMPTY_RESPONSE, extraRules, systemPromptWorkflow } from '.
 import { PromptCompressorService } from './services/prompt-compressor/prompt-compressor.service';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { tool } from '@langchain/core/tools';
-import { convertOggToMp3 } from './utils/ConvertOggToMp3';
 
 // Refactor
 import { LlmClientFactory } from './services/llmClientFactory/llmClientFactory.service';
