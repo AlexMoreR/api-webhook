@@ -638,18 +638,7 @@ ${followupText}`
             "data": base64Audio,
             "mimeType": `${audioType}`
           },
-          {
-            type: "text", // LangChain usa "text" en este contexto para la lista de content blocks
-            text: "", // El texto es vacío si solo se incluye data.
-            additional_kwargs: {
-              // Esta es la parte crucial para el contenido binario incrustado
-              // LangChain mapea esto internamente a 'inline_data' (Gemini) o 'image_url' (OpenAI)
-              inline_data: {
-                data: base64Audio,
-                mime_type: `${audioType}`,
-              }
-            }
-          },
+          { type: "input_audio", input_audio: { data: base64Audio, format: `${audioType}` } },
         ],
       })
       const state = await this.aiClient.invoke([message])
