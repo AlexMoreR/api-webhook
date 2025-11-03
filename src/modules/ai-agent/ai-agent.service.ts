@@ -626,18 +626,16 @@ ${followupText}`
   */
   async transcribeAudio(audioUrl: string, audioType: string, apikeyOpenAi: string, data: any, defaultModel: string,
     defaultProvider: string,): Promise<string> {
-    const axiosRes = await axios.get(audioUrl, {
-      responseType:
-        defaultProvider == 'openai' ?
-          "stream" : "arraybuffer"
-    });
-    const base64Audio = Buffer.from(axiosRes.data).toString("base64"); 
+    const axiosRes = await axios.get(audioUrl, {responseType:"arraybuffer"});
+    const audioBuffer = Buffer.from(axiosRes.data);
+    const audioStream = Readable.from(audioBuffer);
+    const base64Audio = Buffer.from(axiosRes.data).toString("base64");
     try {
       if (defaultProvider == 'openai') {
         this.initializeClient(apikeyOpenAi, 'whisper-1',
-          defaultProvider);          
+          defaultProvider);
         const transcription = await this.aiClient.audio.transcriptions.create({
-          file: axiosRes.data,
+          file: audioStream,
           model: 'whisper-1',
           response_format: 'text',
         })
