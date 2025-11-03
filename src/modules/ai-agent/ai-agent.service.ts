@@ -646,7 +646,9 @@ ${followupText}`
         })
         // 5️⃣ Limpiar el archivo temporal
         fs.unlinkSync(tempPath);
-        return transcription
+        return typeof transcription === "string"
+      ? transcription
+      : transcription.text;
       }
       this.initializeClient(apikeyOpenAi, defaultModel,
         defaultProvider,);
