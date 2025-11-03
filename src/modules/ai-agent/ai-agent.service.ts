@@ -626,7 +626,7 @@ ${followupText}`
     defaultProvider: string,): Promise<string> {
     try {
       if (defaultProvider == 'openai') {
-        this.initializeClient(apikeyOpenAi,'whisper-1',
+        this.initializeClient(apikeyOpenAi,'gpt-4o-mini-transcribe',
           defaultProvider,);
       } else {
         this.initializeClient(apikeyOpenAi, defaultModel,
@@ -637,7 +637,7 @@ ${followupText}`
 
       const message = new HumanMessage({
         content: [
-          { type: "text", text: "Transcribe de forma clara y detallada este audio." },
+          // { type: "text", text: "Transcribe de forma clara y detallada este audio." },
           defaultProvider == 'openai'?
           {
             type: "input_audio",
