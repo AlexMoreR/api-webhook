@@ -624,32 +624,39 @@ ${followupText}`
   */
   async transcribeAudio(audioUrl: string, audioType: string, apikeyOpenAi: string, data: any, defaultModel: string,
     defaultProvider: string,): Promise<string> {
+    const axiosRes = await axios.get(audioUrl, { responseType: "stream" });
+    const base64Audio = Buffer.from(axiosRes.data).toString("base64");
     try {
       if (defaultProvider == 'openai') {
-        this.initializeClient(apikeyOpenAi,'gpt-4o-mini',
+        this.initializeClient(apikeyOpenAi, 'whisper-1',
           defaultProvider,);
-      } else {
-        this.initializeClient(apikeyOpenAi, defaultModel,
-          defaultProvider,);
+        const transcription = await this.aiClient.audio.transcriptions({
+          file: axiosRes,
+          model: 'whisper-1',
+          response_format: 'text',
+        })
+        return transcription.text
       }
-      const axiosRes = await axios.get(audioUrl, { responseType: "arraybuffer" });
-      const base64Audio = Buffer.from(axiosRes.data).toString("base64");
+      this.initializeClient(apikeyOpenAi, defaultModel,
+        defaultProvider,);
+
+
 
       const message = new HumanMessage({
         content: [
           { type: "text", text: "Transcribe de forma clara y detallada este audio." },
-          defaultProvider == 'openai'?
-          {
-            type: "input_audio",
-            input_audio: {
-              data: base64Audio, format: `${audioType}`
-            }
-          }:
-          {
-            "type": "media",
-            "data": base64Audio,
-            "mimeType": `${audioType}`
-          },
+          defaultProvider == 'openai' ?
+            {
+              type: "input_audio",
+              input_audio: {
+                data: base64Audio, format: `${audioType}`
+              }
+            } :
+            {
+              "type": "media",
+              "data": base64Audio,
+              "mimeType": `${audioType}`
+            },
         ],
       })
       const state = await this.aiClient.invoke([message])
