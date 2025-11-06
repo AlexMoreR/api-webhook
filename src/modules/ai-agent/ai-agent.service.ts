@@ -370,10 +370,11 @@ ${followupText}`
             return await this.respondAsMainAgent({
               userId,
               sessionId,
-              userPrompt: input,
+              userPrompt: '',
               principalSystemPrompt: ` * **Comportamiento:** Tras ejecutar la tool, responde **únicamente** lo indicado en **Regla/parámetro**. 
 Si **no hay una orden clara**, envia el siguiente **mensaje de confirmacion** al usuario:
 > 📝 ¡He **registrado** tu **tipo_registro**! 👨🏻‍💻 Un asesor se pondrá en contacto a la brevedad posible. ⏰ 
+ no agregues mas nada
 `,
               followupText: toolExecutionResult
             });
