@@ -91,4 +91,36 @@ export class SessionService {
       return null;
     }
   }
+
+  async registerWorkflow(
+    flujos: string,
+    remoteJid: string,
+    instanceId: string,
+    userId: string,
+  ) {
+    try {
+      const updatedSession = await this.prisma.session.updateMany({
+        where: {
+          remoteJid,
+          instanceId,
+          userId,
+        },
+        data: { flujos },
+      });
+
+      if (updatedSession.count === 0) {
+        return null;
+      }
+
+
+      // Opcional: Puedes hacer un findUnique después si quieres retornar el objeto actualizado
+      const session = await this.prisma.session.findFirst({
+        where: { remoteJid, instanceId, userId },
+      });
+
+      return session;
+    } catch (error) {
+      return null;
+    }
+  }
 }

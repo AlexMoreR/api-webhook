@@ -19,6 +19,7 @@ import { tools } from './utils/tools';
 import { ERROR_OPENAI_EMPTY_RESPONSE, extraRules, systemPromptWorkflow } from './utils/rulesPrompt';
 import { PromptCompressorService } from './services/prompt-compressor/prompt-compressor.service';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
+import { SessionService } from '../session/session.service';
 import { tool } from '@langchain/core/tools';
 
 // Refactor
@@ -43,6 +44,8 @@ export class AiAgentService {
     private readonly aiCredits: AiCreditsService,
     private readonly promptCompressor: PromptCompressorService,
     private readonly llmClientFactory: LlmClientFactory,
+    private readonly sessionService : SessionService
+    
   ) { }
 
   /**
@@ -539,6 +542,8 @@ ${followupText}`
           remoteJid,
           userId
         );
+        this.logger.log(`[Workflow]: ${currentWorkflow.name} ejecutado, registrando en session ${remoteJid}`)
+        await this.sessionService.registerWorkflow(currentWorkflow.name,remoteJid,instanceName,userId)
 
         // Si es INICIO_BIENVENIDA y tenemos literal → lo usa el Agente Principal
         if (currentWorkflow.name.trim().toUpperCase() === this.initWorkflowName.toUpperCase()
@@ -554,6 +559,7 @@ ${followupText}`
 
         // Para otros flujos, mensaje estándar hacia el principal
         const follow = `✅ Flujo *${currentWorkflow.name}* iniciado correctamente.`;
+        
         return await this.respondAsMainAgent({
           userId,
           sessionId,
@@ -561,6 +567,7 @@ ${followupText}`
           principalSystemPrompt: principalPrompt,
           followupText: follow
         });
+        
       } else {
         const follow = `ℹ️ Ya ejecutado: *${currentWorkflow.name}*`;
         return await this.respondAsMainAgent({
