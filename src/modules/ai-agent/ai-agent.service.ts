@@ -297,8 +297,7 @@ ${followupText}`
         content: [{ type: "text", text: promptAI }],
       });
 
-      this.logger.debug(`PROMPT AI =======> ${JSON.stringify(promptAI)}`);
-      this.logger.debug(`CHAT HISTORY (CRUDE) =======> ${JSON.stringify(chatHistory)}`);
+      
 
       const messagesForLlm = [
         systemMessage,
