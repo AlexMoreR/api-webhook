@@ -64,7 +64,7 @@ export class WebhookService {
     this.logger.log(`[WEBHOOK]: ${JSON.stringify(body)} ///`)
 
     //Se extraen los datos del usuario emisor dentro de "data" de la llamada del webhook
-    const remoteJid = data?.key?.remoteJid ?? '';
+    const remoteJid = data?.key?.remoteJid.endsWith('@lid') ? data?.key?.remoteJidAlt ?? '': data?.key?.remoteJid ?? '';
     const pushName = data?.pushName || 'Desconocido';
 
     //Se busca la informacion del usuario en la aplicacion a partir de su instancia en evolution api

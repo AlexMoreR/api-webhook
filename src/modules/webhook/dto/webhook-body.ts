@@ -12,6 +12,7 @@ export class WebhookBodyDto {
   export class WebhookDataDto {
     key: {
         remoteJid: string;
+        remoteJidAlt?:string;
         fromMe: boolean;
         id: string;
         senderLid?: string; // Add this field, as it is present in the object but not the original type
