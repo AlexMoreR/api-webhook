@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Body, Injectable } from '@nestjs/common';
 import { SessionService } from '../session/session.service';
 import { LoggerService } from 'src/core/logger/logger.service';
 import { WebhookBodyDto } from './dto/webhook-body';
@@ -61,6 +61,7 @@ export class WebhookService {
       apikey,
       data,
     } = body;
+    this.logger.log(`[WEBHOOK]: ${JSON.stringify(body)} ///`)
 
     //Se extraen los datos del usuario emisor dentro de "data" de la llamada del webhook
     const remoteJid = data?.key?.remoteJid ?? '';
