@@ -362,18 +362,19 @@ ${followupText}`
         switch (toolName) {
           case 'notificacion': {
             this.logger.log('Activada notificacion a...', remoteJid);
-            await this.notificacionTool.handleNotificacionTool(
+            const result = await this.notificacionTool.handleNotificacionTool(
               args, userId, server_url, apikey, instanceName, remoteJid
             );
+            return "Notificación a asesor enviada exitosamente."
 
-            const toolExecutionResult = "Notificación a asesor enviada exitosamente.";
-            return await this.respondAsMainAgent({
-              userId,
-              sessionId,
-              userPrompt: input,
-              principalSystemPrompt: promptAI,
-              followupText: toolExecutionResult
-            });
+            // const toolExecutionResult = "Notificación a asesor enviada exitosamente.";
+            // return await this.respondAsMainAgent({
+            //   userId,
+            //   sessionId,
+            //   userPrompt: input,
+            //   principalSystemPrompt: promptAI,
+            //   followupText: toolExecutionResult
+            // });
           }
 
           case 'execute_workflow': {
@@ -684,8 +685,6 @@ ${followupText}`
     } catch (error) {
       this.logger.error('Error transcribiendo audio.', error?.response?.data || error.message, 'AiAgentService');
       this.logger.error('Error transcribiendo audio.',error.message,JSON.stringify(error, null, 2));
-
-
       return '[ERROR_TRANSCRIBING_AUDIO]';
     }
   };
