@@ -64,7 +64,7 @@ export class WebhookService {
     this.logger.log(`[WEBHOOK]: ${JSON.stringify(body)} ///`)
 
     //Se extraen los datos del usuario emisor dentro de "data" de la llamada del webhook
-    const remoteJid = data?.key?.remoteJid.endsWith('@lid') ? data?.key?.remoteJidAlt ?? '': data?.key?.remoteJid ?? '';
+    const remoteJid = data?.key?.remoteJid.endsWith('@lid') ? data?.key?.remoteJidAlt ?? '' : data?.key?.remoteJid ?? '';
     const pushName = data?.pushName || 'Desconocido';
 
     //Se busca la informacion del usuario en la aplicacion a partir de su instancia en evolution api
@@ -77,7 +77,7 @@ export class WebhookService {
     /* apikey */
     /* apikey y configuración de IA por defecto */
     const aiConfig = await this.userService.getUserDefaultAiConfig(userId);
-    console.log('aiConfig/////',JSON.stringify(aiConfig))
+    console.log('aiConfig/////', JSON.stringify(aiConfig))
 
     // Desestructuramos para obtener el proveedor, modelo Y LA API KEY POR DEFECTO
     const {
@@ -147,7 +147,7 @@ export class WebhookService {
     /* Extraer la data dependiendo del tipo de mensaje, "text", "media", "audio" */
     const model = defaultModel?.name || 'o4-mini'
     const provider = defaultProvider?.name || 'openai'
-    const extractedContent = await this.messageTypeHandlerService.extractContentByType(messageType, defaultApiKey??apikeyOpenAi, data, model,provider);
+    const extractedContent = await this.messageTypeHandlerService.extractContentByType(messageType, defaultApiKey ?? apikeyOpenAi, data, model, provider);
     const incomingMessage = extractedContent.toString().trim().toLowerCase();
 
 
@@ -174,7 +174,7 @@ export class WebhookService {
         const dataProccessInput = {
           input: mergedText,
           userId,
-          apikeyOpenAi:defaultApiKey??apikeyOpenAi,
+          apikeyOpenAi: defaultApiKey ?? apikeyOpenAi,
           defaultModel: defaultModel?.name ?? 'o4-mini',
           defaultProvider: defaultProvider?.name ?? 'openai',
           sessionId: sessionHistoryId,
@@ -448,6 +448,8 @@ export class WebhookService {
       remoteJid,
     });
 
+
+
     // 🛑 FIN DE LA CORRECCIÓN CLAVE 🛑
   };
 
@@ -468,13 +470,13 @@ export class WebhookService {
   private async onAutoReplies({ userId, conversationMsg, server_url, apikey, instanceName, remoteJid, }: onAutoRepliesInterface): Promise<void> {
     try {
       const autoReplies = await this.autoRepliesService.getAutoRepliesByUserId(userId);
-
+      
       if (!autoReplies || autoReplies.length === 0) return;
-
+      
       const matchedReply = autoReplies.find(
         reply => reply.mensaje?.trim().toLowerCase() === conversationMsg
       );
-
+      
       if (matchedReply) {
         // Aquí puedes ejecutar lo que desees con matchedReply
         // Por ejemplo: enviar la respuesta automática
@@ -482,7 +484,7 @@ export class WebhookService {
         //Obtener workflow by ID
         const workflow = await this.workflowService.getWorkflowByWorkflowId(matchedReply.workflowId);
         if (!workflow) return;
-
+        
         await this.workflowService.executeWorkflow(
           workflow?.name ?? '',
           server_url,
@@ -491,6 +493,9 @@ export class WebhookService {
           remoteJid,
           userId
         );
+        // Poner el estado del chat en verdadero
+        await this.sessionService.updateSessionStatus(remoteJid, instanceName, true, userId);
+        this.logger.log(`Chat reactivado.`, 'WebhookService');
       }
     } catch (error) {
       this.logger.error('Error al procesar autoReplies', error);
