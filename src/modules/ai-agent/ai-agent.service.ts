@@ -44,8 +44,8 @@ export class AiAgentService {
     private readonly aiCredits: AiCreditsService,
     private readonly promptCompressor: PromptCompressorService,
     private readonly llmClientFactory: LlmClientFactory,
-    private readonly sessionService : SessionService
-    
+    private readonly sessionService: SessionService
+
   ) { }
 
   /**
@@ -300,7 +300,7 @@ ${followupText}`
         content: [{ type: "text", text: promptAI }],
       });
 
-      
+
 
       const messagesForLlm = [
         systemMessage,
@@ -371,7 +371,9 @@ ${followupText}`
               userId,
               sessionId,
               userPrompt: input,
-              principalSystemPrompt: `${extraRules} ${workflowTrigger}`,
+              principalSystemPrompt: `* **Comportamiento:** Tras ejecutar la tool, responde **únicamente** lo indicado en **Regla/parámetro**. 
+Si **no hay una orden clara**, envia el siguiente **mensaje de confirmacion** al usuario:
+> 📝 ¡He **registrado** tu **tipo_registro**! 👨🏻‍💻 Un asesor se pondrá en contacto a la brevedad posible. ⏰ `,
               followupText: toolExecutionResult
             });
           }
@@ -543,7 +545,7 @@ ${followupText}`
           userId
         );
         this.logger.log(`[Workflow]: ${currentWorkflow.name} ejecutado, registrando en session ${remoteJid}`)
-        await this.sessionService.registerWorkflow(currentWorkflow.name,remoteJid,instanceName,userId)
+        await this.sessionService.registerWorkflow(currentWorkflow.name, remoteJid, instanceName, userId)
 
         // Si es INICIO_BIENVENIDA y tenemos literal → lo usa el Agente Principal
         if (currentWorkflow.name.trim().toUpperCase() === this.initWorkflowName.toUpperCase()
@@ -559,7 +561,7 @@ ${followupText}`
 
         // Para otros flujos, mensaje estándar hacia el principal
         const follow = `✅ Flujo *${currentWorkflow.name}* iniciado correctamente.`;
-        
+
         return await this.respondAsMainAgent({
           userId,
           sessionId,
@@ -567,7 +569,7 @@ ${followupText}`
           principalSystemPrompt: principalPrompt,
           followupText: follow
         });
-        
+
       } else {
         const follow = `ℹ️ Ya ejecutado: *${currentWorkflow.name}*`;
         return await this.respondAsMainAgent({
@@ -635,14 +637,14 @@ ${followupText}`
   */
   async transcribeAudio(audioUrl: string, audioType: string, apikeyOpenAi: string, data: any, defaultModel: string,
     defaultProvider: string,): Promise<string> {
-      try {
+    try {
       const axiosRes = await axios.get(audioUrl, { responseType: "arraybuffer" });
       const audioBuffer = Buffer.from(axiosRes.data);
       const base64Audio = Buffer.from(axiosRes.data).toString("base64");
       const audioStream = Readable.from(audioBuffer);
       // 2️⃣ Crear un archivo temporal con extensión válida
       (audioStream as any).path = "audio.ogg";
-      
+
       if (defaultProvider == 'openai') {
         this.initializeClient(apikeyOpenAi, 'whisper-1',
           defaultProvider);
@@ -652,10 +654,10 @@ ${followupText}`
           response_format: 'text',
         })
         // 5️⃣ Limpiar el archivo temporal
-        
+
         return typeof transcription === "string"
-      ? transcription
-      : transcription.text;
+          ? transcription
+          : transcription.text;
       }
       this.initializeClient(apikeyOpenAi, defaultModel,
         defaultProvider,);
@@ -683,7 +685,7 @@ ${followupText}`
       return state.content.toString()
     } catch (error) {
       this.logger.error('Error transcribiendo audio.', error?.response?.data || error.message, 'AiAgentService');
-      this.logger.error('Error transcribiendo audio.',error.message,JSON.stringify(error, null, 2));
+      this.logger.error('Error transcribiendo audio.', error.message, JSON.stringify(error, null, 2));
       return '[ERROR_TRANSCRIBING_AUDIO]';
     }
   };
