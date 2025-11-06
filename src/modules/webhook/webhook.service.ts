@@ -439,19 +439,14 @@ export class WebhookService {
     // Si la sesión está inactiva, no debe ejecutar auto-respuestas/workflows.
     const isSessionActiveNow = await this.sessionService.isSessionActive(remoteJid, userWithRelations.id, instanceName);
 
-    if (isSessionActiveNow) {
-      //Flujo de respuestas rapidas SOLO si la sesión está activa
-      await this.onAutoReplies({
-        userId: userWithRelations.id.toString(),
-        conversationMsg,
-        server_url,
-        apikey,
-        instanceName,
-        remoteJid,
-      });
-    } else {
-      this.logger.log(`[AutoReplies] Sesión inactiva. Se ignorarán las respuestas rápidas para ${remoteJid}.`, 'WebhookService');
-    }
+    await this.onAutoReplies({
+      userId: userWithRelations.id.toString(),
+      conversationMsg,
+      server_url,
+      apikey,
+      instanceName,
+      remoteJid,
+    });
 
     // 🛑 FIN DE LA CORRECCIÓN CLAVE 🛑
   };
