@@ -29,8 +29,9 @@ import { langchainTools } from './utils/langchainTools';
 @Injectable()
 export class AiAgentService {
   private openAiClient: OpenAI;
-  // Mantener sin tipo explícito para evitar errores con propiedades específicas de provider
+  // Refactor
   private aiClient;
+  // Refactor
   private readonly initWorkflowName: string = 'INICIO_BIENVENIDA';
 
   constructor(
@@ -45,7 +46,10 @@ export class AiAgentService {
     private readonly sessionService: SessionService
   ) { }
 
-  /** Logger con contexto fijo */
+  /**
+   * Logger con contexto fijo:
+   * [UID=...][I=...][R=...]
+   */
   private scopedLogger(ctx: { userId?: string; instanceName?: string; remoteJid?: string }) {
     const tag = `[UID=${ctx.userId ?? '-'}][I=${ctx.instanceName ?? '-'}][R=${ctx.remoteJid ?? '-'}]`;
     return {
@@ -55,21 +59,27 @@ export class AiAgentService {
     };
   }
 
-  /** Inicializa cliente LLM */
+  /**
+  * Inicializa el cliente de OpenAI con una API Key proporcionada.
+  *
+  * @param {string} apikeyOpenAi
+  */
   private initializeClient(apikeyOpenAi: string, model: string, provider: string): BaseChatModel {
     console.log('error? busca los...', provider, model, apikeyOpenAi, 'fueron los modelos',)
     this.aiClient = this.llmClientFactory.getClient({ provider: provider, apiKey: apikeyOpenAi, model: model })
     return this.aiClient
   };
 
-  /** Valida API Key */
+  /**
+  * Valida si una API Key parece válida.
+  */
   private isValidApiKey(apikeyOpenAi: string): boolean {
     return typeof apikeyOpenAi === 'string' && apikeyOpenAi.startsWith('sk-') && apikeyOpenAi.length >= 40;
   };
 
   /**
-   * Intenta detectar JSON de tool en texto plano del modelo
-   * Lee payload.nombre y payload.detalle_notificacion correctamente
+   * 🔧 Hotfix robusto: algunos modelos devuelven JSON {"tool": "..."} en texto.
+   * - Limpia fences (```json ... ```), tolera texto alrededor y sinónimos.
    */
   private tryParseToolJson(content: string): { name: 'notificacion'; args: any } | null {
     if (!content) return null;
@@ -106,14 +116,10 @@ export class AiAgentService {
           const isNotificacion = /notificaci[oó]n(\s+asesor)?|notificar(\s+asesor)?/.test(raw);
           if (!isNotificacion) continue;
 
-          const payload = obj.payload ?? obj.args ?? {};
           const args = {
-            nombre:
-              payload.nombre ?? payload.name ??
-              obj.nombre ?? obj.name ?? obj.cliente ?? 'Cliente',
+            nombre: obj.nombre ?? obj.name ?? obj.cliente ?? '',
             detalle_notificacion:
-              payload.detalle_notificacion ?? payload.detalle ?? payload.descripcion ??
-              obj.detalle_notificacion ?? obj.detalles ?? obj.motivo ?? obj.detalle ?? obj.descripcion ?? 'Solicita hablar con un asesor.'
+              obj.detalle_notificacion ?? obj.detalles ?? obj.motivo ?? obj.detalle ?? obj.descripcion ?? ''
           };
 
           return { name: 'notificacion', args };
@@ -131,33 +137,9 @@ export class AiAgentService {
     return `Soleado y 25°C en ${location}`;
   };
 
-  /** Limpia cualquier JSON de tool al inicio del texto final (para no mostrarlo al usuario) */
-  private stripLeadingToolJson(text: string): string {
-    if (!text) return text;
-
-    // Quita fences ```json ... ```
-    let t = text.replace(/```(?:json)?\s*([\s\S]*?)\s*```/gi, '$1').trim();
-
-    // Si comienza con un objeto JSON, intenta parsearlo y si tiene forma de tool lo elimina
-    const m = t.match(/^\s*\{[\s\S]*?\}\s*/);
-    if (m) {
-      try {
-        const obj = JSON.parse(m[0]);
-        const hasToolShape =
-          obj && typeof obj === 'object' &&
-          (('name' in obj) || ('tool' in obj) || ('accion' in obj) || ('action' in obj)) &&
-          (('payload' in obj) || ('args' in obj));
-        if (hasToolShape) {
-          return t.slice(m[0].length).trim();
-        }
-      } catch {
-        // si no parsea, no tocamos
-      }
-    }
-    return t;
-  }
-
-  /** 🔸 SIEMPRE FINALIZA COMO AGENTE PRINCIPAL */
+  /**
+   * 🔸 SIEMPRE FINALIZA COMO AGENTE PRINCIPAL
+   */
   private async respondAsMainAgent(params: {
     userId: string;
     sessionId: string;
@@ -203,11 +185,12 @@ ${followupText}`
     const tokensUsed = totalTokens ? parseInt(totalTokens.toString(), 10) : 0;
     await this.aiCredits.trackTokens(userId, tokensUsed);
 
-    const raw = completion.content?.toString()?.trim() || followupText;
-    return this.stripLeadingToolJson(raw);
+    return completion.content?.toString()?.trim() || followupText;
   }
 
-  /** Detección de tools (segundo agente) */
+  /**
+  * Detección de tools (segundo agente)
+  */
   private async openAIToolDetection({
     input,
     sessionId,
@@ -265,7 +248,9 @@ ${followupText}`
     }
   };
 
-  /** Proceso principal de entrada */
+  /**
+  * Proceso principal de entrada
+  */
   async processInput({
     input,
     userId,
@@ -392,16 +377,16 @@ ${followupText}`
         switch (toolName) {
           case 'notificacion': {
             logger.log('Activada notificacion a...', remoteJid);
-            // Usa el retorno de la tool como mensaje para el usuario
-            const followup = await this.notificacionTool.handleNotificacionTool(
+            const result = await this.notificacionTool.handleNotificacionTool(
               args, userId, server_url, apikey, instanceName, remoteJid
             );
+            const toolExecutionResult = "Notificación a asesor enviada exitosamente.";
             return await this.respondAsMainAgent({
               userId,
               sessionId,
               userPrompt: input,
               principalSystemPrompt: promptAI,
-              followupText: followup || '📝 ¡He registrado tu solicitud! 👨🏻‍💻 Un asesor se pondrá en contacto a la brevedad posible. ⏰'
+              followupText: toolExecutionResult
             });
           }
 
@@ -438,7 +423,7 @@ ${followupText}`
         const maybeTool = this.tryParseToolJson(direct);
         if (maybeTool?.name === 'notificacion') {
           logger.warn('Respuesta JSON de tool detectada. Ejecutando tool "notificacion" a partir del JSON.');
-          const follow = await this.notificacionTool.handleNotificacionTool(
+          await this.notificacionTool.handleNotificacionTool(
             maybeTool.args,
             userId,
             server_url,
@@ -446,15 +431,16 @@ ${followupText}`
             instanceName,
             remoteJid
           );
+          const toolExecutionResult = 'Notificación a asesor enviada exitosamente.';
           return await this.respondAsMainAgent({
             userId,
             sessionId,
             userPrompt: input,
             principalSystemPrompt: promptAI,
-            followupText: follow || '📝 ¡He registrado tu solicitud! 👨🏻‍💻 Un asesor se pondrá en contacto a la brevedad posible. ⏰',
+            followupText: toolExecutionResult,
           });
         }
-        // ⛔ Siempre pasamos por el agente principal (y este limpia JSONs)
+        // ⛔ Ya no devolvemos JSON crudo; siempre pasamos por el agente principal
         return await this.respondAsMainAgent({
           userId,
           sessionId,
@@ -497,7 +483,6 @@ ${followupText}`
     }
   };
 
-  /** Ejecuta flujos */
   private async handleExecuteWorkflowTool(
     args: inputWorkflow,
     userId: string,
@@ -643,7 +628,9 @@ ${followupText}`
     });
   };
 
-  /** (Compatibilidad) */
+  /**
+   * (Compatibilidad)
+   */
   private async processAgentFollowup(
     followupText: string,
     userPrompt: string,
@@ -676,7 +663,9 @@ ${followupText}`
     return finalMessageR;
   }
 
-  /** Transcribe audio */
+  /**
+  * Transcribe audio
+  */
   async transcribeAudio(
     audioUrl: string,
     audioType: string,
@@ -723,7 +712,9 @@ ${followupText}`
     }
   };
 
-  /** Describe imagen */
+  /**
+   * Describe imagen
+   */
   async describeImage(
     data: any,
     imageBase64: string,
