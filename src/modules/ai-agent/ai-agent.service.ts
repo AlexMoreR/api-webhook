@@ -231,7 +231,7 @@ ${followupText}`
 
       const formattedList = workflows.map((flow, index) => {
         return `
-    "nombre": "${flow.name}",
+    "${index+1}": "${flow.name}"
    `;
       }).join(',\n');
 
@@ -383,27 +383,8 @@ ${followupText}`
       
 
     } catch (error) {
-      const logger = this.scopedLogger({ userId, instanceName, remoteJid });
-      logger.error('Error procesando entrada con OpenAI.', (error as any)?.response?.data || (error as any).message);
-      const systemPrompt = await this.promptService.getPromptUserId(userId).catch(() => '');
-      const workflows = await this.workflowService.getWorkflow(userId).catch(() => []);
-      const formattedList = Array.isArray(workflows) ? workflows.map((flow, index) => {
-        return `{
-    "id": ${index + 1},
-    "nombre": "${flow?.name || ''}",
-    "descripcion": "${flow?.description || 'Sin descripción'}"
-   }`;
-      }).join(',\n') : '';
-
-      const promptAI = `${extraRules} lista de flujos disponibles ${formattedList} ${systemPrompt}`;
-
-      return await this.respondAsMainAgent({
-        userId,
-        sessionId,
-        userPrompt: '[ERROR_PROCESSING_OPENAI_INPUT]',
-        principalSystemPrompt: promptAI,
-        followupText: 'Ocurrió un error procesando tu solicitud. ¿Deseas intentarlo de nuevo?'
-      });
+     logger.error(JSON.stringify(error))
+     return 'ha habido un error'
     }
   };
 
