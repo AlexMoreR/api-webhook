@@ -61,11 +61,9 @@ export class AiAgentService {
 
   /**
   * Inicializa el cliente de OpenAI con una API Key proporcionada.
-  *
-  * @param {string} apikeyOpenAi
   */
   private initializeClient(apikeyOpenAi: string, model: string, provider: string): BaseChatModel {
-    console.log('error? busca los...', provider, model, apikeyOpenAi, 'fueron los modelos',)
+    console.log('error? busca los...', provider, model, apikeyOpenAi, 'fueron los modelos');
     this.aiClient = this.llmClientFactory.getClient({ provider: provider, apiKey: apikeyOpenAi, model: model })
     return this.aiClient
   };
@@ -137,6 +135,48 @@ export class AiAgentService {
     return `Soleado y 25°C en ${location}`;
   };
 
+  /* =========================================================
+   * SOLUCIÓN 1 — Helpers para sanear la salida del agente
+   * =======================================================*/
+
+  /** Quita fences ```json y ``` */
+  private stripCodeFences(s: string): string {
+    return (s || '').replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+  }
+
+  /** Detecta si un bloque parece JSON interno de tool (no mostrar al usuario). */
+  private looksLikeInternalToolJson(msg: string): boolean {
+    if (!msg) return false;
+    const cleaned = this.stripCodeFences(msg);
+    if (!cleaned.startsWith('{') || !cleaned.includes(':')) return false;
+    try {
+      const obj = JSON.parse(cleaned);
+      const toolRaw = (
+        obj.tool ?? obj.Tool ?? obj.herramienta ?? obj.action ?? obj.accion ??
+        obj.name ?? obj.nombre_tool ?? ''
+      ).toString().toLowerCase().trim();
+
+      const hasPayload = typeof obj.payload === 'object' || typeof obj.args === 'object';
+      const isToolish = /notificaci[oó]n(\s+asesor)?|notificar(\s+asesor)?|execute_?workflow/.test(toolRaw);
+      const hasNotifShape = 'detalle_notificacion' in obj || 'detalles' in obj || 'nombre' in obj;
+
+      return hasPayload || isToolish || hasNotifShape;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Elimina cualquier bloque que sea JSON interno de tool y deja solo texto útil. */
+  private sanitizeAgentText(text: string): string {
+    const noFences = this.stripCodeFences(text || '');
+    const blocks = noFences
+      .split(/\n{2,}/)
+      .map(b => b.trim())
+      .filter(b => b.length > 0)
+      .filter(b => !this.looksLikeInternalToolJson(b));
+    return blocks.join('\n\n').trim();
+  }
+
   /**
    * 🔸 SIEMPRE FINALIZA COMO AGENTE PRINCIPAL
    */
@@ -185,7 +225,11 @@ ${followupText}`
     const tokensUsed = totalTokens ? parseInt(totalTokens.toString(), 10) : 0;
     await this.aiCredits.trackTokens(userId, tokensUsed);
 
-    return completion.content?.toString()?.trim() || followupText;
+    // ⬇️ Solución 1: sanitizar siempre la salida del agente
+    let out = completion.content?.toString()?.trim() || followupText;
+    out = this.sanitizeAgentText(out);
+    if (!out) out = this.sanitizeAgentText(followupText);
+    return out || followupText;
   }
 
   /**
@@ -377,7 +421,7 @@ ${followupText}`
         switch (toolName) {
           case 'notificacion': {
             logger.log('Activada notificacion a...', remoteJid);
-            const result = await this.notificacionTool.handleNotificacionTool(
+            await this.notificacionTool.handleNotificacionTool(
               args, userId, server_url, apikey, instanceName, remoteJid
             );
             const toolExecutionResult = "Notificación a asesor enviada exitosamente.";
@@ -440,7 +484,7 @@ ${followupText}`
             followupText: toolExecutionResult,
           });
         }
-        // ⛔ Ya no devolvemos JSON crudo; siempre pasamos por el agente principal
+        // ⛔ Nunca devolvemos JSON crudo; siempre pasamos por el agente principal (que sanitiza).
         return await this.respondAsMainAgent({
           userId,
           sessionId,
