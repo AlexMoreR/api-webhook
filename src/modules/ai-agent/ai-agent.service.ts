@@ -249,6 +249,7 @@ ${followupText}`
 
       const workflowTrigger = `lista de flujos disponibles ${formattedList}`
       promptAI = `${extraRules} ${workflowTrigger} ${systemPrompt}`;
+      
 
       if (noHistory && hasInicioBienvenida) {
         const result = await this.handleExecuteWorkflowTool(
@@ -340,7 +341,7 @@ ${followupText}`
               userId,
               sessionId,
               userPrompt: input,
-              principalSystemPrompt: '',
+              principalSystemPrompt: `${extraRules} ${systemPrompt}`,
               followupText: res === 'ok' ? 'Notificación enviada.' : 'No se pudo notificar al asesor.'
             });
             
