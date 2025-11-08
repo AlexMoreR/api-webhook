@@ -121,8 +121,7 @@ ${followupText}`
 SALIDA:
 - Responde SIEMPRE con texto natural en español.
 - PROHIBIDO: JSON, objetos, arrays, backticks, bloques de código o etiquetas.
-- Si tu salida empezaría con "{" o "[", reescríbela como texto llano.
-- Máximo 2 oraciones, cero encabezados, cero viñetas.`
+- Si tu salida empezaría con "{" o "[", reescríbela como texto llano.`
       }]
     });
 
