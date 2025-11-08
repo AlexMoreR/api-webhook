@@ -1,7 +1,18 @@
-export const extraRules = `SALIDA:
+export const extraRules = `
+# SALIDA:
 - Responde SIEMPRE con texto natural.
 - PROHIBIDO: JSON, objetos, arrays, backticks o bloques de código.
-- Si tu salida empezaría con "{" o "[", reescríbela como texto llano.`;
+- Si tu salida empezaría con "{" o "[", reescríbela como texto llano.
+
+## No ejecutar si
+- El usuario solo saluda (“Hola”, “Buenos días”, etc.).
+- Aún no hay todavía **guardado/a** Información clara de solicitud/pedido/reclamo/cita/reserva/pago.
+
+## Restricciones
+- No informar al usuario que se está “ejecutando”, “buscando” o “procesando” la tool.
+- No improvisar ni agregar texto irrelevante en *detalle_notificacion*. 
+
+`;
 
 export const ERROR_OPENAI_EMPTY_RESPONSE = `¡Ups! Algo salió mal 😅
 Parece que hubo un problema al procesar tu mensaje. ¿Podrías intentarlo de nuevo?`;
