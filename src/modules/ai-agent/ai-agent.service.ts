@@ -131,7 +131,7 @@ SALIDA:
     const completion = await this.aiClient.invoke([
       systemMessage,
       styleLock,           // 👈 ponlo después del prompt principal
-      ...historyMessages,
+      // ...historyMessages,
       rawUser,
     ]);
 
@@ -343,7 +343,7 @@ SALIDA:
               followupText: res === 'ok' ? 'Notificación enviada.' : 'No se pudo notificar al asesor.'
             });
             
-            return `la ia respondio: ${clientRes}`
+            return `${clientRes}`
           }
           case 'execute_workflow': {
             return await this.handleExecuteWorkflowTool(
