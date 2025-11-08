@@ -336,6 +336,7 @@ ${followupText}`
             const res = await this.notificacionTool.handleNotificacionTool(
               args, userId, server_url, apikey, instanceName, remoteJid
             );
+            logger.log(`[Prompt de sistema]: ${systemPrompt}`)
             
             const clientRes =await this.respondAsMainAgent({
               userId,
