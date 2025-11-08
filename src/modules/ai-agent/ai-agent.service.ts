@@ -126,7 +126,7 @@ ${followupText}`
       }]
     });
 
-    const historyMessages = chatHistory.map(text => new HumanMessage({ content: [{ type: "text", text }] })).splice(0,2);
+    const historyMessages = chatHistory.map(text => new HumanMessage({ content: [{ type: "text", text }] }));
     const rawUser = new HumanMessage({ content: [{ type: 'text', text: userPrompt }] });
 
     const completion = await this.aiClient.invoke([
