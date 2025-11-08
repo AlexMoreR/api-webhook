@@ -103,29 +103,34 @@ export class AiAgentService {
     const systemMessage = new SystemMessage({
       content: [{
         type: 'text',
-        text:
-          `${principalSystemPrompt}
+        text: `${principalSystemPrompt}
 
 REGLA CRÍTICA:
-- Si se ejecutó una tool, EL AGENTE PRINCIPAL es quien da la respuesta final al usuario.
-- Responde de forma natural, útil y **sin revelar detalles internos** (IDs, nombres de tools).
-- Usa el resultado siguiente para construir la respuesta final al usuario.
-
+- El AGENTE PRINCIPAL da la respuesta final al usuario.
+- Usa el resultado siguiente para construir la respuesta final.
 [RESULTADO_TOOL]
 ${followupText}`
       }]
     });
 
-    const historyMessages = chatHistory.map(text => new HumanMessage({
-      content: [{ type: "text", text }],
-    }));
-
-    const rawUser = new HumanMessage({
-      content: [{ type: 'text', text: userPrompt }]
+    // 🔒 Candado de estilo de salida SOLO TEXTO (sin JSON/markdown)
+    const styleLock = new SystemMessage({
+      content: [{
+        type: 'text',
+        text: `
+SALIDA:
+- Responde SIEMPRE con texto natural en español, puedes usar emojis o negrita.
+- PROHIBIDO: JSON, objetos, arrays, backticks, bloques de código o etiquetas.
+- Si tu salida empezaría con "{" o "[", reescríbela como texto llano.`
+      }]
     });
+
+    const historyMessages = chatHistory.map(text => new HumanMessage({ content: [{ type: "text", text }] }));
+    const rawUser = new HumanMessage({ content: [{ type: 'text', text: userPrompt }] });
 
     const completion = await this.aiClient.invoke([
       systemMessage,
+      styleLock,           // 👈 ponlo después del prompt principal
       ...historyMessages,
       rawUser,
     ]);
@@ -134,7 +139,8 @@ ${followupText}`
     const tokensUsed = totalTokens ? parseInt(totalTokens.toString(), 10) : 0;
     await this.aiCredits.trackTokens(userId, tokensUsed);
 
-    return completion.content?.toString()?.trim() || followupText;
+    const rawOut = completion.content?.toString()?.trim() || followupText;
+    return rawOut
   }
 
   /**
