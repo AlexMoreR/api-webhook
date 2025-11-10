@@ -64,7 +64,7 @@ export class WebhookService {
     const { instance: instanceName, server_url, apikey, data } = body;
 
     // Log inicial sin userId (todavía no lo conocemos)
-    this.logger.log(`[WEBHOOK] I=${instanceName} W=${body}`);
+    this.logger.log(`[WEBHOOK] I=${instanceName} W=${JSON.stringify(body)}`);
 
     const remoteJid = data?.key?.remoteJid.endsWith('@lid') ? data?.key?.remoteJidAlt ?? '' : data?.key?.remoteJid ?? '';
     const pushName = data?.pushName || 'Desconocido';
