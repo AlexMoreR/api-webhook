@@ -322,7 +322,7 @@ export class AiAgentService {
             const res = await this.notificacionTool.handleNotificacionTool(
               args, userId, server_url, apikey, instanceName, remoteJid
             );
-            logger.log(`[Prompt de sistema]: ${systemPrompt}`)
+            
             //Ejecuta el agentes despues de notificacion
             const clientRes =await this.respondAsMainAgent({
               userId,
