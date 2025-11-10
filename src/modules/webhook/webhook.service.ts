@@ -66,7 +66,7 @@ export class WebhookService {
     // Log inicial sin userId (todavía no lo conocemos)
     this.logger.log(`[WEBHOOK] payload recibido para instance=${instanceName}`, 'WebhookService');
 
-    const remoteJid = data?.key?.remoteJid.endsWith('@lid') ? data?.key?.remoteJidAlt ?? '' : data?.key?.remoteJid ?? '';
+    const remoteJid = data?.key?.remoteJid.endsWith('@lid') ? (data?.key?.remoteJidAlt || (data?.key?.remoteJid ?? '') ) : data?.key?.remoteJid ?? '';
     const pushName = data?.pushName || 'Desconocido';
 
     // Buscar userId por instancia
