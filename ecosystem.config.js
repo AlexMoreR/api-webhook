@@ -7,7 +7,7 @@ module.exports = {
     // Archivos de logs unificados:
     error_file: './logs/api-webhookCluster-error.log',
     out_file: './logs/api-webhookCluster-out.log',
-    combine_logs: true, // Esto es clave para unificar
+    merge_logs: true, // Esto es clave para unificar
     exec_mode: 'cluster',  
     max_memory_restart: '1G',  
     env: {  
