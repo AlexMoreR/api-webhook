@@ -41,7 +41,6 @@ export class AiAgentService {
     private readonly workflowService: WorkflowService,
     private readonly notificacionTool: NotificacionToolService,
     private readonly aiCredits: AiCreditsService,
-    private readonly promptCompressor: PromptCompressorService,
     private readonly llmClientFactory: LlmClientFactory,
     private readonly sessionService: SessionService
   ) { }
