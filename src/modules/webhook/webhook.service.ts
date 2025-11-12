@@ -64,7 +64,7 @@ export class WebhookService {
     const { instance: instanceName, server_url, apikey, data } = body;
 
     // Log inicial sin userId (todavía no lo conocemos)
-    this.logger.log(`[WEBHOOK] I=${instanceName} recibido`);
+    this.logger.log(`[WEBHOOK] I=${instanceName} recibido, con remoteJid ${data?.key?.remoteJid} ${data?.key?.remoteJidAlt}`);
 
     const remoteJid = data?.key?.remoteJid.endsWith('@lid') ? (data?.key?.remoteJidAlt || (data?.key?.remoteJid ?? '') ) : data?.key?.remoteJid ?? '';
     const pushName = data?.pushName || 'Desconocido';
@@ -212,7 +212,7 @@ export class WebhookService {
       }
 
       const { available } = credits;
-      logger.log(`creditValidation: Créditos disponibles → ${available}`);
+      // logger.log(`creditValidation: Créditos disponibles → ${available}`);
 
       const range = 5;
       for (const flag of flags) {

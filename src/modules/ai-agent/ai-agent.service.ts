@@ -64,7 +64,7 @@ export class AiAgentService {
   * @param {string} apikeyOpenAi
   */
   private initializeClient(apikeyOpenAi: string, model: string, provider: string): BaseChatModel {
-    console.log('error? busca los...', provider, model, apikeyOpenAi, 'fueron los modelos',)
+    
     this.aiClient = this.llmClientFactory.getClient({ provider: provider, apiKey: apikeyOpenAi, model: model })
     return this.aiClient
   };
