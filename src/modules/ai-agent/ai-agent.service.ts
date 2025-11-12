@@ -317,7 +317,7 @@ export class AiAgentService {
         const toolName = toolCall.name;
 
         switch (toolName) {
-          case 'Notificacion Asesor': {
+          case 'Notificacion_Asesor': {
             const res = await this.notificacionTool.handleNotificacionTool(
               args, userId, server_url, apikey, instanceName, remoteJid
             );
@@ -333,7 +333,7 @@ export class AiAgentService {
             
             return `${clientRes}`
           }
-          case 'Ejecutar Flujos': {
+          case 'Ejecutar_Flujos': {
             return await this.handleExecuteWorkflowTool(
               args,
               userId,
