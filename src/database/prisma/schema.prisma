@@ -163,6 +163,7 @@ model Session {
   inactividad  String?       @default("")
   sessionDelay String?
   flujos       String?       @default("")
+  remoteJidAlt String?
   Appointment  Appointment[]
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
