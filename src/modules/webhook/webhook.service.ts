@@ -64,7 +64,8 @@ export class WebhookService {
     const { instance: instanceName, server_url, apikey, data } = body;
 
     // Log inicial sin userId (todavía no lo conocemos)
-    this.logger.log(`[WEBHOOK] I=${instanceName} recibido, con remoteJid ${data?.key?.remoteJid} ${data?.key?.remoteJidAlt}`);
+    this.logger.log(`[WEBHOOK] I=${instanceName} ; rJid ${data?.key?.remoteJid} rJidAlt ${data?.key?.remoteJidAlt}`);
+    this.logger.log(`[MESSAGE] M=${data?.message?.conversation ?? ''}`)
 
     const remoteJid = data?.key?.remoteJid.endsWith('@lid') ? (data?.key?.remoteJidAlt || (data?.key?.remoteJid ?? '') ) : data?.key?.remoteJid ?? '';
     const pushName = data?.pushName || 'Desconocido';
@@ -89,6 +90,7 @@ export class WebhookService {
 
     const sessionStatus = await this.checkOrRegisterSession(remoteJid, instanceName, userId, pushName, userWithRelations);
     const msgChat = data?.message?.conversation ?? '';
+
     const conversationMsg = msgChat.trim().toLowerCase();
     const sessionHistoryId = `${instanceName}-${remoteJid}`;
     const apiMsgUrl = `${server_url}/message/sendText/${instanceName}`;
