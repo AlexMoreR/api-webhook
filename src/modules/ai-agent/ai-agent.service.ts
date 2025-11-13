@@ -64,7 +64,7 @@ export class AiAgentService {
   * @param {string} apikeyOpenAi
   */
   private initializeClient(apikeyOpenAi: string, model: string, provider: string): BaseChatModel {
-    
+
     this.aiClient = this.llmClientFactory.getClient({ provider: provider, apiKey: apikeyOpenAi, model: model })
     return this.aiClient
   };
@@ -232,7 +232,7 @@ export class AiAgentService {
 
       const extraRules = await this.promptService.getPromptPadre('cm842kthc0000qd2l66nbnytv').catch(() => '');
       promptAI = `${extraRules} ${workflowTrigger} ${systemPrompt}`;
-      
+
 
       if (noHistory && hasInicioBienvenida) {
         const result = await this.handleExecuteWorkflowTool(
@@ -247,6 +247,11 @@ export class AiAgentService {
           this.initWorkflowName,
           extraRules,
           workflowSuccessResponse,
+        );
+        await this.chatHistoryService.registerExecutedIntention(
+          sessionId,
+          this.initWorkflowName,
+          'intention'
         );
         return result;
       }
@@ -276,7 +281,7 @@ export class AiAgentService {
         const maxAttempts = 3;
         while (true) {
           try {
-            console.log('intento n#',attempt)
+            console.log('intento n#', attempt)
             const clientResp = await this.aiClient.bindTools(langchainTools).invoke(messagesForLlm);
             return clientResp
           } catch (err: any) {
@@ -322,16 +327,16 @@ export class AiAgentService {
             const res = await this.notificacionTool.handleNotificacionTool(
               args, userId, server_url, apikey, instanceName, remoteJid
             );
-            
+
             //Ejecuta el agentes despues de notificacion
-            const clientRes =await this.respondAsMainAgent({
+            const clientRes = await this.respondAsMainAgent({
               userId,
               sessionId,
               userPrompt: input,
               principalSystemPrompt: promptAI,
               followupText: res === 'ok' ? 'Notificación enviada.' : 'No se pudo notificar al asesor.'
             });
-            
+
             return `${clientRes}`
           }
           case 'Ejecutar_Flujos': {
@@ -369,7 +374,7 @@ export class AiAgentService {
       // 🔧 Hotfix: si el modelo devolvió JSON en texto con {"tool": "..."} en vez de tool_calls
 
       //Revisando si es este
-      const RFlujos= await this.respondAsMainAgent({
+      const RFlujos = await this.respondAsMainAgent({
         userId,
         sessionId,
         userPrompt: input,
@@ -415,7 +420,7 @@ export class AiAgentService {
     instanceName: string,
     remoteJid: string,
     userPrompt: string,
-    extraRules:string,
+    extraRules: string,
     successResponseLiteral?: string,
   ): Promise<string> {
     const logger = this.scopedLogger({ userId, instanceName, remoteJid });
