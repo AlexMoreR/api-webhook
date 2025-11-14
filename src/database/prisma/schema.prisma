@@ -38,6 +38,7 @@ model User {
   aiModelId                     String?
   defaultAiModelId              String?
   defaultProviderId             String?
+  delayTimeGPT                  String?
   accounts                      Account[]
   agentPrompts                  AgentPrompt[]         @relation("UserAgentPrompts")
   publishedAgentPromptRevisions AgentPromptRevision[] @relation("UserPublishedRevisions")
@@ -65,13 +66,15 @@ model Product {
   userId      String
   title       String
   description String?
-  price       Decimal
+  price       Decimal  @db.Decimal(65, 2)
   sku         String?  @unique
   stock       Int      @default(0)
   isActive    Boolean  @default(true)
   images      String[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  category    String
+  tags        String[]
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, title])
@@ -163,6 +166,7 @@ model Session {
   inactividad  String?       @default("")
   sessionDelay String?
   flujos       String?       @default("")
+  remoteJidAlt String?
   Appointment  Appointment[]
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
