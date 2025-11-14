@@ -67,7 +67,10 @@ export class WebhookService {
     this.logger.log(`[WEBHOOK] I=${instanceName} ; rJid ${data?.key?.remoteJid} rJidAlt ${data?.key?.remoteJidAlt}`);
     this.logger.log(`[MESSAGE] M=${data?.message?.conversation ?? ''}`)
 
-    const remoteJid = data?.key?.remoteJid.endsWith('@lid') ? (data?.key?.remoteJidAlt || (data?.key?.remoteJid ?? '') ) : data?.key?.remoteJid ?? '';
+    // const remoteJid = data?.key?.remoteJid.endsWith('@lid') ? (data?.key?.remoteJidAlt || (data?.key?.remoteJid ?? '') ) : data?.key?.remoteJid ?? '';
+    //prioriza el @lid
+    const remoteJid = data?.key?.remoteJid?.endsWith('@lid') ? data.key.remoteJid : (data?.key?.remoteJidAlt || (data?.key?.remoteJid ?? '') );
+    const remoteJidAlt = !data?.key?.remoteJid?.endsWith('@lid') ? data.key.remoteJid : (data?.key?.remoteJidAlt || (data?.key?.remoteJid ?? '') );
     const pushName = data?.pushName || 'Desconocido';
 
     // Buscar userId por instancia
