@@ -67,10 +67,18 @@ export class WebhookService {
     this.logger.log(`[WEBHOOK] I=${instanceName} ; rJid ${data?.key?.remoteJid} rJidAlt ${data?.key?.remoteJidAlt}`);
     this.logger.log(`[MESSAGE] M=${data?.message?.conversation ?? ''}`)
 
-    // const remoteJid = data?.key?.remoteJid.endsWith('@lid') ? (data?.key?.remoteJidAlt || (data?.key?.remoteJid ?? '') ) : data?.key?.remoteJid ?? '';
-    //prioriza el @lid
-    const remoteJid = data?.key?.remoteJid?.endsWith('@lid') ? data.key.remoteJid : (data?.key?.remoteJidAlt || (data?.key?.remoteJid ?? '') );
-    const remoteJidAlt = !data?.key?.remoteJid?.endsWith('@lid') ? data.key.remoteJid : (data?.key?.remoteJidAlt || (data?.key?.remoteJid ?? '') );
+    // Normalización de JIDs: priorizar @s.whatsapp.net sobre @lid
+    const rawRemoteJid = data?.key?.remoteJid ?? '';
+    const rawRemoteJidAlt = data?.key?.remoteJidAlt ?? '';
+
+    const jidWhats = [rawRemoteJid, rawRemoteJidAlt].find(j => j && j.endsWith('@s.whatsapp.net'));
+    const jidLid   = [rawRemoteJid, rawRemoteJidAlt].find(j => j && j.endsWith('@lid'));
+
+    // Canon: preferimos @s.whatsapp.net, luego @lid, luego lo que haya
+    const remoteJid = jidWhats || jidLid || rawRemoteJid || rawRemoteJidAlt || '';
+    // Alternativo: si el canon es @s.whatsapp.net, el alterno será @lid (si existe), y viceversa
+    const remoteJidAlt = remoteJid === jidWhats ? (jidLid || '') : (jidWhats || '');
+
     const pushName = data?.pushName || 'Desconocido';
 
     // Buscar userId por instancia
@@ -91,7 +99,15 @@ export class WebhookService {
     const fromMe = data?.key?.fromMe ?? false;
     const messageType = data?.messageType ?? '';
 
-    const sessionStatus = await this.checkOrRegisterSession(remoteJid, instanceName, userId, pushName, userWithRelations);
+    const sessionStatus = await this.checkOrRegisterSession(
+      remoteJid,
+      instanceName,
+      userId,
+      pushName,
+      userWithRelations,
+      remoteJidAlt,
+    );
+    
     const msgChat = data?.message?.conversation ?? '';
 
     const conversationMsg = msgChat.trim().toLowerCase();
@@ -251,13 +267,24 @@ export class WebhookService {
     instanceName: string,
     userId: string,
     pushName: string,
-    userWithRelations: User & { pausar: Pausar[] }
+    userWithRelations: User & { pausar: Pausar[] },
+    remoteJidAlt?: string,
   ): Promise<boolean> {
     const logger = this.scopedLogger({ userId, instanceName, remoteJid });
 
-    const session = await this.sessionService.getSession(remoteJid, instanceName, userId);
+    // 1) Intentar con el JID principal (priorizando @s.whatsapp.net)
+    let session = await this.sessionService.getSession(remoteJid, instanceName, userId);
+
+    // 2) Si no existe y hay un JID alternativo distinto, intentar con él (ej: @lid)
+    if (!session && remoteJidAlt && remoteJidAlt !== remoteJid) {
+      session = await this.sessionService.getSession(remoteJidAlt, instanceName, userId);
+      if (session) {
+        logger.log(`[SESSION] Usuario ya registrado con JID alternativo: ${remoteJidAlt}`);
+      }
+    }
+
     if (session) {
-      logger.log(`[SESSION] Usuario ya registrado: ${remoteJid}`);
+      logger.log(`[SESSION] Usuario ya registrado: ${session.remoteJid}`);
 
       const hasTrigger = await this.sessionTriggerService.findBySessionId(session.id.toString());
       const dateReactivate = await this.getReactivateDate({ userWithRelations });
@@ -277,6 +304,7 @@ export class WebhookService {
       return session.status;
     }
 
+    // 3) Si no hay sesión ni por JID canon ni alterno, registrar usando el canon (prioriza @s.whatsapp.net)
     await this.sessionService.registerSession(userId, remoteJid, pushName, instanceName);
     logger.log(`✅ Registro exitoso para ${remoteJid}`);
     return true;
