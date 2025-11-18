@@ -17,12 +17,18 @@ import { AutoRepliesService } from '../auto-replies/auto-replies.service';
 import { WorkflowService } from '../workflow/services/workflow.service.ts/workflow.service';
 import { AiCreditsService } from '../ai-credits/ai-credits.service';
 import { SessionTriggerService } from '../session-trigger/session-trigger.service';
-import { CreditValidationInput, onAutoRepliesInterface, stopOrResumeConversation, flags, getReactivateDate } from 'src/types/open-ai';
+import {
+  CreditValidationInput,
+  onAutoRepliesInterface,
+  stopOrResumeConversation,
+  flags,
+  getReactivateDate,
+} from 'src/types/open-ai';
 import { AntifloodService } from './services/antiflood/antiflood.service';
 
 @Injectable()
 export class WebhookService {
-  public static readonly DELAYCONVERSATION = 10000
+  public static readonly DELAYCONVERSATION = 10000;
 
   constructor(
     private readonly logger: LoggerService,
@@ -41,7 +47,7 @@ export class WebhookService {
     private readonly aiCreditsService: AiCreditsService,
     private readonly sessionTriggerService: SessionTriggerService,
     private readonly antifloodService: AntifloodService,
-  ) { }
+  ) {}
 
   /**
    * Crea un logger con contexto fijo para prefijar todos los mensajes.
@@ -51,33 +57,38 @@ export class WebhookService {
     return {
       log: (msg: string, context = 'WebhookService') => this.logger.log(`${tag} ${msg}`, context),
       warn: (msg: string, context = 'WebhookService') => this.logger.warn(`${tag} ${msg}`, context),
-      error: (msg: string, err?: any, context = 'WebhookService') => this.logger.error(`${tag} ${msg}`, err, context),
+      error: (msg: string, err?: any, context = 'WebhookService') =>
+        this.logger.error(`${tag} ${msg}`, err, context),
     };
   }
 
   /**
    * Procesa un webhook recibido de Evolution API.
    */
-  async processWebhook(body: WebhookBodyDto): Promise<void> {
+  async processWebhook(@Body() body: WebhookBodyDto): Promise<void> {
     const delayConversation = WebhookService.DELAYCONVERSATION;
 
     const { instance: instanceName, server_url, apikey, data } = body;
 
     // Log inicial sin userId (todavía no lo conocemos)
-    this.logger.log(`[WEBHOOK] I=${instanceName} ; rJid ${data?.key?.remoteJid} rJidAlt ${data?.key?.remoteJidAlt}`);
-    this.logger.log(`[MESSAGE] M=${data?.message?.conversation ?? ''}`)
+    this.logger.log(
+      `[WEBHOOK] I=${instanceName} ; rJid ${data?.key?.remoteJid} rJidAlt ${data?.key?.remoteJidAlt}`,
+    );
+    this.logger.log(`[MESSAGE] M=${data?.message?.conversation ?? ''}`);
 
-    // Normalización de JIDs: priorizar @s.whatsapp.net sobre @lid
+    // 🔁 Normalización de JIDs: priorizar @s.whatsapp.net sobre @lid
     const rawRemoteJid = data?.key?.remoteJid ?? '';
     const rawRemoteJidAlt = data?.key?.remoteJidAlt ?? '';
 
-    const jidWhats = [rawRemoteJid, rawRemoteJidAlt].find(j => j && j.endsWith('@s.whatsapp.net'));
-    const jidLid   = [rawRemoteJid, rawRemoteJidAlt].find(j => j && j.endsWith('@lid'));
+    const jidWhats = [rawRemoteJid, rawRemoteJidAlt].find(
+      (j) => j && j.endsWith('@s.whatsapp.net'),
+    );
+    const jidLid = [rawRemoteJid, rawRemoteJidAlt].find((j) => j && j.endsWith('@lid'));
 
     // Canon: preferimos @s.whatsapp.net, luego @lid, luego lo que haya
     const remoteJid = jidWhats || jidLid || rawRemoteJid || rawRemoteJidAlt || '';
     // Alternativo: si el canon es @s.whatsapp.net, el alterno será @lid (si existe), y viceversa
-    const remoteJidAlt = remoteJid === jidWhats ? (jidLid || '') : (jidWhats || '');
+    const remoteJidAlt = remoteJid === jidWhats ? jidLid || '' : jidWhats || '';
 
     const pushName = data?.pushName || 'Desconocido';
 
@@ -86,19 +97,26 @@ export class WebhookService {
     const userId = prismaInstancia?.userId ?? '';
     const instanceId = prismaInstancia?.instanceId ?? '';
 
-    // ⬇️ Logger con contexto ya incluye userId/inst/jid
+    // Logger con contexto ya incluye userId/inst/jid
     const logger = this.scopedLogger({ userId, instanceName, remoteJid });
 
-    const userWithRelations = await this.userService.getUserWithPausar(userId) as User & { pausar: Pausar[] };
+    const userWithRelations = (await this.userService.getUserWithPausar(userId)) as User & {
+      pausar: Pausar[];
+    };
     const aiConfig = await this.userService.getUserDefaultAiConfig(userId);
 
     const { defaultModel, defaultProvider, defaultApiKey } = aiConfig || {};
     const mask = (k?: string | null) => (k ? `${k.slice(0, 4)}…${k.slice(-4)}` : null);
-    logger.log(`AI config recibida → provider=${defaultProvider?.name ?? '-'} model=${defaultModel?.name ?? '-'} apiKey=${mask(defaultApiKey)}`);
+    logger.log(
+      `AI config recibida → provider=${defaultProvider?.name ?? '-'} model=${
+        defaultModel?.name ?? '-'
+      } apiKey=${mask(defaultApiKey)}`,
+    );
 
     const fromMe = data?.key?.fromMe ?? false;
     const messageType = data?.messageType ?? '';
 
+    // ✅ Check de sesión + normalización entre @lid y @s.whatsapp.net
     const sessionStatus = await this.checkOrRegisterSession(
       remoteJid,
       instanceName,
@@ -107,9 +125,8 @@ export class WebhookService {
       userWithRelations,
       remoteJidAlt,
     );
-    
-    const msgChat = data?.message?.conversation ?? '';
 
+    const msgChat = data?.message?.conversation ?? '';
     const conversationMsg = msgChat.trim().toLowerCase();
     const sessionHistoryId = `${instanceName}-${remoteJid}`;
     const apiMsgUrl = `${server_url}/message/sendText/${instanceName}`;
@@ -121,7 +138,7 @@ export class WebhookService {
       webhookUrl: userWithRelations.webhookUrl ?? '',
       apikey,
       apiUrl: apiMsgUrl,
-      userPhone: userWithRelations.notificationNumber
+      userPhone: userWithRelations.notificationNumber,
     });
 
     if (!creditOk) {
@@ -139,12 +156,21 @@ export class WebhookService {
 
     /* Pausa / Reactivación solo si escribe el admin (fromMe) */
     if (this.messageDirectionService.isFromMe(fromMe)) {
-      await this.stopOrResumeConversation({ conversationMsg, remoteJid, instanceId, sessionStatus, userWithRelations, instanceName, apikey, server_url });
+      await this.stopOrResumeConversation({
+        conversationMsg,
+        remoteJid,
+        instanceId,
+        sessionStatus,
+        userWithRelations,
+        instanceName,
+        apikey,
+        server_url,
+      });
       return;
     }
 
-    /* Estado de sesión */
-    const sessionActive = await this.sessionService.isSessionActive(remoteJid, userId, instanceName);
+    /* Estado de sesión: usamos lo que detectó checkOrRegisterSession */
+    const sessionActive = sessionStatus;
     logger.log(`Estado de la session: ${sessionActive}`);
 
     if (!sessionActive) return;
@@ -152,13 +178,25 @@ export class WebhookService {
     /* Extract content */
     const model = defaultModel?.name || 'o4-mini';
     const provider = defaultProvider?.name || 'openai';
-    const extractedContent = await this.messageTypeHandlerService.extractContentByType(messageType, defaultApiKey ?? '', data, model, provider);
+    const extractedContent =
+      await this.messageTypeHandlerService.extractContentByType(
+        messageType,
+        defaultApiKey ?? '',
+        data,
+        model,
+        provider,
+      );
     const incomingMessage = extractedContent.toString().trim().toLowerCase();
 
     /* Anti-flood */
     this.antifloodService.registerMessageTimestamp(remoteJid);
     if (this.antifloodService.isSynchronizedPattern(remoteJid)) {
-      await this.sessionService.updateSessionStatus(remoteJid, instanceName, false, userWithRelations.id);
+      await this.sessionService.updateSessionStatus(
+        remoteJid,
+        instanceName,
+        false,
+        userWithRelations.id,
+      );
       logger.warn('Patrón sincronizado detectado → sesión desactivada.');
       return;
     }
@@ -209,11 +247,18 @@ export class WebhookService {
           await this.nodeSenderService.sendTextNode(apiMsgUrl, apikey, remoteJid, msgBlock);
           await new Promise((res) => setTimeout(res, 1200));
         }
-      }
-    )
-  };
+      },
+    );
+  }
 
-  private async creditValidation({ userId, flags, webhookUrl, apiUrl, apikey, userPhone }: CreditValidationInput): Promise<boolean> {
+  private async creditValidation({
+    userId,
+    flags,
+    webhookUrl,
+    apiUrl,
+    apikey,
+    userPhone,
+  }: CreditValidationInput): Promise<boolean> {
     const logger = this.scopedLogger({ userId });
     try {
       if (!webhookUrl || webhookUrl.trim() === '') {
@@ -233,7 +278,6 @@ export class WebhookService {
       }
 
       const { available } = credits;
-      // logger.log(`creditValidation: Créditos disponibles → ${available}`);
 
       const range = 5;
       for (const flag of flags) {
@@ -241,7 +285,9 @@ export class WebhookService {
         const max = flag.value + range;
 
         if (available >= min && available <= max) {
-          logger.log(`⚠️ alcanzó rango de créditos ${flag.value} (dentro de ${min}-${max}). Enviando mensaje... "${flag.message}"`);
+          logger.log(
+            `⚠️ alcanzó rango de créditos ${flag.value} (dentro de ${min}-${max}). Enviando mensaje... "${flag.message}"`,
+          );
           try {
             await this.nodeSenderService.sendTextNode(apiUrl, apikey, userPhone, flag.message);
           } catch (error) {
@@ -262,6 +308,9 @@ export class WebhookService {
     }
   }
 
+  /**
+   * Normaliza la sesión entre @lid y @s.whatsapp.net y devuelve el estado (activa o no).
+   */
   private async checkOrRegisterSession(
     remoteJid: string,
     instanceName: string,
@@ -272,21 +321,39 @@ export class WebhookService {
   ): Promise<boolean> {
     const logger = this.scopedLogger({ userId, instanceName, remoteJid });
 
-    // 1) Intentar con el JID principal (priorizando @s.whatsapp.net)
+    // 1) Intentar con el JID principal (prioriza @s.whatsapp.net)
     let session = await this.sessionService.getSession(remoteJid, instanceName, userId);
 
     // 2) Si no existe y hay un JID alternativo distinto, intentar con él (ej: @lid)
     if (!session && remoteJidAlt && remoteJidAlt !== remoteJid) {
-      session = await this.sessionService.getSession(remoteJidAlt, instanceName, userId);
-      if (session) {
+      const sessionAlt = await this.sessionService.getSession(remoteJidAlt, instanceName, userId);
+
+      if (sessionAlt) {
         logger.log(`[SESSION] Usuario ya registrado con JID alternativo: ${remoteJidAlt}`);
+
+        // 🧠 Normalizar: actualizamos el remoteJid en BD al canon (@s.whatsapp.net si es el seleccionado)
+        if (sessionAlt.remoteJid !== remoteJid) {
+          try {
+            await this.sessionService.updateSessionRemoteJid(sessionAlt.id, remoteJid);
+            logger.log(
+              `[SESSION] remoteJid actualizado de ${sessionAlt.remoteJid} → ${remoteJid}`,
+            );
+            sessionAlt.remoteJid = remoteJid;
+          } catch (error) {
+            logger.error('Error actualizando remoteJid de la sesión', error);
+          }
+        }
+
+        session = sessionAlt;
       }
     }
 
     if (session) {
       logger.log(`[SESSION] Usuario ya registrado: ${session.remoteJid}`);
 
-      const hasTrigger = await this.sessionTriggerService.findBySessionId(session.id.toString());
+      const hasTrigger = await this.sessionTriggerService.findBySessionId(
+        session.id.toString(),
+      );
       const dateReactivate = await this.getReactivateDate({ userWithRelations });
 
       if (!hasTrigger) {
@@ -296,7 +363,10 @@ export class WebhookService {
         }
       } else {
         if (dateReactivate) {
-          await this.sessionTriggerService.updateTimeBySessionId(session.id.toString(), dateReactivate);
+          await this.sessionTriggerService.updateTimeBySessionId(
+            session.id.toString(),
+            dateReactivate,
+          );
           logger.log(`[TRIGGER] Fecha actualizada a: ${dateReactivate}`);
         }
       }
@@ -304,13 +374,15 @@ export class WebhookService {
       return session.status;
     }
 
-    // 3) Si no hay sesión ni por JID canon ni alterno, registrar usando el canon (prioriza @s.whatsapp.net)
+    // 3) Si no hay sesión ni por JID canon ni alterno, registrar usando el canon
     await this.sessionService.registerSession(userId, remoteJid, pushName, instanceName);
     logger.log(`✅ Registro exitoso para ${remoteJid}`);
     return true;
   }
 
-  private async getReactivateDate({ userWithRelations }: getReactivateDate): Promise<string | null> {
+  private async getReactivateDate({
+    userWithRelations,
+  }: getReactivateDate): Promise<string | null> {
     const logger = this.scopedLogger({ userId: userWithRelations?.id });
     if (!userWithRelations) {
       logger.error('Se esperaba el userWithRelations para reactivar el chat.');
@@ -325,7 +397,9 @@ export class WebhookService {
 
     const MILLISECONDS_PER_MINUTE = 60000;
     const currentDate = new Date();
-    const futureDate = new Date(currentDate.getTime() + minutesToReactivate * MILLISECONDS_PER_MINUTE);
+    const futureDate = new Date(
+      currentDate.getTime() + minutesToReactivate * MILLISECONDS_PER_MINUTE,
+    );
 
     const pad = (n: number) => n.toString().padStart(2, '0');
     const day = pad(futureDate.getDate());
@@ -338,21 +412,24 @@ export class WebhookService {
     return formatted;
   }
 
-  private async stopOrResumeConversation(
-    {
-      conversationMsg,
-      remoteJid,
-      instanceId,
-      sessionStatus,
-      userWithRelations,
-      instanceName,
-      apikey,
-      server_url
-    }: stopOrResumeConversation) {
-
+  private async stopOrResumeConversation({
+    conversationMsg,
+    remoteJid,
+    instanceId,
+    sessionStatus,
+    userWithRelations,
+    instanceName,
+    apikey,
+    server_url,
+  }: stopOrResumeConversation) {
     const logger = this.scopedLogger({ userId: userWithRelations?.id, instanceName, remoteJid });
 
-    await this.sessionService.updateSessionStatus(remoteJid, instanceName, false, userWithRelations.id);
+    await this.sessionService.updateSessionStatus(
+      remoteJid,
+      instanceName,
+      false,
+      userWithRelations.id,
+    );
     logger.log(`Chat pausado.`);
 
     if (!sessionStatus) {
@@ -362,7 +439,7 @@ export class WebhookService {
       }
 
       const dataPausar = userWithRelations.pausar ?? [];
-      const pausarItem = dataPausar.find(p => p.tipo === 'abrir');
+      const pausarItem = dataPausar.find((p) => p.tipo === 'abrir');
 
       if (!pausarItem) {
         logger.warn('El usuario no tiene frase de reactivación configurada.');
@@ -374,7 +451,12 @@ export class WebhookService {
 
       if (conversationMsg === phraseToReactivateChat.trim().toLowerCase()) {
         logger.log('Frase correcta detectada. Reactivando chat...');
-        await this.sessionService.updateSessionStatus(remoteJid, instanceName, true, userWithRelations.id);
+        await this.sessionService.updateSessionStatus(
+          remoteJid,
+          instanceName,
+          true,
+          userWithRelations.id,
+        );
         return;
       }
     }
@@ -384,7 +466,10 @@ export class WebhookService {
     if (conversationMsg === pharaseToDelSeguimiento.trim().toLowerCase()) {
       logger.log('Frase correcta detectada. Eliminando seguimiento...');
       try {
-        const { count } = await this.seguimientosService.deleteSeguimientosByRemoteJid(remoteJid, instanceName);
+        const { count } = await this.seguimientosService.deleteSeguimientosByRemoteJid(
+          remoteJid,
+          instanceName,
+        );
         if (count && count > 0) {
           logger.log('Seguimiento eliminado con exito.');
         } else {
@@ -407,21 +492,30 @@ export class WebhookService {
       instanceName,
       remoteJid,
     });
-  };
+  }
 
-  private async onAutoReplies({ userId, conversationMsg, server_url, apikey, instanceName, remoteJid, }: onAutoRepliesInterface): Promise<void> {
+  private async onAutoReplies({
+    userId,
+    conversationMsg,
+    server_url,
+    apikey,
+    instanceName,
+    remoteJid,
+  }: onAutoRepliesInterface): Promise<void> {
     const logger = this.scopedLogger({ userId, instanceName, remoteJid });
     try {
       const autoReplies = await this.autoRepliesService.getAutoRepliesByUserId(userId);
       if (!autoReplies || autoReplies.length === 0) return;
 
       const matchedReply = autoReplies.find(
-        reply => reply.mensaje?.trim().toLowerCase() === conversationMsg
+        (reply) => reply.mensaje?.trim().toLowerCase() === conversationMsg,
       );
 
       if (matchedReply) {
         logger.log(`Respuesta rápida encontrada: ${matchedReply.mensaje}`);
-        const workflow = await this.workflowService.getWorkflowByWorkflowId(matchedReply.workflowId);
+        const workflow = await this.workflowService.getWorkflowByWorkflowId(
+          matchedReply.workflowId,
+        );
         if (!workflow) return;
 
         await this.workflowService.executeWorkflow(
@@ -430,7 +524,7 @@ export class WebhookService {
           apikey,
           instanceName,
           remoteJid,
-          userId
+          userId,
         );
 
         await this.sessionService.updateSessionStatus(remoteJid, instanceName, true, userId);
@@ -439,5 +533,5 @@ export class WebhookService {
     } catch (error) {
       logger.error('Error al procesar autoReplies', error);
     }
-  };
+  }
 }

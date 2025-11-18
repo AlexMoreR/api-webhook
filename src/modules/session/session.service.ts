@@ -43,6 +43,13 @@ export class SessionService {
     });
   }
 
+  async updateSessionRemoteJid(id: number, newRemoteJid: string) {
+    return this.prisma.session.update({
+      where: { id },
+      data: { remoteJid: newRemoteJid },
+    });
+  }
+
   // Update state session by remoteJid y instanceId
   async updateSessionStatus(remoteJid: string, instanceId: string, status: boolean, userId: string) {
     return this.prisma.session.updateMany({
