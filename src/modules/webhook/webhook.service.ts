@@ -47,7 +47,7 @@ export class WebhookService {
     private readonly aiCreditsService: AiCreditsService,
     private readonly sessionTriggerService: SessionTriggerService,
     private readonly antifloodService: AntifloodService,
-  ) {}
+  ) { }
 
   /**
    * Crea un logger con contexto fijo para prefijar todos los mensajes.
@@ -108,8 +108,7 @@ export class WebhookService {
     const { defaultModel, defaultProvider, defaultApiKey } = aiConfig || {};
     const mask = (k?: string | null) => (k ? `${k.slice(0, 4)}…${k.slice(-4)}` : null);
     logger.log(
-      `AI config recibida → provider=${defaultProvider?.name ?? '-'} model=${
-        defaultModel?.name ?? '-'
+      `AI config recibida → provider=${defaultProvider?.name ?? '-'} model=${defaultModel?.name ?? '-'
       } apiKey=${mask(defaultApiKey)}`,
     );
 
@@ -207,48 +206,57 @@ export class WebhookService {
       incomingMessage,
       delayConversation,
       async (mergedText) => {
-        await this.chatHistoryService.saveMessage(sessionHistoryId, mergedText, 'human');
+        try {
+          await this.chatHistoryService.saveMessage(sessionHistoryId, mergedText, 'human');
 
-        const dataProccessInput = {
-          input: mergedText,
-          userId,
-          apikeyOpenAi: defaultApiKey ?? '',
-          defaultModel: model,
-          defaultProvider: provider,
-          sessionId: sessionHistoryId,
-          server_url,
-          apikey,
-          instanceName,
-          remoteJid,
-        };
+          const dataProccessInput = {
+            input: mergedText,
+            userId,
+            apikeyOpenAi: defaultApiKey ?? '',
+            defaultModel: model,
+            defaultProvider: provider,
+            sessionId: sessionHistoryId,
+            server_url,
+            apikey,
+            instanceName,
+            remoteJid,
+          };
 
-        const aiResponse = await this.aiAgentService.processInput(dataProccessInput);
-        if (!aiResponse || aiResponse === '') return;
+          const aiResponse = await this.aiAgentService.processInput(dataProccessInput);
+          if (!aiResponse || aiResponse === '') return;
 
-        if (userWithRelations.muteAgentResponses) {
-          logger.warn('🔇 Agente muteado, no se enviará respuesta.', 'muteAgentResponses');
-          return;
-        }
+          if (userWithRelations.muteAgentResponses) {
+            logger.warn('🔇 Agente muteado, no se enviará respuesta.', 'muteAgentResponses');
+            return;
+          }
 
-        await this.chatHistoryService.saveMessage(sessionHistoryId, aiResponse, 'ia');
+          await this.chatHistoryService.saveMessage(sessionHistoryId, aiResponse, 'ia');
 
-        const msgBlocks = aiResponse
-          .split('\n\n')
-          .map((b) => b.trim())
-          .filter((b) => b.length > 0);
+          const msgBlocks = aiResponse
+            .split('\n\n')
+            .map((b) => b.trim())
+            .filter((b) => b.length > 0);
 
-        if (msgBlocks.length === 0) {
-          logger.warn(`El mensaje está vacío después de procesar bloques.`, 'NodeSenderService');
-          return;
-        }
+          if (msgBlocks.length === 0) {
+            logger.warn(`El mensaje está vacío después de procesar bloques.`, 'NodeSenderService');
+            return;
+          }
 
-        for (const [index, msgBlock] of msgBlocks.entries()) {
-          logger.log(`📤 Enviando bloque ${index + 1}/${msgBlocks.length}`, 'NodeSenderService');
-          await this.nodeSenderService.sendTextNode(apiMsgUrl, apikey, remoteJid, msgBlock);
-          await new Promise((res) => setTimeout(res, 1200));
+          for (const [index, msgBlock] of msgBlocks.entries()) {
+            logger.log(`📤 Enviando bloque ${index + 1}/${msgBlocks.length}`, 'NodeSenderService');
+            await this.nodeSenderService.sendTextNode(apiMsgUrl, apikey, remoteJid, msgBlock);
+            await new Promise((res) => setTimeout(res, 1200));
+          }
+        } catch (err: any) {
+          logger.error(
+            'Error en callback de messageBufferService.handleIncomingMessage (se evita crash global).',
+            err?.message || err,
+          );
         }
       },
     );
+
+
   }
 
   private async creditValidation({

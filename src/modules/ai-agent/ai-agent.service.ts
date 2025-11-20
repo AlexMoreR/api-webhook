@@ -378,7 +378,34 @@ export class AiAgentService {
       };
 
       // 🔹 Primer llamado al modelo con tools
-      const response = await createChatCompletion();
+      let response: any;
+
+      try {
+        response = await createChatCompletion();
+      } catch (err: any) {
+        const msg = err?.message || '';
+        const name = err?.name || '';
+
+        const isQuota =
+          name === 'InsufficientQuotaError' ||
+          msg.includes('exceeded your current quota') ||
+          msg.includes('You exceeded your current quota') ||
+          msg.includes('InsufficientQuota');
+
+        if (isQuota) {
+          logger.error(
+            '❌ Error de cuota con el proveedor de IA (OpenAI). El asistente no puede responder hasta que se restablezca el plan/billing.',
+            err,
+          );
+
+          // 🔙 Salida controlada: NO volvemos a llamar a la IA aquí.
+          return 'En este momento el asistente superó el límite de uso del proveedor de IA. Intenta de nuevo en unos minutos o contacta con soporte.';
+        }
+
+        // Otros errores se manejan en el catch general de processInput
+        throw err;
+      }
+
       const choice = response;
       const toolCall = choice.tool_calls?.shift?.();
 
