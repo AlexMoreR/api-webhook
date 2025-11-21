@@ -47,7 +47,7 @@ export class WebhookService {
     private readonly aiCreditsService: AiCreditsService,
     private readonly sessionTriggerService: SessionTriggerService,
     private readonly antifloodService: AntifloodService,
-  ) {}
+  ) { }
 
   /**
    * Crea un logger con contexto fijo para prefijar todos los mensajes.
@@ -66,7 +66,6 @@ export class WebhookService {
    * Procesa un webhook recibido de Evolution API.
    */
   async processWebhook(@Body() body: WebhookBodyDto): Promise<void> {
-    const delayConversation = WebhookService.DELAYCONVERSATION;
 
     const { instance: instanceName, server_url, apikey, data } = body;
 
@@ -111,6 +110,23 @@ export class WebhookService {
       `AI config recibida → provider=${defaultProvider?.name ?? '-'} model=${defaultModel?.name ?? '-'
       } apiKey=${mask(defaultApiKey)}`,
     );
+
+    // 🔹 Delay dinámico por usuario (delayTimeGPT en SEGUNDOS → convertir a ms)
+    const defaultDelay = WebhookService.DELAYCONVERSATION; // 10000 ms por defecto (10s)
+    let delayConversation = defaultDelay;
+
+    if (userWithRelations.delayTimeGPT) {
+      const seconds = parseInt(userWithRelations.delayTimeGPT, 10);
+
+      if (!isNaN(seconds) && seconds > 0) {
+        delayConversation = seconds * 1000; // convertir segundos → milisegundos
+        logger.log(`delayTimeGPT personalizado: ${seconds}s → ${delayConversation}ms`);
+      } else {
+        logger.warn(
+          `delayTimeGPT inválido ("${userWithRelations.delayTimeGPT}"), usando default ${defaultDelay}ms`,
+        );
+      }
+    }
 
     const fromMe = data?.key?.fromMe ?? false;
     const messageType = data?.messageType ?? '';
