@@ -59,13 +59,12 @@ export class AiAgentService {
     private readonly promptCompressor: PromptCompressorService,
     private readonly nodeSenderService: NodeSenderService,
     private readonly agentNotificationService: AgentNotificationService,
-  ) {}
+  ) { }
 
   // Logger con contexto fijo: [UID=...][I=...][R=...]
   private scopedLogger(ctx: { userId?: string; instanceName?: string; remoteJid?: string }) {
-    const tag = `[UID=${ctx.userId ?? '-'}][I=${ctx.instanceName ?? '-'}][R=${
-      ctx.remoteJid ?? '-'
-    }]`;
+    const tag = `[UID=${ctx.userId ?? '-'}][I=${ctx.instanceName ?? '-'}][R=${ctx.remoteJid ?? '-'
+      }]`;
     return {
       log: (msg: string, context = 'AiAgentService') =>
         this.logger.log(`${tag} ${msg}`, context),
@@ -691,8 +690,17 @@ export class AiAgentService {
     data: any,
     defaultModel: string,
     defaultProvider: string,
+    ctx?: { userId?: string; instanceName?: string; remoteJid?: string }, // 👈 NUEVO, opcional
   ): Promise<string> {
-    const logger = this.scopedLogger({});
+    // Intentamos tomar el remoteJid desde ctx; si no, desde data.key
+    const remoteJidFromData = data?.key?.remoteJid ?? data?.key?.remoteJidAlt ?? '-';
+
+    const logger = this.scopedLogger({
+      userId: ctx?.userId,
+      instanceName: ctx?.instanceName,
+      remoteJid: ctx?.remoteJid ?? remoteJidFromData,
+    });
+    
     try {
       const axiosRes = await axios.get(audioUrl, {
         responseType: 'arraybuffer',
