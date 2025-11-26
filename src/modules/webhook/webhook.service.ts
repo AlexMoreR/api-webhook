@@ -262,7 +262,7 @@ export class WebhookService {
           for (const [index, msgBlock] of msgBlocks.entries()) {
             logger.log(`📤 Enviando bloque ${index + 1}/${msgBlocks.length}`, 'NodeSenderService');
             await this.nodeSenderService.sendTextNode(apiMsgUrl, apikey, remoteJid, msgBlock);
-            await new Promise((res) => setTimeout(res, 1200));
+            await new Promise((res) => setTimeout(res, 300));
           }
         } catch (err: any) {
           logger.error(
