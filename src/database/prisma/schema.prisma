@@ -50,6 +50,7 @@ model User {
   Service                       Service[]
   sessions                      Session[]
   systemMessages                SystemMessage[]
+  Tag                           Tag[]
   tools                         Tools[]
   apiKey                        ApiKey?               @relation(fields: [apiKeyId], references: [id])
   defaultAiModel                AiModel?              @relation("DefaultAiModel", fields: [defaultAiModelId], references: [id])
@@ -168,7 +169,11 @@ model Session {
   flujos       String?       @default("")
   remoteJidAlt String?
   Appointment  Appointment[]
+  Registro     Registro[]
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  SessionTag   SessionTag[]
+
+  @@index([userId, remoteJid])
 }
 
 model Pausar {
@@ -484,6 +489,48 @@ model SessionTrigger {
   sessionId String
 }
 
+model Registro {
+  tipo      TipoRegistro
+  fecha     DateTime?
+  estado    String
+  resumen   String?
+  lead      Boolean?
+  nombre    String?
+  detalles  String?
+  meta      Json?
+  sessionId Int
+  createdAt DateTime     @default(now())
+  updatedAt DateTime
+  id        Int          @id @default(autoincrement())
+  Session   Session      @relation(fields: [sessionId], references: [id])
+
+  @@index([sessionId, tipo, fecha])
+  @@index([tipo, fecha])
+}
+
+model SessionTag {
+  sessionId Int
+  tagId     Int
+  Session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  Tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([sessionId, tagId])
+}
+
+model Tag {
+  id         Int          @id @default(autoincrement())
+  userId     String
+  name       String
+  slug       String
+  color      String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime
+  SessionTag SessionTag[]
+  User       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, slug])
+}
+
 enum PromptStatus {
   draft
   published
@@ -545,4 +592,13 @@ enum AppointmentStatus {
   PENDIENTE
   CONFIRMADA
   CANCELADA
+}
+
+enum TipoRegistro {
+  REPORTE
+  SOLICITUD
+  PEDIDO
+  RECLAMO
+  PAGO
+  RESERVA
 }

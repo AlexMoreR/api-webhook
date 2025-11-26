@@ -59,12 +59,13 @@ export class AiAgentService {
     private readonly promptCompressor: PromptCompressorService,
     private readonly nodeSenderService: NodeSenderService,
     private readonly agentNotificationService: AgentNotificationService,
-  ) { }
+  ) {}
 
   // Logger con contexto fijo: [UID=...][I=...][R=...]
   private scopedLogger(ctx: { userId?: string; instanceName?: string; remoteJid?: string }) {
-    const tag = `[UID=${ctx.userId ?? '-'}][I=${ctx.instanceName ?? '-'}][R=${ctx.remoteJid ?? '-'
-      }]`;
+    const tag = `[UID=${ctx.userId ?? '-'}][I=${ctx.instanceName ?? '-'}][R=${
+      ctx.remoteJid ?? '-'
+    }]`;
     return {
       log: (msg: string, context = 'AiAgentService') =>
         this.logger.log(`${tag} ${msg}`, context),
@@ -367,14 +368,9 @@ export class AiAgentService {
             if (notificationPhone) {
               const aviso =
                 '⚠️ Tu *agente IA* alcanzó el límite de uso del proveedor de IA.\n\n' +
-                '🧐 Por favor revisa el plan o la facturación del modelo configurado\n\n' +
+                '🧐 Por favor revisa el plan o la facturación del modelo configurado\n\n' +
                 '👉 https://platform.openai.com/settings/organization/billing/overview';
-              await this.nodeSenderService.sendTextNode(
-                apiUrl,
-                apikey,
-                notificationPhone,
-                aviso,
-              );
+              await this.nodeSenderService.sendTextNode(apiUrl, apikey, notificationPhone, aviso);
             } else {
               logger.warn(
                 'Error de cuota: no se envió aviso porque no hay número de notificación ni fallback.',
@@ -395,111 +391,85 @@ export class AiAgentService {
         throw err;
       }
 
-      const choice = response;
-      const toolCall = choice.tool_calls?.shift?.();
-
+      // Tracking de tokens de la llamada principal
       const totalTokensMain = response?.usage_metadata?.total_tokens;
       const tokensUsedMain = totalTokensMain ? parseInt(totalTokensMain.toString(), 10) : 0;
       await this.aiCredits.trackTokens(userId, tokensUsedMain);
 
-      // Si la IA pidió una tool
-      if (toolCall) {
-        logger.log(`Tool encontrada, preparando ejecución...`);
-        let args: any;
-        try {
-          args = toolCall.args;
-        } catch (e: any) {
-          logger.error('Error al parsear los argumentos del toolCall', e.message);
-          const final = await this.respondAsMainAgent({
-            userId,
-            sessionId,
-            userPrompt: input,
-            principalSystemPrompt: promptAI,
-            followupText: '[ERROR_TOOL_ARGS_PARSING]',
-          });
-          return final;
-        }
+      const choice = response;
+      const toolCall = choice.tool_calls?.shift?.();
 
-        const toolName = toolCall.name;
-
-        switch (toolName) {
-          // Tool de notificación a asesor
-          case 'Notificacion_Asesor': {
-            const res = await this.notificacionTool.handleNotificacionTool(
-              args,
-              userId,
-              server_url,
-              apikey,
-              instanceName,
-              remoteJid,
-            );
-
-            const follow =
-              res === 'ok' ? 'Notificación enviada.' : 'No se pudo notificar al asesor.';
-
-            const final = await this.respondAsMainAgent({
-              userId,
-              sessionId,
-              userPrompt: input,
-              principalSystemPrompt: promptAI,
-              followupText: follow,
-            });
-
-            return final;
-          }
-
-          // Tool de ejecutar flujos
-          case 'Ejecutar_Flujos': {
-            const follow = await this.handleExecuteWorkflowTool(
-              args,
-              userId,
-              sessionId,
-              server_url,
-              apikey,
-              instanceName,
-              remoteJid,
-            );
-
-            const final = await this.respondAsMainAgent({
-              userId,
-              sessionId,
-              userPrompt: input,
-              principalSystemPrompt: promptAI,
-              followupText: follow,
-            });
-
-            return final;
-          }
-
-          // Tool desconocida
-          default: {
-            logger.warn(`Tool no soportada: ${toolCall.name}`);
-
-            const follow = `La herramienta "${toolCall.name}" no está soportada.`;
-
-            const final = await this.respondAsMainAgent({
-              userId,
-              sessionId,
-              userPrompt: input,
-              principalSystemPrompt: promptAI,
-              followupText: follow,
-            });
-
-            return final;
-          }
-        }
+      // 👉 Si NO hubo tool_call → usamos directamente la respuesta del modelo
+      if (!toolCall) {
+        const content =
+          response?.content?.toString?.().trim() || ERROR_OPENAI_EMPTY_RESPONSE;
+        return content;
       }
 
-      // Si NO hubo tool_call → responde el agente principal directamente
-      const finalSinTool = await this.respondAsMainAgent({
-        userId,
-        sessionId,
-        userPrompt: input,
-        principalSystemPrompt: promptAI,
-        followupText: ERROR_OPENAI_EMPTY_RESPONSE,
-      });
+      // Si la IA pidió una tool
+      logger.log(`Tool encontrada, preparando ejecución...`);
+      let args: any;
+      try {
+        args = toolCall.args;
+      } catch (e: any) {
+        logger.error('Error al parsear los argumentos del toolCall', e.message);
+        const final = await this.respondAsMainAgent({
+          userId,
+          sessionId,
+          userPrompt: input,
+          principalSystemPrompt: promptAI,
+          followupText: '[ERROR_TOOL_ARGS_PARSING]',
+        });
+        return final;
+      }
 
-      return finalSinTool;
+      const toolName = toolCall.name;
+
+      switch (toolName) {
+        // Tool de notificación a asesor
+        case 'Notificacion_Asesor': {
+          const res = await this.notificacionTool.handleNotificacionTool(
+            args,
+            userId,
+            server_url,
+            apikey,
+            instanceName,
+            remoteJid,
+          );
+
+          const follow =
+            res === 'ok' ? 'Notificación enviada.' : 'No se pudo notificar al asesor.';
+
+          // 👉 Devolvemos directamente el texto, sin segunda llamada al modelo
+          return follow;
+        }
+
+        // Tool de ejecutar flujos
+        case 'Ejecutar_Flujos': {
+          const follow = await this.handleExecuteWorkflowTool(
+            args,
+            userId,
+            sessionId,
+            server_url,
+            apikey,
+            instanceName,
+            remoteJid,
+          );
+
+          // 👉 El texto del flujo ya es amigable, lo devolvemos directo
+          return follow;
+        }
+
+        // Tool desconocida
+        default: {
+          logger.warn(`Tool no soportada: ${toolCall.name}`);
+
+          const follow = `La herramienta "${toolCall.name}" no está soportada.`;
+
+          // 👉 Respuesta directa sin segunda llamada
+          return follow;
+        }
+      }
     } catch (error: any) {
       const logger = this.scopedLogger({ userId, instanceName, remoteJid });
 
@@ -531,12 +501,7 @@ export class AiAgentService {
               '⚠️ La *APIKey* introducida en *Agente IA* es inválida. Por favor revisa e ingresa una API Key valida.\n\n' +
               '👉 https://agente.ia-app.com/profile';
 
-            await this.nodeSenderService.sendTextNode(
-              apiUrl,
-              apikey,
-              notificationPhone,
-              aviso,
-            );
+            await this.nodeSenderService.sendTextNode(apiUrl, apikey, notificationPhone, aviso);
           } else {
             logger.warn(
               'Error de autenticación: no se envió aviso porque no hay número de notificación ni fallback.',
@@ -700,7 +665,7 @@ export class AiAgentService {
       instanceName: ctx?.instanceName,
       remoteJid: ctx?.remoteJid ?? remoteJidFromData,
     });
-    
+
     try {
       const axiosRes = await axios.get(audioUrl, {
         responseType: 'arraybuffer',
