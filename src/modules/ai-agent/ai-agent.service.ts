@@ -107,10 +107,7 @@ export class AiAgentService {
   }
 
   /**
-   * SIEMPRE FINALIZA COMO AGENTE PRINCIPAL.
-   *
-   * - No hubo tool_call, o
-   * - Se ejecutó una tool y tenemos followupText.
+   * AGENTE PRINCIPAL para re-redactar después de tools o errores.
    */
   private async respondAsMainAgent(params: {
     userId: string;
@@ -164,10 +161,6 @@ export class AiAgentService {
 
   /**
    * Agente interno de detección de flujos.
-   *
-   * Usa systemPromptWorkflow + formattedList para transformar el input
-   * (nombre_flujo y descripción) en una lista de nombres de flujos exactos
-   * que existen en la BD.
    */
   private async openAIToolDetection({
     input,
@@ -399,7 +392,7 @@ export class AiAgentService {
       const choice = response;
       const toolCall = choice.tool_calls?.shift?.();
 
-      // 👉 Si NO hubo tool_call → usamos directamente la respuesta del modelo
+      // 👉 Si NO hubo tool_call → usamos directamente la respuesta del modelo (solo 1 llamada)
       if (!toolCall) {
         const content =
           response?.content?.toString?.().trim() || ERROR_OPENAI_EMPTY_RESPONSE;
@@ -440,8 +433,16 @@ export class AiAgentService {
           const follow =
             res === 'ok' ? 'Notificación enviada.' : 'No se pudo notificar al asesor.';
 
-          // 👉 Devolvemos directamente el texto, sin segunda llamada al modelo
-          return follow;
+          // 👉 Volvemos a pasar por el agente principal para una respuesta con IA
+          const final = await this.respondAsMainAgent({
+            userId,
+            sessionId,
+            userPrompt: input,
+            principalSystemPrompt: promptAI,
+            followupText: follow,
+          });
+
+          return final;
         }
 
         // Tool de ejecutar flujos
@@ -456,8 +457,16 @@ export class AiAgentService {
             remoteJid,
           );
 
-          // 👉 El texto del flujo ya es amigable, lo devolvemos directo
-          return follow;
+          // 👉 Aquí recuperas la "respuesta con IA" después de ejecutar el flujo
+          const final = await this.respondAsMainAgent({
+            userId,
+            sessionId,
+            userPrompt: input,
+            principalSystemPrompt: promptAI,
+            followupText: follow,
+          });
+
+          return final;
         }
 
         // Tool desconocida
@@ -466,8 +475,15 @@ export class AiAgentService {
 
           const follow = `La herramienta "${toolCall.name}" no está soportada.`;
 
-          // 👉 Respuesta directa sin segunda llamada
-          return follow;
+          const final = await this.respondAsMainAgent({
+            userId,
+            sessionId,
+            userPrompt: input,
+            principalSystemPrompt: promptAI,
+            followupText: follow,
+          });
+
+          return final;
         }
       }
     } catch (error: any) {
