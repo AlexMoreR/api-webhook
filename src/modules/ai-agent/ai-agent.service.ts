@@ -671,79 +671,44 @@ export class AiAgentService {
     data: any,
     defaultModel: string,
     defaultProvider: string,
-    ctx?: { userId?: string; instanceName?: string; remoteJid?: string }, // 👈 NUEVO, opcional
   ): Promise<string> {
-    // Intentamos tomar el remoteJid desde ctx; si no, desde data.key
-    const remoteJidFromData = data?.key?.remoteJid ?? data?.key?.remoteJidAlt ?? '-';
-
-    const logger = this.scopedLogger({
-      userId: ctx?.userId,
-      instanceName: ctx?.instanceName,
-      remoteJid: ctx?.remoteJid ?? remoteJidFromData,
-    });
-
+    const logger = this.scopedLogger({}); // sin contexto disponible en firma
     try {
-      const axiosRes = await axios.get(audioUrl, {
-        responseType: 'arraybuffer',
-      });
+      const axiosRes = await axios.get(audioUrl, { responseType: "arraybuffer" });
       const audioBuffer = Buffer.from(axiosRes.data);
-      const base64Audio = Buffer.from(axiosRes.data).toString('base64');
+      const base64Audio = Buffer.from(axiosRes.data).toString("base64");
       const audioStream = Readable.from(audioBuffer);
-      (audioStream as any).path = 'audio.ogg';
+      (audioStream as any).path = "audio.ogg";
 
-      // ⚠️ NO usar this.initializeClient aquí para no tocar this.aiClient
-      if (defaultProvider === 'openai') {
-        try {
-          const localOpenAI = new OpenAI({ apiKey: apikeyOpenAi });
-          const transcription = await (localOpenAI as any).audio.transcriptions.create({
-            file: audioStream,
-            model: 'whisper-1',
-            response_format: 'text',
-          });
-
-          return typeof transcription === 'string'
-            ? transcription
-            : (transcription as any).text;
-        } catch (err: any) {
-          logger.error(
-            'Error transcribiendo audio con Whisper (OpenAI).',
-            err?.response?.data || err?.message,
-          );
-          return '[ERROR_TRANSCRIBING_AUDIO]';
-        }
+      if (defaultProvider == 'openai') {
+        this.initializeClient(apikeyOpenAi, 'whisper-1', defaultProvider);
+        const transcription = await this.aiClient.audio.transcriptions.create({
+          file: audioStream,
+          model: 'whisper-1',
+          response_format: 'text',
+        })
+        return typeof transcription === "string"
+          ? transcription
+          : transcription.text;
       }
-
-      // Otros proveedores (por ejemplo Gemini) usando llmClientFactory
-      const audioLlm = this.llmClientFactory.getClient({
-        provider: defaultProvider,
-        apiKey: apikeyOpenAi,
-        model: defaultModel,
-      });
+      this.initializeClient(apikeyOpenAi, defaultModel, defaultProvider);
 
       const message = new HumanMessage({
         content: [
-          {
-            type: 'text',
-            text: 'Transcribe de forma clara y detallada este audio.',
-          },
-          {
-            type: 'media',
-            data: base64Audio,
-            mimeType: `${audioType}`,
-          },
+          { type: "text", text: "Transcribe de forma clara y detallada este audio." },
+          defaultProvider == 'openai'
+            ? { type: "input_audio", input_audio: { data: base64Audio, format: `${audioType}` } }
+            : { type: "media", data: base64Audio, mimeType: `${audioType}` },
         ],
-      });
-      const state = await (audioLlm as any).invoke([message]);
-      return state.content.toString();
+      })
+      const state = await this.aiClient.invoke([message])
+      return state.content.toString()
     } catch (error: any) {
       logger.error('Error transcribiendo audio.', error?.response?.data || error.message);
-      logger.error(
-        'Error transcribiendo audio.',
-        error?.message || JSON.stringify(error, null, 2),
-      );
+      logger.error('Error transcribiendo audio.', error?.message || JSON.stringify(error, null, 2));
       return '[ERROR_TRANSCRIBING_AUDIO]';
     }
-  }
+  };
 
   // Describe imagen (usado por message-type-handler).
   async describeImage(
