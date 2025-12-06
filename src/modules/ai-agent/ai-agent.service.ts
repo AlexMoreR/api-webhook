@@ -336,7 +336,7 @@ export class AiAgentService {
       // Prompt PRINCIPAL del agente
       const promptAI = `${extraRules} ${systemPrompt}`.trim();
 
-      logger.log('PROMPT:', promptAI);
+      //logger.log('PROMPT:', promptAI);
 
       const chatHistory = await this.chatHistoryService.getChatHistory(sessionId);
 
