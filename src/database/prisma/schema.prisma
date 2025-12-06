@@ -504,7 +504,7 @@ model Registro {
   createdAt DateTime     @default(now())
   updatedAt DateTime
   id        Int          @id @default(autoincrement())
-  Session   Session      @relation(fields: [sessionId], references: [id])
+  Session   Session      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([tipo, fecha])
 }
