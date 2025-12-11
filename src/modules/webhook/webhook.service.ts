@@ -201,7 +201,7 @@ export class WebhookService {
     if (!sessionActive) return;
 
     /* Extract content */
-    const model = defaultModel?.name || 'o4-mini';
+    const model = defaultModel?.name || 'gpt-4o';
     const provider = defaultProvider?.name || 'openai';
     const extractedContent =
       await this.messageTypeHandlerService.extractContentByType(
