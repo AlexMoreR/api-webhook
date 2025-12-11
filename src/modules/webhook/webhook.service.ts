@@ -645,8 +645,8 @@ export class WebhookService {
           userId,
         );
 
-        await this.sessionService.updateSessionStatus(remoteJid, instanceName, true, userId);
-        logger.log(`Chat reactivado.`);
+        // await this.sessionService.updateSessionStatus(remoteJid, instanceName, true, userId);
+        // logger.log(`Chat reactivado.`);
       }
     } catch (error) {
       logger.error('Error al procesar autoReplies', error);
