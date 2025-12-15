@@ -267,6 +267,13 @@ export class WebhookService {
               userId,
             );
 
+            // Limpiar inactividad porque el agente ya respondió con un flujo
+            await this.sessionService.clearInactividadAfterAgentReply(
+              userId,
+              remoteJid,
+              instanceName,
+            );
+
             // Importante: NO usamos IA si ya encontramos un flujo
             return;
           }
