@@ -238,6 +238,13 @@ export class WebhookService {
         try {
           const mergedTextStr = mergedText.toString();
 
+          // Limpiar inactividad porque el agente ya respondió con un flujo
+          await this.sessionService.clearInactividadAfterAgentReply(
+            userId,
+            remoteJid,
+            instanceName,
+          );
+
           // Guardamos el mensaje completo que se acumuló en el buffer
           await this.chatHistoryService.saveMessage(
             sessionHistoryId,
@@ -265,13 +272,6 @@ export class WebhookService {
               instanceName,
               remoteJid,
               userId,
-            );
-
-            // Limpiar inactividad porque el agente ya respondió con un flujo
-            await this.sessionService.clearInactividadAfterAgentReply(
-              userId,
-              remoteJid,
-              instanceName,
             );
 
             // Importante: NO usamos IA si ya encontramos un flujo
@@ -338,13 +338,6 @@ export class WebhookService {
             );
             await new Promise((res) => setTimeout(res, 300));
           }
-
-          // 👉 DESPUÉS DE RESPONDER AL CLIENTE CON IA
-          await this.sessionService.clearInactividadAfterAgentReply(
-            userId,
-            remoteJid,
-            instanceName,
-          );
 
         } catch (err: any) {
           logger.error(
@@ -651,6 +644,13 @@ export class WebhookService {
         );
         if (!workflow) return;
 
+        // 👉 AQUÍ LIMPIAMOS INACTIVIDAD ANTES DE RESPONDER
+        await this.sessionService.clearInactividadAfterAgentReply(
+          userId,
+          remoteJid,
+          instanceName,
+        );
+
         await this.workflowService.executeWorkflow(
           workflow?.name ?? '',
           server_url,
@@ -658,13 +658,6 @@ export class WebhookService {
           instanceName,
           remoteJid,
           userId,
-        );
-
-        // 👉 AQUÍ LIMPIAMOS INACTIVIDAD DESPUÉS DE RESPONDER
-        await this.sessionService.clearInactividadAfterAgentReply(
-          userId,
-          remoteJid,
-          instanceName,
         );
 
         // await this.sessionService.updateSessionStatus(remoteJid, instanceName, true, userId);
