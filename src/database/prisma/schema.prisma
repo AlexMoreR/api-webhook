@@ -12,18 +12,22 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime
-  User              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  refreshToken String? @map("refresh_token")
+  accessToken  String? @map("access_token")
+  expiresAt    Int?    @map("expires_at")
+  tokenType    String? @map("token_type")
+  scope        String?
+  idToken      String? @map("id_token")
+  sessionState String? @map("session_state")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([provider, providerAccountId])
+  @@index([userId])
 }
 
 model AgentPrompt {
@@ -37,9 +41,9 @@ model AgentPrompt {
   businessName        String?
   businessSector      String?
   createdAt           DateTime              @default(now())
-  updatedAt           DateTime
-  User                User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  AgentPromptRevision AgentPromptRevision[]
+  updatedAt           DateTime              @updatedAt
+  user                User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agentPromptRevision AgentPromptRevision[]
 
   @@index([agentId])
   @@index([businessName])
@@ -58,8 +62,8 @@ model AgentPromptRevision {
   publishedBy        String
   publishedAt        DateTime    @default(now())
   notes              String?
-  AgentPrompt        AgentPrompt @relation(fields: [promptId], references: [id], onDelete: Cascade)
-  User               User        @relation(fields: [publishedBy], references: [id], onDelete: Cascade)
+  agentPrompt        AgentPrompt @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  user               User        @relation(fields: [publishedBy], references: [id], onDelete: Cascade)
 
   @@unique([promptId, revisionNumber])
   @@index([publishedAt])
@@ -70,8 +74,8 @@ model ApiKey {
   url       String
   key       String
   createdAt DateTime @default(now())
-  updatedAt DateTime
-  User      User[]
+  updatedAt DateTime @updatedAt
+  users     User[]
 }
 
 model Appointment {
@@ -83,31 +87,40 @@ model Appointment {
   timezone  String
   status    AppointmentStatus @default(PENDIENTE)
   createdAt DateTime          @default(now())
-  updatedAt DateTime
+  updatedAt DateTime          @updatedAt
   serviceId String?
-  Service   Service?          @relation(fields: [serviceId], references: [id])
-  Session   Session           @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  User      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  service   Service?          @relation(fields: [serviceId], references: [id])
+  session   Session           @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startTime])
+  @@index([sessionId])
+  @@index([serviceId])
 }
 
-model GuidesUrl {
+model GuideUrl {
   id          String   @id
   path        String
   title       String
   description String?
   url         String
   createdAt   DateTime @default(now())
-  updatedAt   DateTime
+  updatedAt   DateTime @updatedAt
   tipo        String?
+
+  @@map("GuidesUrl")
 }
 
-model Instancias {
+model Instancia {
   id           Int     @id @default(autoincrement())
   instanceName String
   userId       String
   instanceId   String
   instanceType String? @default("Whatsapp")
-  User         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("Instancias")
 }
 
 model Log {
@@ -124,7 +137,7 @@ model Manual {
   description String?
   url         String
   createdAt   DateTime @default(now())
-  updatedAt   DateTime
+  updatedAt   DateTime @updatedAt
 }
 
 model Module {
@@ -139,11 +152,11 @@ model Module {
   allowedPlans           Plan[]
   order                  Int          @default(0)
   createdAt              DateTime     @default(now())
-  updatedAt              DateTime
+  updatedAt              DateTime     @updatedAt
   showOnlySelectedPlans  Boolean?     @default(false)
   customUrl              String?
-  ModuleItem             ModuleItem[]
-  User                   User[]       @relation("UserModules")
+  moduleItems            ModuleItem[]
+  users                  User[]       @relation("UserModules")
 }
 
 model ModuleItem {
@@ -152,8 +165,8 @@ model ModuleItem {
   url       String
   moduleId  String
   createdAt DateTime @default(now())
-  updatedAt DateTime
-  Module    Module   @relation(fields: [moduleId], references: [id])
+  updatedAt DateTime @updatedAt
+  module    Module   @relation(fields: [moduleId], references: [id])
 }
 
 model Pausar {
@@ -162,11 +175,11 @@ model Pausar {
   tipo        String   @default("abrir")
   baseurl     String
   createdAt   DateTime @default(now())
-  updatedAt   DateTime
+  updatedAt   DateTime @updatedAt
   apikeyId    String
   instanciaId String
   id          Int      @id @default(autoincrement())
-  User        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Product {
@@ -180,10 +193,10 @@ model Product {
   isActive    Boolean  @default(true)
   images      String[]
   createdAt   DateTime @default(now())
-  updatedAt   DateTime
+  updatedAt   DateTime @updatedAt
   category    String
   tags        String[]
-  User        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, title])
 }
@@ -195,7 +208,7 @@ model PromptInstance {
   content      String?
   instanceId   Int?
   userId       String
-  User         User    @relation(fields: [userId], references: [id])
+  user         User    @relation(fields: [userId], references: [id])
 }
 
 model PromptTemplate {
@@ -206,7 +219,7 @@ model PromptTemplate {
   category    String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
-  updatedAt   DateTime
+  updatedAt   DateTime @updatedAt
 }
 
 model Registro {
@@ -220,11 +233,12 @@ model Registro {
   meta      Json?
   sessionId Int
   createdAt DateTime     @default(now())
-  updatedAt DateTime
+  updatedAt DateTime     @updatedAt
   id        Int          @id @default(autoincrement())
-  Session   Session      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  session   Session      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([tipo, fecha])
+  @@index([sessionId])
 }
 
 model Reminders {
@@ -242,20 +256,22 @@ model Reminders {
   workflowId   String?
   remoteJid    String?
   createdAt    DateTime    @default(now())
-  updatedAt    DateTime
+  updatedAt    DateTime    @updatedAt
   pushName     String?
   isSchedule   Boolean?    @default(false)
 }
 
 model Service {
-  id          String        @id
-  userId      String
-  name        String
-  description String?
-  messageText String
-  createdAt   DateTime      @default(now())
-  Appointment Appointment[]
-  User        User          @relation(fields: [userId], references: [id])
+  id           String        @id
+  userId       String
+  name         String
+  description  String?
+  messageText  String
+  createdAt    DateTime      @default(now())
+  appointments Appointment[]
+  user         User          @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
 model Session {
@@ -263,20 +279,21 @@ model Session {
   remoteJid      String
   pushName       String
   instanceId     String
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
   status         Boolean
-  id             Int             @id @default(autoincrement())
-  seguimientos   String?         @default("")
-  inactividad    String?         @default("")
+  id             Int                    @id @default(autoincrement())
+  seguimientos   String?                @default("")
+  inactividad    String?                @default("")
   sessionDelay   String?
-  flujos         String?         @default("")
+  flujos         String?                @default("")
   remoteJidAlt   String?
-  Appointment    Appointment[]
-  Registro       Registro[]
-  User           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  SessionTag     SessionTag[]
-  SessionTrigger SessionTrigger?
+  appointments   Appointment[]
+  registros      Registro[]
+  user           User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionTags    SessionTag[]
+  sessionTrigger SessionTrigger?
+  workflowStates SessionWorkflowState[]
 
   @@index([userId, remoteJid])
 }
@@ -284,8 +301,9 @@ model Session {
 model SessionTag {
   sessionId Int
   tagId     Int
-  Session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  Tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@id([sessionId, tagId])
 }
@@ -294,9 +312,10 @@ model SessionTrigger {
   id        Int      @id @default(autoincrement())
   time      String
   createdAt DateTime @default(now())
-  updatedAt DateTime
+  updatedAt DateTime @updatedAt
   sessionId Int      @unique
-  Session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 }
 
 model SystemMessage {
@@ -304,94 +323,100 @@ model SystemMessage {
   message    String
   userId     String
   createdAt  DateTime      @default(now())
-  updatedAt  DateTime
+  updatedAt  DateTime      @updatedAt
   title      String        @default("Sin título")
   typePrompt TypePromptAi? @default(TRAINING)
-  User       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Tag {
-  id         Int          @id @default(autoincrement())
-  userId     String
-  name       String
-  slug       String
-  color      String?
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime
-  SessionTag SessionTag[]
-  User       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          Int          @id @default(autoincrement())
+  userId      String
+  name        String
+  slug        String
+  color       String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  sessionTags SessionTag[]
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, slug])
+  @@index([userId])
 }
 
-model Tools {
+model Tool {
   id          String   @id
   name        String
   description String?
   userId      String
   createdAt   DateTime @default(now())
-  updatedAt   DateTime
-  User        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("Tools")
 }
 
 model User {
-  id                                 String                 @id
+  id                                 String                @id
   name                               String?
-  email                              String                 @unique
+  email                              String                @unique
   password                           String?
   emailVerified                      DateTime?
   image                              String?
-  role                               Role                   @default(user)
-  createdAt                          DateTime               @default(now())
-  updatedAt                          DateTime
-  apiUrl                             String                 @default("https://api.openAI.co")
-  company                            String                 @default("Empresa Demo")
-  lat                                String                 @default("0.0000")
-  lng                                String                 @default("0.0000")
-  mapsUrl                            String                 @default("https://maps.google.com/?q=0,0")
-  notificationNumber                 String                 @default("0000000000")
-  openingPhrase                      String?                @default("DEPRECATED")
+  role                               Role                  @default(user)
+  createdAt                          DateTime              @default(now())
+  updatedAt                          DateTime              @updatedAt
+  apiUrl                             String                @default("https://api.openAI.co")
+  company                            String                @default("Empresa Demo")
+  lat                                String                @default("0.0000")
+  lng                                String                @default("0.0000")
+  mapsUrl                            String                @default("https://maps.google.com/?q=0,0")
+  notificationNumber                 String                @default("0000000000")
+  openingPhrase                      String?               @default("DEPRECATED")
   apiKeyId                           String?
-  del_seguimiento                    String?                @default("Estamos para servirle.")
-  plan                               Plan                   @default(basico)
+  delSeguimiento                     String?               @default("Estamos para servirle.") @map("del_seguimiento")
+  plan                               Plan                  @default(basico)
   autoReactivate                     String?
-  webhookUrl                         String?                @default("https://n8npro.verzay.co/webhook")
-  theme                              ThemeApp?              @default(Default)
-  muteAgentResponses                 Boolean                @default(false)
+  webhookUrl                         String?               @default("https://n8npro.verzay.co/webhook")
+  theme                              ThemeApp?             @default(Default)
+  muteAgentResponses                 Boolean               @default(false)
   timezone                           String?
   meetingDuration                    Int?
-  onFacebook                         Boolean                @default(false)
-  onInstagram                        Boolean                @default(false)
+  onFacebook                         Boolean               @default(false)
+  onInstagram                        Boolean               @default(false)
   aiModelId                          String?
   defaultAiModelId                   String?
   defaultProviderId                  String?
-  delayTimeGPT                       String?
+  delayTimeGpt                       String?               @map("delayTimeGPT")
   meetingUrl                         String?
-  Account                            Account[]
-  AgentPrompt                        AgentPrompt[]
-  AgentPromptRevision                AgentPromptRevision[]
-  Appointment                        Appointment[]
-  Instancias                         Instancias[]
-  Pausar                             Pausar[]
-  Product                            Product[]
-  PromptInstance                     PromptInstance[]
-  Service                            Service[]
-  Session                            Session[]
-  SystemMessage                      SystemMessage[]
-  Tag                                Tag[]
-  Tools                              Tools[]
-  ApiKey                             ApiKey?                @relation(fields: [apiKeyId], references: [id])
-  ai_models                          ai_models?             @relation(fields: [defaultAiModelId], references: [id])
-  UserAvailability                   UserAvailability[]
-  finance_accounts                   finance_accounts[]
-  finance_attachments                finance_attachments[]
-  finance_categories                 finance_categories[]
-  finance_transactions               finance_transactions[]
-  ia_credits                         ia_credits?
-  reseller_reseller_reselleridToUser reseller[]             @relation("reseller_reselleridToUser")
-  reseller_reseller_userIdToUser     reseller[]             @relation("reseller_userIdToUser")
-  user_ai_configs                    user_ai_configs[]
-  Module                             Module[]               @relation("UserModules")
+  accounts                           Account[]
+  agentPrompts                       AgentPrompt[]
+  publishedAgentPromptRevisions      AgentPromptRevision[]
+  appointments                       Appointment[]
+  instancias                         Instancia[]
+  pausar                             Pausar[]
+  products                           Product[]
+  promptInstances                    PromptInstance[]
+  services                           Service[]
+  sessions                           Session[]
+  systemMessages                     SystemMessage[]
+  tags                               Tag[]
+  tools                              Tool[]
+  apiKey                             ApiKey?               @relation(fields: [apiKeyId], references: [id])
+  defaultAiModel                     AiModel?              @relation(fields: [defaultAiModelId], references: [id])
+  aiConfigs                          UserAiConfig[]
+  userAvailability                   UserAvailability[]
+  financeAccounts                    FinanceAccount[]
+  financeAttachments                 FinanceAttachment[]
+  financeCategories                  FinanceCategory[]
+  financeTransactions                FinanceTransaction[]
+  iaCredits                          IaCredits?
+  reseller_reseller_reselleridToUser Reseller[]            @relation("reseller_reselleridToUser")
+  reseller_reseller_userIdToUser     Reseller[]            @relation("reseller_userIdToUser")
+  modules                            Module[]              @relation("UserModules")
 }
 
 model UserAvailability {
@@ -400,7 +425,7 @@ model UserAvailability {
   dayOfWeek Int
   startTime String
   endTime   String
-  User      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, dayOfWeek, startTime, endTime])
 }
@@ -412,207 +437,259 @@ model VerificationToken {
 }
 
 model Workflow {
-  id           String         @id
-  userId       String
-  name         String
-  description  String?
-  definition   String
-  status       String
-  createdAt    DateTime       @default(now())
-  updateAt     DateTime
-  umbral       Float          @default(0.5)
-  WorkflowEdge WorkflowEdge[]
+  id            String                 @id
+  userId        String
+  name          String
+  description   String?
+  definition    String
+  status        String
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt @map("updateAt")
+  umbral        Float                  @default(0.5)
+  sessionStates SessionWorkflowState[]
+  workflowEdges WorkflowEdge[]
 
   @@unique([name, userId])
 }
 
-model WorkflowEdge {
-  id                                               String       @id
-  workflowId                                       String
-  sourceId                                         String
-  targetId                                         String
-  createdAt                                        DateTime     @default(now())
-  WorkflowNode_WorkflowEdge_sourceIdToWorkflowNode WorkflowNode @relation("WorkflowEdge_sourceIdToWorkflowNode", fields: [sourceId], references: [id], onDelete: Cascade)
-  WorkflowNode_WorkflowEdge_targetIdToWorkflowNode WorkflowNode @relation("WorkflowEdge_targetIdToWorkflowNode", fields: [targetId], references: [id], onDelete: Cascade)
-  Workflow                                         Workflow     @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+model SessionWorkflowState {
+  id                String    @id @default(cuid())
+  sessionId         Int
+  workflowId        String
+  currentNodeId     String?
+  intentionAttempts Int       @default(0)
+  intentionStatus   String    @default("idle")
+  intentionData     Json?
+  lastPromptAt      DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  session           Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  workflow          Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
 
-  @@unique([workflowId, sourceId])
+  @@unique([sessionId, workflowId])
+  @@index([workflowId])
+  @@index([sessionId])
+}
+
+model WorkflowEdge {
+  id           String       @id @default(cuid())
+  workflowId   String
+  sourceId     String
+  targetId     String
+  createdAt    DateTime     @default(now())
+  sourceHandle String       @default("default")
+  targetHandle String?
+  source       WorkflowNode @relation("EdgeSource", fields: [sourceId], references: [id], onDelete: Cascade)
+  target       WorkflowNode @relation("EdgeTarget", fields: [targetId], references: [id], onDelete: Cascade)
+  workflow     Workflow     @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@unique([workflowId, sourceId, sourceHandle])
+  @@index([workflowId])
   @@index([sourceId])
   @@index([targetId])
-  @@index([workflowId])
 }
 
 model WorkflowNode {
-  id                                               String         @id
-  workflowId                                       String
-  message                                          String
-  createdAt                                        DateTime       @default(now())
-  updatedAt                                        DateTime
-  tipo                                             String
-  url                                              String?
-  delay                                            String?
-  inactividad                                      Boolean?
-  name_file                                        String?
-  order                                            Int            @default(0)
-  posX                                             Float?
-  posY                                             Float?
-  WorkflowEdge_WorkflowEdge_sourceIdToWorkflowNode WorkflowEdge[] @relation("WorkflowEdge_sourceIdToWorkflowNode")
-  WorkflowEdge_WorkflowEdge_targetIdToWorkflowNode WorkflowEdge[] @relation("WorkflowEdge_targetIdToWorkflowNode")
+  id                   String         @id @default(cuid())
+  workflowId           String
+  message              String
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  tipo                 String
+  url                  String?
+  delay                String?
+  inactividad          Boolean?
+  nameFile             String?        @map("name_file")
+  order                Int            @default(0)
+  posX                 Float?
+  posY                 Float?
+  intentionMaxAttempts Int            @default(3)
+  intentionPrompt      String?
+  keywords             String?
+  miniPrompt           String?
+  noMatchMessage       String?
+  threshold            Float?
+  outgoingEdges        WorkflowEdge[] @relation("EdgeSource")
+  incomingEdges        WorkflowEdge[] @relation("EdgeTarget")
 }
 
-model ai_models {
-  id           String       @id
+model AiModel {
+  id           String   @id
   providerId   String
   name         String
   description  String?
   costPerToken Float?
-  createdAt    DateTime     @default(now())
+  createdAt    DateTime @default(now())
   modelName    String?
-  updatedAt    DateTime
-  User         User[]
-  ai_providers ai_providers @relation(fields: [providerId], references: [id])
+  updatedAt    DateTime @updatedAt
+
+  users    User[]
+  provider AiProvider @relation(fields: [providerId], references: [id])
 
   @@unique([providerId, name])
+  @@map("ai_models")
 }
 
-model ai_providers {
-  id              String            @id
-  name            String            @unique
-  description     String?
-  aiModel         String
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime
-  ai_models       ai_models[]
-  user_ai_configs user_ai_configs[]
+model AiProvider {
+  id          String   @id
+  name        String   @unique
+  description String?
+  aiModel     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  models  AiModel[]
+  configs UserAiConfig[]
+
+  @@map("ai_providers")
 }
 
-model finance_accounts {
-  id                   String                 @id
-  userId               String
-  name                 String
-  type                 FinanceAccountType     @default(PERSONAL)
-  isDefault            Boolean                @default(false)
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime
-  User                 User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  finance_transactions finance_transactions[]
+model FinanceAccount {
+  id        String             @id
+  userId    String
+  name      String
+  type      FinanceAccountType @default(PERSONAL)
+  isDefault Boolean            @default(false)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions FinanceTransaction[]
 
   @@unique([userId, name])
   @@index([userId])
+  @@map("finance_accounts")
 }
 
-model finance_attachments {
-  id                   String               @id
-  userId               String
-  transactionId        String
-  url                  String
-  fileName             String?
-  mimeType             String?
-  sizeBytes            Int?
-  createdAt            DateTime             @default(now())
-  finance_transactions finance_transactions @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  User                 User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+model FinanceAttachment {
+  id            String   @id
+  userId        String
+  transactionId String
+  url           String
+  fileName      String?
+  mimeType      String?
+  sizeBytes     Int?
+  createdAt     DateTime @default(now())
+
+  transaction FinanceTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([transactionId])
   @@index([userId])
+  @@map("finance_attachments")
 }
 
-model finance_categories {
-  id                   String                 @id
-  userId               String
-  name                 String
-  type                 FinanceTxType
-  color                String?
-  order                Int                    @default(0)
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime
-  User                 User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  finance_transactions finance_transactions[]
+model FinanceCategory {
+  id        String        @id
+  userId    String
+  name      String
+  type      FinanceTxType
+  color     String?
+  order     Int           @default(0)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions FinanceTransaction[]
 
   @@unique([userId, type, name])
   @@index([userId, type])
+  @@map("finance_categories")
 }
 
-model finance_currencies {
-  code                 String                 @id
-  name                 String
-  symbol               String
-  decimals             Int                    @default(2)
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime
-  finance_transactions finance_transactions[]
+model FinanceCurrency {
+  code      String   @id
+  name      String
+  symbol    String
+  decimals  Int      @default(2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactions FinanceTransaction[]
+
+  @@map("finance_currencies")
 }
 
-model finance_transactions {
-  id                  String                @id
-  userId              String
-  type                FinanceTxType
-  status              FinanceTxStatus       @default(ACTIVE)
-  occurredAt          DateTime
-  amount              Decimal               @db.Decimal(18, 2)
-  currencyCode        String
-  accountId           String
-  categoryId          String?
-  title               String?
-  description         String?
-  counterparty        String?
-  reference           String?
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime
-  deletedAt           DateTime?
-  discount            Decimal               @default(0)
-  extra               Decimal               @default(0)
-  finance_attachments finance_attachments[]
-  finance_accounts    finance_accounts      @relation(fields: [accountId], references: [id])
-  finance_categories  finance_categories?   @relation(fields: [categoryId], references: [id])
-  finance_currencies  finance_currencies    @relation(fields: [currencyCode], references: [code])
-  User                User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+model FinanceTransaction {
+  id           String          @id
+  userId       String
+  type         FinanceTxType
+  status       FinanceTxStatus @default(ACTIVE)
+  occurredAt   DateTime
+  amount       Decimal         @db.Decimal(18, 2)
+  currencyCode String
+  accountId    String
+  categoryId   String?
+  title        String?
+  description  String?
+  counterparty String?
+  reference    String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  deletedAt    DateTime?
+  discount     Decimal         @default(0)
+  extra        Decimal         @default(0)
+
+  attachments FinanceAttachment[]
+  account     FinanceAccount      @relation(fields: [accountId], references: [id])
+  category    FinanceCategory?    @relation(fields: [categoryId], references: [id])
+  currency    FinanceCurrency     @relation(fields: [currencyCode], references: [code])
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, accountId, occurredAt])
   @@index([userId, categoryId, occurredAt])
   @@index([userId, currencyCode, occurredAt])
   @@index([userId, occurredAt])
   @@index([userId, type, status])
+  @@map("finance_transactions")
 }
 
-model ia_credits {
+model IaCredits {
   id          String   @id
   userId      String   @unique
   total       Int      @default(0)
   used        Int      @default(0)
   renewalDate DateTime
   createdAt   DateTime @default(now())
-  updatedAt   DateTime
-  User        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("ia_credits")
 }
 
-model n8n_chat_histories {
-  id         Int    @id @default(autoincrement())
-  session_id String @db.VarChar(255)
-  message    Json
+model N8nChatHistory {
+  id        Int    @id @default(autoincrement())
+  sessionId String @map("session_id") @db.VarChar(255)
+  message   Json
+
+  @@map("n8n_chat_histories")
 }
 
-model reseller {
+model Reseller {
   id                             Int      @id @default(autoincrement())
   resellerid                     String?
   userId                         String?
   createdAt                      DateTime @default(now())
-  updatedAt                      DateTime
+  updatedAt                      DateTime @updatedAt
   theme                          ThemeApp @default(Default)
-  User_reseller_reselleridToUser User?    @relation("reseller_reselleridToUser", fields: [resellerid], references: [id])
-  User_reseller_userIdToUser     User?    @relation("reseller_userIdToUser", fields: [userId], references: [id])
+  user_reseller_reselleridToUser User?    @relation("reseller_reselleridToUser", fields: [resellerid], references: [id])
+  user_reseller_userIdToUser     User?    @relation("reseller_userIdToUser", fields: [userId], references: [id])
+
+  @@map("reseller")
 }
 
-model rr {
+model QuickReply {
   id         Int      @id @default(autoincrement())
   workflowId String
   mensaje    String?
   createdAt  DateTime @default(now())
-  updatedAt  DateTime
+  updatedAt  DateTime @updatedAt
   userId     String
+
+  @@map("rr")
 }
 
-model seguimientos {
+model Seguimiento {
   id          Int     @id @default(autoincrement())
   idNodo      String?
   serverurl   String?
@@ -622,23 +699,27 @@ model seguimientos {
   mensaje     String?
   tipo        String?
   time        String?
-  name_file   String?
+  nameFile    String? @map("name_file")
   consecutivo String?
   media       String?
+
+  @@map("seguimientos")
 }
 
-model user_ai_configs {
-  id           String       @id
-  userId       String
-  providerId   String
-  apiKey       String
-  isActive     Boolean      @default(true)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime
-  ai_providers ai_providers @relation(fields: [providerId], references: [id])
-  User         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+model UserAiConfig {
+  id         String   @id
+  userId     String
+  providerId String
+  apiKey     String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  provider AiProvider @relation(fields: [providerId], references: [id])
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, providerId])
+  @@map("user_ai_configs")
 }
 
 enum AppointmentStatus {

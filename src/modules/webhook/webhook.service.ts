@@ -211,10 +211,8 @@ export class WebhookService {
         model,
         provider,
       );
-    const incomingMessage = extractedContent.toString().trim().toLowerCase();
 
-
-
+    const incomingMessage = extractedContent.toString().trim();
 
     /* Anti-flood */
     this.antifloodService.registerMessageTimestamp(remoteJid);
@@ -252,7 +250,22 @@ export class WebhookService {
             'human',
           );
 
-          // 1) 🔹 PRIMERO: intentar disparar workflow tipo chatbot por descripción
+          // 1)  PRIMERO: reanudar si hay un workflow pausado (intention waiting)
+          const resumed = await this.workflowService.continuePausedWorkflow(
+            server_url,
+            apikey,
+            instanceName,
+            remoteJid,
+            userId,
+            mergedTextStr,
+          );
+
+          if (resumed) {
+            logger.log('Continuación de workflow pausado (intention) ejecutada. No se usa IA.', 'WebhookService');
+            return;
+          }
+
+          // 2) luego sí: intentar disparar workflow por descripción
           const matchedWorkflow =
             await this.workflowService.findWorkflowByDescriptionMatch(
               userId,
@@ -525,7 +538,6 @@ export class WebhookService {
   }: stopOrResumeConversation) {
     const logger = this.scopedLogger({ userId: userWithRelations?.id, instanceName, remoteJid });
 
-    // ⛔ Pausar SIEMPRE la sesión canon...
     await this.sessionService.updateSessionStatus(
       remoteJid,
       instanceName,
@@ -534,7 +546,6 @@ export class WebhookService {
     );
     logger.log(`Chat pausado para ${remoteJid}.`);
 
-    // ...y también el JID alternativo si existe y es distinto
     if (remoteJidAlt && remoteJidAlt !== remoteJid) {
       await this.sessionService.updateSessionStatus(
         remoteJidAlt,
@@ -545,7 +556,6 @@ export class WebhookService {
       logger.log(`Chat pausado también para JID alternativo: ${remoteJidAlt}.`);
     }
 
-    //Revisar el estado
     if (!sessionStatus) {
       if (!userWithRelations) {
         logger.warn('No se encontró el usuario para obtener la frase de reactivación.');
