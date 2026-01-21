@@ -1,5 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from 'src/database/prisma.service';
+import { forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { NodeSenderService } from '../node-sender.service.ts/node-sender.service';
 import { LoggerService } from 'src/core/logger/logger.service';
 import { SeguimientosService } from 'src/modules/seguimientos/seguimientos.service';
@@ -7,6 +6,8 @@ import { convertDelayToSeconds } from 'src/modules/webhook/utils/convert-delay-t
 import { Session, WorkflowNode } from '@prisma/client';
 import { SessionService } from 'src/modules/session/session.service';
 import { SessionTriggerService } from 'src/modules/session-trigger/session-trigger.service';
+import { AiAgentService } from 'src/modules/ai-agent/ai-agent.service';
+import { PrismaService } from 'src/database/prisma.service';
 
 type NodeDB = WorkflowNode;
 type EdgeDB = { sourceId: string; targetId: string; sourceHandle: string | null };
@@ -26,6 +27,8 @@ export class WorkflowService {
         private logger: LoggerService,
         private sessionService: SessionService,
         private readonly sessionTriggerService: SessionTriggerService,
+        @Inject(forwardRef(() => AiAgentService))
+        private readonly aiAgentService: AiAgentService,
     ) { }
 
     /**
@@ -60,7 +63,7 @@ export class WorkflowService {
             throw new NotFoundException('Workflow no encontrado');
         }
 
-        // ✅ obtener sesión para sessionId (estado por conversación)
+        // obtener sesión para sessionId (estado por conversación)
         const session = await this.getSession({ remoteJid, instanceName, userId });
         if (!session) {
             this.logger.warn(
@@ -70,10 +73,10 @@ export class WorkflowService {
             return { message: 'No session', workflow: result.name, totalNodes: 0 };
         }
 
-        // ✅ estado por sesión + workflow
+        // estado por sesión + workflow
         let state = await this.getOrCreateSessionWorkflowState(session.id, result.id);
 
-        // ✅ cargar grafo (nodos/edges)
+        // cargar grafo (nodos/edges)
         const { byId, outgoing, startNodeId } = await this.getWorkflowGraph(result.id);
 
         if (!startNodeId) {
@@ -89,7 +92,7 @@ export class WorkflowService {
 
         let executedCount = 0;
 
-        // ✅ ejecución por recorrido del grafo
+        // ejecución por recorrido del grafo
         while (currentId) {
             const node = byId.get(currentId);
             if (!node) break;
@@ -97,21 +100,21 @@ export class WorkflowService {
             this.logger.log(`Procesando nodo (ID: ${node.id}, tipo: ${node.tipo})`, 'WorkflowService');
 
             // ===========================
-            // ✅ NODO INTENTION (PAUSA/ITERACIÓN)
+            // NODO INTENTION (PAUSA/ITERACIÓN)
             // ===========================
             if (node.tipo === 'intention') {
-                const promptToSend = (node as any).intentionPrompt?.trim() || node.message?.trim() || '';
-
+                const intentionPrompt = ((node as any).intentionPrompt ?? '').trim(); // SOLO IA
+                const messageToUser = (node.message ?? '').trim();                    // SOLO USER
                 const maxAttempts = Number((node as any).intentionMaxAttempts ?? 3);
 
-                // Si no está esperando aún en este intention -> envía prompt y pausa
+                // Si no está esperando aún -> envía SOLO messageToUser y pausa
                 const isWaitingHere =
                     state.intentionStatus === 'waiting' && state.currentNodeId === node.id;
 
                 if (!isWaitingHere) {
-                    if (promptToSend) {
+                    if (messageToUser) {
                         const url = `${urlevo}/message/sendText/${instanceName}`;
-                        await this.nodeSenderService.sendTextNode(url, apikey, remoteJid, promptToSend);
+                        await this.nodeSenderService.sendTextNode(url, apikey, remoteJid, messageToUser);
                     }
 
                     state = await this.prisma.sessionWorkflowState.update({
@@ -121,60 +124,79 @@ export class WorkflowService {
                             intentionStatus: 'waiting',
                             intentionAttempts: 0,
                             lastPromptAt: new Date(),
+                            // opcional: guarda la “pregunta” en el estado
+                            intentionData: {
+                                ...(state.intentionData as any ?? {}),
+                                lastQuestion: messageToUser,
+                                recentUserTexts: [],
+                            },
                         },
                     });
 
-                    this.logger.log(
-                        `Intention pausado (node=${node.id}) -> waiting`,
-                        'WorkflowService',
-                    );
-
-                    // ✅ pausa: no sigue con el resto del flujo
                     return { message: 'Workflow paused on intention', workflow: result.name, totalNodes: executedCount };
                 }
 
-                // Ya está esperando aquí: si no hay texto entrante, seguimos esperando
+                // Ya está esperando: si no hay texto entrante, seguimos esperando
                 const text = (incomingText ?? '').trim();
                 if (!text) {
-                    this.logger.log(
-                        `Intention sigue esperando texto (node=${node.id})`,
-                        'WorkflowService',
-                    );
                     return { message: 'Waiting user input', workflow: result.name, totalNodes: executedCount };
                 }
 
-                // ✅ validar entrada (MVP)
-                const ok = this.validateIntentionInput(text);
+                // Guardar últimos N mensajes del usuario (N = maxAttempts)
+                const prevData = (state.intentionData as any) ?? {};
+                const prevRecent: string[] = Array.isArray(prevData.recentUserTexts) ? prevData.recentUserTexts : [];
+                const recentUserTexts = [...prevRecent, text].slice(-maxAttempts);
+
+                state = await this.prisma.sessionWorkflowState.update({
+                    where: { id: state.id },
+                    data: {
+                        intentionData: {
+                            ...prevData,
+                            lastQuestion: messageToUser,
+                            recentUserTexts,
+                        },
+                    },
+                });
+
+                // validar entrada con IA (true/false)
+                const ok = await this.validateIntentionInput({
+                    userId,
+                    intentionPrompt,
+                    messageToUser,
+                    userText: text,
+                    recentUserTexts,
+                });
 
                 // Si OK -> passed y seguir por YES
                 if (ok) {
+                    const dataNow = (state.intentionData as any) ?? {};
                     state = await this.prisma.sessionWorkflowState.update({
                         where: { id: state.id },
                         data: {
                             intentionStatus: 'passed',
                             currentNodeId: null,
-                            intentionData: { text }, // MVP: luego extraes name/description
+                            intentionData: {
+                                ...dataNow,
+                                finalText: text,
+                            },
                         },
                     });
 
                     const next = this.pickNextByHandle(outgoing.get(node.id) ?? [], 'yes');
-                    if (!next) {
-                        this.logger.warn(`Intention sin rama YES (node=${node.id})`, 'WorkflowService');
-                        return { message: 'No YES branch', workflow: result.name, totalNodes: executedCount };
-                    }
+                    if (!next) return { message: 'No YES branch', workflow: result.name, totalNodes: executedCount };
 
                     currentId = next.targetId;
                     continue;
                 }
 
-                // Si NO OK -> attempts++ (si supera -> NO branch)
+                // NO OK -> attempts++
                 const nextAttempts = (state.intentionAttempts ?? 0) + 1;
 
                 if (nextAttempts < maxAttempts) {
-                    // Reintenta: guarda attempts y reenvía prompt, pausa otra vez
-                    if (promptToSend) {
+                    // Reintenta: reenvía SOLO messageToUser, pausa otra vez
+                    if (messageToUser) {
                         const url = `${urlevo}/message/sendText/${instanceName}`;
-                        await this.nodeSenderService.sendTextNode(url, apikey, remoteJid, promptToSend);
+                        await this.nodeSenderService.sendTextNode(url, apikey, remoteJid, messageToUser);
                     }
 
                     state = await this.prisma.sessionWorkflowState.update({
@@ -199,17 +221,15 @@ export class WorkflowService {
                 });
 
                 const next = this.pickNextByHandle(outgoing.get(node.id) ?? [], 'no');
-                if (!next) {
-                    this.logger.warn(`Intention sin rama NO (node=${node.id})`, 'WorkflowService');
-                    return { message: 'No NO branch', workflow: result.name, totalNodes: executedCount };
-                }
+                if (!next) return { message: 'No NO branch', workflow: result.name, totalNodes: executedCount };
 
                 currentId = next.targetId;
                 continue;
+
             }
 
             // ===========================
-            // ✅ NODOS NORMALES (lo que ya tenías)
+            // NODOS NORMALES 
             // ===========================
             const sendNode = async () => {
                 if (node.tipo === 'delay') {
@@ -385,7 +405,16 @@ export class WorkflowService {
 
             // avanzar por edge normal (MVP: toma la primera salida)
             const outs = outgoing.get(node.id) ?? [];
-            const next = outs[0];
+            if (outs.length > 1) {
+                this.logger.warn(
+                    `Nodo ${node.id} (${node.tipo}) tiene ${outs.length} salidas. outs=${JSON.stringify(outs)}`,
+                    'WorkflowService',
+                );
+            }
+
+            const next = this.pickNextByHandle(outs, 'out') ?? outs[0] ?? null;
+            currentId = next?.targetId;
+
             currentId = next?.targetId;
         }
 
@@ -454,12 +483,47 @@ export class WorkflowService {
         });
     }
 
-    private validateIntentionInput(text: string) {
-        // ✅ MVP simple: mínimo 2 palabras y 6 caracteres
-        const t = text.trim();
-        if (t.length < 6) return false;
-        const words = t.split(/\s+/).filter(Boolean);
-        return words.length >= 2;
+    private async validateIntentionInput(args: {
+        userId: string;
+        intentionPrompt: string;   // prompt del modelo (interno)
+        messageToUser: string;     // lo que el usuario vio (node.message)
+        userText: string;          // respuesta actual
+        recentUserTexts: string[]; // últimos N mensajes del usuario
+    }): Promise<boolean> {
+        const { userId, intentionPrompt, messageToUser, userText, recentUserTexts } = args;
+
+        // Fallback si no hay prompt
+        if (!intentionPrompt) {
+            const t = userText.trim();
+            if (t.length < 2) return false;
+            return true;
+        }
+
+        try {
+            // 👇 La idea: el intentionPrompt manda, y nosotros solo forzamos salida booleana.
+            const system = intentionPrompt;
+
+            const userPayload = {
+                question_shown_to_user: messageToUser,
+                recent_user_messages: recentUserTexts,
+                current_user_message: userText,
+                output_rule: 'Return ONLY JSON: {"ok": true} or {"ok": false}. No extra text.',
+            };
+
+            const raw = await this.aiAgentService.classifyBoolean({
+                userId,
+                systemPrompt: system,
+                userJson: userPayload,
+            });
+
+            return raw === true;
+        } catch (e: any) {
+            this.logger.warn(
+                `validateIntentionInput AI error: ${e?.message ?? e}`,
+                'WorkflowService',
+            );
+            return false;
+        }
     }
 
     private pickNextByHandle(edges: EdgeDB[], handle: 'yes' | 'no' | 'out') {

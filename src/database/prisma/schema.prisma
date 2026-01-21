@@ -272,25 +272,26 @@ model Service {
 }
 
 model Session {
-  userId         String
-  remoteJid      String
-  pushName       String
-  instanceId     String
-  createdAt      DateTime               @default(now())
-  updatedAt      DateTime               @updatedAt
-  status         Boolean
-  id             Int                    @id @default(autoincrement())
-  seguimientos   String?                @default("")
-  inactividad    String?                @default("")
-  sessionDelay   String?
-  flujos         String?                @default("")
-  remoteJidAlt   String?
-  appointments   Appointment[]
-  registros      Registro[]
-  user           User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sessionTags    SessionTag[]
-  sessionTrigger SessionTrigger?
-  workflowStates SessionWorkflowState[]
+  userId               String
+  remoteJid            String
+  pushName             String
+  instanceId           String
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  status               Boolean
+  id                   Int                    @id @default(autoincrement())
+  seguimientos         String?                @default("")
+  inactividad          String?                @default("")
+  sessionDelay         String?
+  flujos               String?                @default("")
+  remoteJidAlt         String?
+  appointments         Appointment[]
+  registros            Registro[]
+  user                 User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionTags          SessionTag[]
+  sessionTrigger       SessionTrigger?
+  workflowStates       SessionWorkflowState[]
+  financeTransactions FinanceTransaction[]
 
   @@index([userId, remoteJid])
 }
@@ -624,10 +625,12 @@ model FinanceTransaction {
   deletedAt    DateTime?
   discount     Decimal             @default(0)
   extra        Decimal             @default(0)
+  sessionId    Int?
   attachments  FinanceAttachment[]
   account      FinanceAccount      @relation(fields: [accountId], references: [id])
   category     FinanceCategory?    @relation(fields: [categoryId], references: [id])
   currency     FinanceCurrency     @relation(fields: [currencyCode], references: [code])
+  session      Session?            @relation(fields: [sessionId], references: [id])
   user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, accountId, occurredAt])
@@ -635,6 +638,7 @@ model FinanceTransaction {
   @@index([userId, currencyCode, occurredAt])
   @@index([userId, occurredAt])
   @@index([userId, type, status])
+  @@index([userId, sessionId, occurredAt])
   @@map("finance_transactions")
 }
 

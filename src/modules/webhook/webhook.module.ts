@@ -57,6 +57,7 @@ import { AiAgentModule } from '../ai-agent/ai-agent.module';
     AntifloodService,
     MessageBufferService,
     MessageTypeHandlerService,
+    WebhookService 
   ]
 })
 export class WebhookModule { }

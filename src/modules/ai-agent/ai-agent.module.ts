@@ -1,5 +1,5 @@
 // ai-agent.module.ts
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
 import { ConfigModule } from '@nestjs/config';
 import { AiAgentService } from './ai-agent.service';
@@ -22,7 +22,7 @@ import { AgentNotificationService } from './services/notificacionService/notific
   imports: [
     HttpModule,
     ConfigModule,
-    WorkflowModule,   // 👈 de aquí viene WorkflowService ya configurado
+    forwardRef(() => WorkflowModule),
   ],
   providers: [
     AiAgentService,
@@ -30,7 +30,6 @@ import { AgentNotificationService } from './services/notificacionService/notific
     ChatHistoryService,
     IntentionService,
     NodeSenderService,
-    // ❌ QUITAR WorkflowService DE AQUÍ
     PromptCompressorService,
     SeguimientosService,
     SessionService,
@@ -41,12 +40,12 @@ import { AgentNotificationService } from './services/notificacionService/notific
     UserService,
   ],
   exports: [
-    AiAgentService,
     NotificacionToolService,
     NodeSenderService,
     AiCreditsService,
     LlmClientFactory,
     AgentNotificationService,
+    AiAgentService
   ],
 })
 export class AiAgentModule {}

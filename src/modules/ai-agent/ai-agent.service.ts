@@ -1,17 +1,10 @@
-// @ts-nocheck
 import axios from 'axios';
-import OpenAI from 'openai';
-
-import fs from 'fs';
-import path from 'path';
-// ...
 
 import { Readable } from 'stream';
-import { Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { LoggerService } from 'src/core/logger/logger.service';
 import { PromptService } from '../prompt/prompt.service';
 import { ChatHistoryService } from '../chat-history/chat-history.service';
-import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { WorkflowService } from '../workflow/services/workflow.service.ts/workflow.service';
 import {
   inputWorkflow,
@@ -21,8 +14,6 @@ import {
 } from 'src/types/open-ai';
 import { NotificacionToolService } from './tools/notificacion/notificacion.service';
 import { AiCreditsService } from '../ai-credits/ai-credits.service';
-import { ERROR_OPENAI_EMPTY_RESPONSE, systemPromptWorkflow } from './utils/rulesPrompt';
-import { PromptCompressorService } from './services/prompt-compressor/prompt-compressor.service';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { SessionService } from '../session/session.service';
 
@@ -36,6 +27,8 @@ import { AgentNotificationService } from './services/notificacionService/notific
 import { createReactAgent } from '@langchain/langgraph/prebuilt';
 import { z } from 'zod';
 import { tool } from '@langchain/core/tools';
+import { PrismaService } from 'src/database/prisma.service';
+import { systemPromptWorkflow } from './utils/rulesPrompt';
 
 @Injectable()
 export class AiAgentService {
@@ -49,21 +42,68 @@ export class AiAgentService {
     private readonly logger: LoggerService,
     private readonly promptService: PromptService,
     private readonly chatHistoryService: ChatHistoryService,
-    private readonly workflowService: WorkflowService,
     private readonly notificacionTool: NotificacionToolService,
     private readonly aiCredits: AiCreditsService,
     private readonly llmClientFactory: LlmClientFactory,
-    private readonly sessionService: SessionService,
-    private readonly promptCompressor: PromptCompressorService,
+    private readonly prisma: PrismaService,
     private readonly nodeSenderService: NodeSenderService,
+    private readonly sessionService: SessionService,
     private readonly agentNotificationService: AgentNotificationService,
-  ) {}
+    
+    @Inject(forwardRef(() => WorkflowService))
+    private readonly workflowService: WorkflowService,
+  ) { }
+
+  private async getClientForUser(userId: string): Promise<BaseChatModel> {
+    // 1) Usuario (default provider/model)
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        defaultProviderId: true,
+        defaultAiModelId: true,
+      },
+    });
+
+    if (!user?.defaultProviderId || !user?.defaultAiModelId) {
+      throw new Error('Usuario sin defaultProviderId/defaultAiModelId');
+    }
+
+    // 2) API Key activa
+    const cfg = await this.prisma.userAiConfig.findFirst({
+      where: { userId, isActive: true, providerId: user.defaultProviderId },
+      select: { apiKey: true },
+    });
+
+    if (!cfg?.apiKey) throw new Error('No hay apiKey activa para el usuario');
+
+    // 3) Provider + Model
+    const provider = await this.prisma.aiProvider.findUnique({
+      where: { id: user.defaultProviderId },
+      select: { name: true },
+    });
+
+    const model = await this.prisma.aiModel.findUnique({
+      where: { id: user.defaultAiModelId },
+      select: { name: true },
+    });
+
+    if (!provider?.name || !model?.name) {
+      throw new Error('Provider/model inválidos');
+    }
+
+    // 4) Crear cliente LangChain (BaseChatModel)
+    return this.llmClientFactory.getClient({
+      provider: provider.name as any, // ideal: tipar provider como 'openai' | 'google'
+      apiKey: cfg.apiKey,
+      model: model.name,
+    }) as BaseChatModel;
+  }
+
 
   // Logger con contexto fijo: [UID=...][I=...][R=...]
   private scopedLogger(ctx: { userId?: string; instanceName?: string; remoteJid?: string }) {
-    const tag = `[UID=${ctx.userId ?? '-'}][I=${ctx.instanceName ?? '-'}][R=${
-      ctx.remoteJid ?? '-'
-    }]`;
+    const tag = `[UID=${ctx.userId ?? '-'}][I=${ctx.instanceName ?? '-'}][R=${ctx.remoteJid ?? '-'
+      }]`;
     return {
       log: (msg: string, context = 'AiAgentService') =>
         this.logger.log(`${tag} ${msg}`, context),
@@ -232,7 +272,7 @@ export class AiAgentService {
         return follow || `ℹ️ Flujo "${nombre_flujo}" ejecutado.`;
       },
       {
-        name: 'Ejecutar_Flujos',  
+        name: 'Ejecutar_Flujos',
         description:
           'Siempre consulta y ejecuta si existen flujos disponibles en la base de datos que correspondan a la solicitud del usuario. Si se encuentra un flujo, se ejecuta. Si no hay flujos, la IA continúa la conversación normalmente.',
         schema: z.object({
@@ -621,9 +661,8 @@ export class AiAgentService {
           userId,
         );
 
-        logger.log(
-          `[Workflow]: ${currentWorkflow.name} ejecutado, registrando en sesión ${remoteJid}`,
-        );
+        logger.log(`[Workflow]: ${currentWorkflow.name} ejecutado, registrando en sesión ${remoteJid}`)
+        
         await this.sessionService.registerWorkflow(
           currentWorkflow.name,
           remoteJid,
@@ -720,4 +759,46 @@ export class AiAgentService {
       return '[ERROR_DESCRIBING_IMAGE]';
     }
   }
+
+  async classifyBoolean(args: {
+    userId: string;
+    systemPrompt: string;
+    userJson: any;
+  }): Promise<boolean> {
+    const { userId, systemPrompt, userJson } = args;
+    const logger = this.scopedLogger({ userId });
+
+    try {
+      const client = await this.getClientForUser(userId);
+
+      const res = await client.invoke([
+        new SystemMessage({ content: [{ type: 'text', text: systemPrompt }] }),
+        new SystemMessage({
+          content: [
+            {
+              type: 'text',
+              text: 'Devuelve SOLO JSON válido: {"ok": true} o {"ok": false}. Sin texto extra.',
+            },
+          ],
+        }),
+        new HumanMessage({ content: [{ type: 'text', text: JSON.stringify(userJson) }] }),
+      ]);
+
+      const content = (res?.content ?? '').toString();
+      const jsonStr = content.match(/\{[\s\S]*\}/)?.[0];
+      if (!jsonStr) return false;
+
+      try {
+        const parsed = JSON.parse(jsonStr);
+        return parsed?.ok === true;
+      } catch {
+        return false;
+      }
+    } catch (e: any) {
+      logger.warn(`classifyBoolean error: ${e?.message ?? e}`);
+      return false;
+    }
+  }
+
+
 }

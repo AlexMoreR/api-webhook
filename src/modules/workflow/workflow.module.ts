@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
 import { PrismaService } from 'src/database/prisma.service';
 import { WorkflowService } from './services/workflow.service.ts/workflow.service';
@@ -6,9 +6,10 @@ import { NodeSenderService } from './services/node-sender.service.ts/node-sender
 import { SeguimientosService } from '../seguimientos/seguimientos.service';
 import { SessionService } from '../session/session.service';
 import { SessionTriggerModule } from 'src/modules/session-trigger/session-trigger.module';
+import { AiAgentModule } from '../ai-agent/ai-agent.module';
 
 @Module({
-  imports: [HttpModule, SessionTriggerModule],
+  imports: [HttpModule, SessionTriggerModule, forwardRef(() => AiAgentModule)],
   providers: [
     WorkflowService,
     PrismaService,
@@ -18,4 +19,4 @@ import { SessionTriggerModule } from 'src/modules/session-trigger/session-trigge
   ],
   exports: [WorkflowService],
 })
-export class WorkflowModule {}
+export class WorkflowModule { }
