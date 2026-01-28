@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
-import OpenAI from 'openai';
-import { HumanMessage, SystemMessage } from 'node_modules/@langchain/core/messages.cjs';
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 
 type CompressorFormat = 'yaml' | 'json';
 

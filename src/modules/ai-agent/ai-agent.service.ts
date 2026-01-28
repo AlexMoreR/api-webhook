@@ -29,6 +29,8 @@ import { z } from 'zod';
 import { tool } from '@langchain/core/tools';
 import { PrismaService } from 'src/database/prisma.service';
 import { systemPromptWorkflow } from './utils/rulesPrompt';
+import OpenAI from "openai";
+import { toFile } from "openai/uploads";
 
 @Injectable()
 export class AiAgentService {
@@ -49,7 +51,7 @@ export class AiAgentService {
     private readonly nodeSenderService: NodeSenderService,
     private readonly sessionService: SessionService,
     private readonly agentNotificationService: AgentNotificationService,
-    
+
     @Inject(forwardRef(() => WorkflowService))
     private readonly workflowService: WorkflowService,
   ) { }
@@ -662,7 +664,7 @@ export class AiAgentService {
         );
 
         logger.log(`[Workflow]: ${currentWorkflow.name} ejecutado, registrando en sesión ${remoteJid}`)
-        
+
         await this.sessionService.registerWorkflow(
           currentWorkflow.name,
           remoteJid,
@@ -696,17 +698,33 @@ export class AiAgentService {
       const audioStream = Readable.from(audioBuffer);
       (audioStream as any).path = 'audio.ogg';
 
-      if (defaultProvider == 'openai') {
-        this.initializeClient(apikeyOpenAi, 'whisper-1', defaultProvider);
-        const transcription = await this.aiClient.audio.transcriptions.create({
-          file: audioStream,
-          model: 'whisper-1',
-          response_format: 'text',
+      if (defaultProvider === "openai") {
+        // LangChain NO expone .audio.transcriptions; para Whisper usa el SDK oficial.
+        const openai = new OpenAI({ apiKey: apikeyOpenAi });
+
+        const mime = (audioType || "").toLowerCase();
+        const ext =
+          mime.includes("ogg") ? "ogg" :
+            mime.includes("webm") ? "webm" :
+              mime.includes("wav") ? "wav" :
+                (mime.includes("mpeg") || mime.includes("mp3")) ? "mp3" :
+                  mime.includes("mp4") ? "mp4" :
+                    mime.includes("m4a") ? "m4a" :
+                      "ogg";
+
+        const file = await toFile(audioBuffer, `audio.${ext}`, {
+          type: audioType || "application/octet-stream",
         });
-        return typeof transcription === 'string'
-          ? transcription
-          : transcription.text;
+
+        const transcription = await openai.audio.transcriptions.create({
+          file,
+          model: "whisper-1",
+          response_format: "text",
+        });
+
+        return transcription; 
       }
+      
       this.initializeClient(apikeyOpenAi, defaultModel, defaultProvider);
 
       const message = new HumanMessage({

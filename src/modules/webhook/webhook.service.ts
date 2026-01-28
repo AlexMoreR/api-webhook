@@ -1,11 +1,14 @@
-import { Body, Injectable } from '@nestjs/common';
+import { Body, Injectable, OnModuleInit } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
+
+import type { AiAgentService } from '../ai-agent/ai-agent.service'; // ✅ type-only
+
 import { SessionService } from '../session/session.service';
 import { LoggerService } from 'src/core/logger/logger.service';
 import { WebhookBodyDto } from './dto/webhook-body';
 import { MessageDirectionService } from './services/message-direction/message-direction.service';
 import { MessageTypeHandlerService } from './services/message-type-handler/message-type-handler.service';
 import { InstancesService } from '../instances/instances.service';
-import { AiAgentService } from '../ai-agent/ai-agent.service';
 import { UserService } from '../user/user.service';
 import { isGroupChat } from './utils/is-group-chat';
 import { MessageBufferService } from './services/message-buffer/message-buffer.service';
@@ -25,12 +28,16 @@ import {
   UserWithPausar,
 } from 'src/types/open-ai';
 import { AntifloodService } from './services/antiflood/antiflood.service';
+import { executeWorkflow } from 'src/utils/execute-workflow';
 
 @Injectable()
-export class WebhookService {
+export class WebhookService implements OnModuleInit {
   public static readonly DELAYCONVERSATION = 10000;
 
+  private aiAgentService!: AiAgentService;
+
   constructor(
+    private readonly moduleRef: ModuleRef,
     private readonly logger: LoggerService,
     private readonly sessionService: SessionService,
     private readonly userService: UserService,
@@ -38,7 +45,6 @@ export class WebhookService {
     private readonly messageDirectionService: MessageDirectionService,
     private readonly messageTypeHandlerService: MessageTypeHandlerService,
     private readonly messageBufferService: MessageBufferService,
-    private readonly aiAgentService: AiAgentService,
     private readonly chatHistoryService: ChatHistoryService,
     private readonly nodeSenderService: NodeSenderService,
     private readonly seguimientosService: SeguimientosService,
@@ -48,6 +54,11 @@ export class WebhookService {
     private readonly sessionTriggerService: SessionTriggerService,
     private readonly antifloodService: AntifloodService,
   ) { }
+
+  onModuleInit(): void {
+    const { AiAgentService } = require('../ai-agent/ai-agent.service');
+    this.aiAgentService = this.moduleRef.get(AiAgentService, { strict: false });
+  }
 
   /**
    * Crea un logger con contexto fijo para prefijar todos los mensajes.
@@ -277,16 +288,32 @@ export class WebhookService {
               'WebhookService',
             );
 
-            await this.workflowService.executeWorkflow(
-              matchedWorkflow.name,
+            await executeWorkflow({
+              workflowService: this.workflowService,
+              nodeSenderService: this.nodeSenderService,
+              chatHistoryService: this.chatHistoryService,
+              aiAgentService: this.aiAgentService,
+              logger,
+
+              workflowName: matchedWorkflow.name,
               server_url,
               apikey,
               instanceName,
               remoteJid,
               userId,
-            );
 
-            // Importante: NO usamos IA si ya encontramos un flujo
+              sessionHistoryId,
+              apiMsgUrl,
+
+              apikeyOpenAi: defaultApiKey ?? '',
+              model,
+              provider,
+
+              muteAgentResponses: userWithRelations.muteAgentResponses,
+            });
+
+            return;
+
             return;
           }
 
@@ -637,6 +664,15 @@ export class WebhookService {
     remoteJid,
   }: onAutoRepliesInterface): Promise<void> {
     const logger = this.scopedLogger({ userId, instanceName, remoteJid });
+
+    const userWithRelations = (await this.userService.getUserWithPausar(userId)) as UserWithPausar;
+
+    const aiConfig = await this.userService.getUserDefaultAiConfig(userId);
+    const { defaultModel, defaultProvider, defaultApiKey } = aiConfig || {};
+
+    const model = defaultModel?.name || 'gpt-4o-mini';
+    const provider = defaultProvider?.name || 'openai';
+
     try {
       const autoReplies = await this.autoRepliesService.getAutoRepliesByUserId(userId);
       if (!autoReplies || autoReplies.length === 0) return;
@@ -652,24 +688,39 @@ export class WebhookService {
         );
         if (!workflow) return;
 
-        // 👉 AQUÍ LIMPIAMOS INACTIVIDAD ANTES DE RESPONDER
         await this.sessionService.clearInactividadAfterAgentReply(
           userId,
           remoteJid,
           instanceName,
         );
 
-        await this.workflowService.executeWorkflow(
-          workflow?.name ?? '',
+        const sessionHistoryId = `${instanceName}-${remoteJid}`;
+        const apiMsgUrl = `${server_url}/message/sendText/${instanceName}`;
+
+        await executeWorkflow({
+          workflowService: this.workflowService,
+          nodeSenderService: this.nodeSenderService,
+          chatHistoryService: this.chatHistoryService,
+          aiAgentService: this.aiAgentService,
+          logger,
+
+          workflowName: workflow?.name ?? '',
           server_url,
           apikey,
           instanceName,
           remoteJid,
           userId,
-        );
 
-        // await this.sessionService.updateSessionStatus(remoteJid, instanceName, true, userId);
-        // logger.log(`Chat reactivado.`);
+          sessionHistoryId,
+          apiMsgUrl,
+
+          apikeyOpenAi: defaultApiKey ?? '',
+          model,
+          provider,
+
+          muteAgentResponses: !!userWithRelations.muteAgentResponses,
+        });
+
       }
     } catch (error) {
       logger.error('Error al procesar autoReplies', error);

@@ -1,4 +1,6 @@
-import { forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
+
 import { NodeSenderService } from '../node-sender.service.ts/node-sender.service';
 import { LoggerService } from 'src/core/logger/logger.service';
 import { SeguimientosService } from 'src/modules/seguimientos/seguimientos.service';
@@ -6,8 +8,9 @@ import { convertDelayToSeconds } from 'src/modules/webhook/utils/convert-delay-t
 import { Prisma, Session, WorkflowNode } from '@prisma/client';
 import { SessionService } from 'src/modules/session/session.service';
 import { SessionTriggerService } from 'src/modules/session-trigger/session-trigger.service';
-import { AiAgentService } from 'src/modules/ai-agent/ai-agent.service';
 import { PrismaService } from 'src/database/prisma.service';
+
+import type { AiAgentService } from '../../../ai-agent/ai-agent.service';
 
 type NodeDB = WorkflowNode;
 type EdgeDB = { sourceId: string; targetId: string; sourceHandle: string | null };
@@ -17,9 +20,10 @@ interface getSessionInterface {
     instanceName: string;
     userId: string;
 }
-
 @Injectable()
-export class WorkflowService {
+export class WorkflowService implements OnModuleInit {
+    private aiAgentService!: AiAgentService;
+
     constructor(
         private prisma: PrismaService,
         private nodeSenderService: NodeSenderService,
@@ -27,9 +31,13 @@ export class WorkflowService {
         private logger: LoggerService,
         private sessionService: SessionService,
         private readonly sessionTriggerService: SessionTriggerService,
-        @Inject(forwardRef(() => AiAgentService))
-        private readonly aiAgentService: AiAgentService,
+        private readonly moduleRef: ModuleRef, // ✅ nuevo
     ) { }
+
+    onModuleInit() {
+        const { AiAgentService } = require('../../../ai-agent/ai-agent.service');
+        this.aiAgentService = this.moduleRef.get(AiAgentService, { strict: false });
+    }
 
     /**
      * Ejecuta un workflow enviando los nodos correspondientes (texto, imagen, video, etc).
