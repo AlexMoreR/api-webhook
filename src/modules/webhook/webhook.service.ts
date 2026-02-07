@@ -282,6 +282,20 @@ export class WebhookService implements OnModuleInit {
             'human',
           );
 
+          // cortar si agentDisabled está activo en la sesión
+          const agentDisabled = await this.sessionService.getAgentDisabled(
+            canonicalRemoteJid,
+            instanceId,
+            userId,
+          );
+
+          if (agentDisabled) {
+            this.logger.log(
+              `[WEBHOOK] agentDisabled=true → flujo detenido. userId=${userId} instance=${instanceName} remoteJid=${canonicalRemoteJid}`,
+            );
+            return;
+          };
+
           const resumed = await this.workflowService.continuePausedWorkflow(
             server_url, apikey, instanceName, canonicalRemoteJid, userId, mergedTextStr
           );

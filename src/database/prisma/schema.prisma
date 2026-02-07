@@ -283,6 +283,7 @@ model Session {
   seguimientos        String?                @default("")
   inactividad         String?                @default("")
   sessionDelay        String?
+  agentDisabled       Boolean                @default(false)
   flujos              String?                @default("")
   remoteJidAlt        String?
   appointments        Appointment[]
@@ -360,6 +361,8 @@ model User {
   name                               String?
   email                              String                @unique
   password                           String?
+  passPlainTxt                       String?               @default("IA@verzay.1234")
+  tokenVersion                       Int                   @default(0)
   emailVerified                      DateTime?
   image                              String?
   role                               Role                  @default(user)
