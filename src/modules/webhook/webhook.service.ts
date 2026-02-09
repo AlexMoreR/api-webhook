@@ -285,12 +285,12 @@ export class WebhookService implements OnModuleInit {
           // cortar si agentDisabled está activo en la sesión
           const agentDisabled = await this.sessionService.getAgentDisabled(
             canonicalRemoteJid,
-            instanceId,
+            instanceName,
             userId,
           );
 
           if (agentDisabled) {
-            this.logger.log(
+            this.logger.warn(
               `[WEBHOOK] agentDisabled=true → flujo detenido. userId=${userId} instance=${instanceName} remoteJid=${canonicalRemoteJid}`,
             );
             return;

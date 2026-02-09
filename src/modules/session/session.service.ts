@@ -69,16 +69,13 @@ export class SessionService {
   }
 
   // Nuevo método para obtener el estado de agentDisabled
-  async getAgentDisabled(remoteJid: string, instanceId: string, userId: string): Promise<boolean> {
+  async getAgentDisabled(remoteJid: string, instanceName: string, userId: string): Promise<boolean> {
+    const rj = remoteJid.trim();
+    const inst = instanceName.trim();
+    const uid = userId.trim();
+
     const session = await this.prisma.session.findFirst({
-      where: {
-        remoteJid,
-        instanceId,
-        userId,
-      },
-      select: {
-        agentDisabled: true,
-      },
+      where: { remoteJid: rj, instanceId: inst, userId: uid },
     });
 
     return !!session?.agentDisabled;
