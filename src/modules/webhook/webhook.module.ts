@@ -26,10 +26,11 @@ import { AntifloodService } from './services/antiflood/antiflood.service';
 import { PromptCompressorService } from '../ai-agent/services/prompt-compressor/prompt-compressor.service';
 import { LlmClientFactory } from '../ai-agent/services/llmClientFactory/llmClientFactory.service';
 import { AiAgentModule } from '../ai-agent/ai-agent.module';
+import { LeadFunnelModule } from '../lead-funnel/lead-funnel.module';
 
 @Module({
   imports: [HttpModule,
-     WorkflowModule, AiAgentModule,],
+    WorkflowModule, AiAgentModule, LeadFunnelModule],
 
   controllers: [WebhookController],
 
@@ -57,7 +58,7 @@ import { AiAgentModule } from '../ai-agent/ai-agent.module';
     AntifloodService,
     MessageBufferService,
     MessageTypeHandlerService,
-    WebhookService 
+    WebhookService
   ]
 })
 export class WebhookModule { }

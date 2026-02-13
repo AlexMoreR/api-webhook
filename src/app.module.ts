@@ -17,6 +17,7 @@ import { AiCreditsService } from './modules/ai-credits/ai-credits.service';
 import { SessionTriggerService } from './modules/session-trigger/session-trigger.service';
 import { LeadFunnelModule } from './modules/lead-funnel/lead-funnel.module';
 import { RegistrosModule } from './modules/registros/registros.module';
+import { ChatHistoryModule } from './modules/chat-history/chat-history.module';
 
 @Module({
   imports: [
@@ -29,7 +30,8 @@ import { RegistrosModule } from './modules/registros/registros.module';
     DatabaseModule,
     AiAgentModule,
     LeadFunnelModule,
-    RegistrosModule
+    RegistrosModule,
+    ChatHistoryModule
   ],
   providers: [
     ServicesService,

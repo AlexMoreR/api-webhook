@@ -4,9 +4,17 @@ import { LeadClassifierIaService } from './services/lead-classifier-ia/lead-clas
 import { RegistroService } from './services/registro/registro.service';
 import { ReporteSintesisService } from './services/reporte-sintesis/reporte-sintesis.service';
 import { LeadFunnelController } from './lead-funnel.controller';
+import { AiAgentModule } from '../ai-agent/ai-agent.module';
 
 @Module({
-  providers: [LeadFunnelService, LeadClassifierIaService, RegistroService, ReporteSintesisService],
-  controllers: [LeadFunnelController]
+  imports: [AiAgentModule],
+  providers: [
+    LeadFunnelService,
+    LeadClassifierIaService,
+    RegistroService,
+    ReporteSintesisService,
+  ],
+  controllers: [LeadFunnelController],
+  exports: [LeadFunnelService], 
 })
 export class LeadFunnelModule {}

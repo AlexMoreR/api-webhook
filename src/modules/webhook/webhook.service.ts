@@ -209,7 +209,7 @@ export class WebhookService implements OnModuleInit {
     const sessionHistoryId = `${instanceName}-${canonicalRemoteJid}`;
     const apiMsgUrl = `${server_url}/message/sendText/${instanceName}`;
 
-    this.logger.debug(`[PAUSA] fromMe=${fromMe} | msg="${conversationMsg}"`);
+    // this.logger.debug(`[PAUSA] fromMe=${fromMe} | msg="${conversationMsg}"`);
 
     const agentMuted = !!userWithRelations.muteAgentResponses;
 
@@ -305,9 +305,10 @@ export class WebhookService implements OnModuleInit {
 
           //TODO: Lead Funnel (bucket/sintetizador)
           if (sessionActiveNow?.id) {
+            this.logger.debug(`Entrando a sintetizador...`);
             const history = await this.chatHistoryService.getChatHistory(sessionHistoryId);
 
-            await this.leadFunnelService.processIncomingText({
+            const funnelRes = await this.leadFunnelService.processIncomingText({
               userId,
               instanceId,
               remoteJid: canonicalRemoteJid,
@@ -316,6 +317,8 @@ export class WebhookService implements OnModuleInit {
               text: mergedTextStr,
               history,
             });
+
+            this.logger.debug(`[LEAD_FUNNEL] result=${JSON.stringify(funnelRes)}`);
           }
 
           const resumed = await this.workflowService.continuePausedWorkflow(
@@ -619,33 +622,33 @@ export class WebhookService implements OnModuleInit {
 
     const msg = (conversationMsg ?? '').trim().toLowerCase();
 
-    logger.debug(`🟦 INICIO stopOrResumeConversation`);
-    logger.debug(`Datos: remoteJid=${remoteJid} | alt=${remoteJidAlt ?? '-'} | instance=${instanceName} | sessionStatus=${sessionStatus ? 'ACTIVA' : 'PAUSADA'} | msg="${msg}"`);
+    // logger.debug(`🟦 INICIO stopOrResumeConversation`);
+    // logger.debug(`Datos: remoteJid=${remoteJid} | alt=${remoteJidAlt ?? '-'} | instance=${instanceName} | sessionStatus=${sessionStatus ? 'ACTIVA' : 'PAUSADA'} | msg="${msg}"`);
 
     // 1) Pausar sesión principal (si estaba activa)
-    logger.debug(`1) Pausa sesión principal: ${sessionStatus ? 'ENTRA (estaba activa)' : 'NO entra (ya pausada)'}`);
+    // logger.debug(`1) Pausa sesión principal: ${sessionStatus ? 'ENTRA (estaba activa)' : 'NO entra (ya pausada)'}`);
 
     if (sessionStatus) {
-      logger.debug(`➡️ Llamando updateSessionStatus(false) para sesión principal...`);
+      // logger.debug(`➡️ Llamando updateSessionStatus(false) para sesión principal...`);
       await this.sessionService.updateSessionStatus(remoteJid, instanceName, false, userWithRelations.id);
-      logger.debug(`✅ updateSessionStatus(false) sesión principal OK`);
+      // logger.debug(`✅ updateSessionStatus(false) sesión principal OK`);
       logger.log(`Chat pausado para ${remoteJid}.`);
     } else {
       logger.log(`Chat ya estaba pausado para ${remoteJid}.`);
     }
 
     // 2) Pausar también el alternativo SOLO si existe sesión (y con false)
-    logger.debug(`2) Pausa JID alternativo: ${remoteJidAlt && remoteJidAlt !== remoteJid ? 'ENTRA' : 'NO entra'}`);
+    // logger.debug(`2) Pausa JID alternativo: ${remoteJidAlt && remoteJidAlt !== remoteJid ? 'ENTRA' : 'NO entra'}`);
 
     if (remoteJidAlt && remoteJidAlt !== remoteJid) {
-      logger.debug(`➡️ Consultando getSession() para alternativo: ${remoteJidAlt}...`);
+      // logger.debug(`➡️ Consultando getSession() para alternativo: ${remoteJidAlt}...`);
       const altSession = await this.sessionService.getSession(remoteJidAlt, instanceName, userWithRelations.id);
-      logger.debug(`✅ getSession() alternativo respondió: ${altSession ? 'HAY sesión' : 'NO hay sesión'}`);
+      // logger.debug(`✅ getSession() alternativo respondió: ${altSession ? 'HAY sesión' : 'NO hay sesión'}`);
 
       if (altSession) {
-        logger.debug(`➡️ Llamando updateSessionStatus(false) para alternativo...`);
+        // logger.debug(`➡️ Llamando updateSessionStatus(false) para alternativo...`);
         await this.sessionService.updateSessionStatus(remoteJidAlt, instanceName, false, userWithRelations.id);
-        logger.debug(`✅ updateSessionStatus(false) alternativo OK`);
+        // logger.debug(`✅ updateSessionStatus(false) alternativo OK`);
         logger.log(`Chat pausado también para JID alternativo: ${remoteJidAlt}.`);
       } else {
         logger.log(`JID alternativo no tiene sesión; se omite pausa: ${remoteJidAlt}.`);
@@ -653,52 +656,52 @@ export class WebhookService implements OnModuleInit {
     }
 
     // 3) Reactivar SOLO si estaba pausado y se escribe la frase correcta
-    logger.debug(`3) Reactivación: validando usuario y frase...`);
+    // logger.debug(`3) Reactivación: validando usuario y frase...`);
 
     if (!userWithRelations) {
       logger.warn('❌ No se encontró el usuario para obtener la frase de reactivación.');
-      logger.debug(`🟥 FIN (return: no userWithRelations)`);
+      // logger.debug(`🟥 FIN (return: no userWithRelations)`);
       return;
     }
 
     const dataPausar = userWithRelations.pausar ?? [];
     const pausarItem = dataPausar.find((p) => p.tipo === 'abrir');
 
-    logger.debug(`➡️ pausar configurado: ${dataPausar.length} items | abrir=${pausarItem ? 'SÍ' : 'NO'}`);
+    // logger.debug(`➡️ pausar configurado: ${dataPausar.length} items | abrir=${pausarItem ? 'SÍ' : 'NO'}`);
 
     if (!pausarItem) {
       logger.warn('❌ El usuario no tiene frase de reactivación configurada.');
-      logger.debug(`🟥 FIN (return: no pausarItem abrir)`);
+      // logger.debug(`🟥 FIN (return: no pausarItem abrir)`);
       return;
     }
 
     const phraseToReactivateChat = (pausarItem.mensaje ?? '').trim().toLowerCase();
     logger.log(`Frase de reactivación del usuario: "${pausarItem.mensaje}"`);
-    logger.debug(`Comparación reactivación: msg="${msg}" vs frase="${phraseToReactivateChat}" => ${msg === phraseToReactivateChat ? 'COINCIDE' : 'NO coincide'}`);
+    // logger.debug(`Comparación reactivación: msg="${msg}" vs frase="${phraseToReactivateChat}" => ${msg === phraseToReactivateChat ? 'COINCIDE' : 'NO coincide'}`);
 
     if (msg === phraseToReactivateChat) {
-      logger.debug(`✅ Entró a reactivación (frase correcta)`);
-      logger.debug(`Estado de sesión antes: ${sessionStatus ? 'ACTIVA' : 'PAUSADA'}`);
+      // logger.debug(`✅ Entró a reactivación (frase correcta)`);
+      // logger.debug(`Estado de sesión antes: ${sessionStatus ? 'ACTIVA' : 'PAUSADA'}`);
 
       if (!sessionStatus) {
         logger.log('Frase correcta detectada. Reactivando chat...');
 
-        logger.debug(`➡️ Llamando updateSessionStatus(true) para sesión principal...`);
+        // logger.debug(`➡️ Llamando updateSessionStatus(true) para sesión principal...`);
         await this.sessionService.updateSessionStatus(remoteJid, instanceName, true, userWithRelations.id);
-        logger.debug(`✅ updateSessionStatus(true) sesión principal OK`);
+        // logger.debug(`✅ updateSessionStatus(true) sesión principal OK`);
 
         // Reactivar alternativo SOLO si existe sesión
-        logger.debug(`Reactivar alternativo: ${remoteJidAlt && remoteJidAlt !== remoteJid ? 'ENTRA' : 'NO entra'}`);
+        // logger.debug(`Reactivar alternativo: ${remoteJidAlt && remoteJidAlt !== remoteJid ? 'ENTRA' : 'NO entra'}`);
 
         if (remoteJidAlt && remoteJidAlt !== remoteJid) {
-          logger.debug(`➡️ Consultando getSession() para alternativo antes de reactivar...`);
+          // logger.debug(`➡️ Consultando getSession() para alternativo antes de reactivar...`);
           const altSession = await this.sessionService.getSession(remoteJidAlt, instanceName, userWithRelations.id);
-          logger.debug(`✅ getSession() alternativo respondió: ${altSession ? 'HAY sesión' : 'NO hay sesión'}`);
+          // logger.debug(`✅ getSession() alternativo respondió: ${altSession ? 'HAY sesión' : 'NO hay sesión'}`);
 
           if (altSession) {
-            logger.debug(`➡️ Llamando updateSessionStatus(true) para alternativo...`);
+            // logger.debug(`➡️ Llamando updateSessionStatus(true) para alternativo...`);
             await this.sessionService.updateSessionStatus(remoteJidAlt, instanceName, true, userWithRelations.id);
-            logger.debug(`✅ updateSessionStatus(true) alternativo OK`);
+            // logger.debug(`✅ updateSessionStatus(true) alternativo OK`);
             logger.log(`Chat reactivado también para JID alternativo: ${remoteJidAlt}.`);
           } else {
             logger.log(`JID alternativo no tiene sesión; se omite reactivación: ${remoteJidAlt}.`);
@@ -708,20 +711,20 @@ export class WebhookService implements OnModuleInit {
         logger.log('Frase de reactivación recibida, pero el chat ya estaba activo.');
       }
 
-      logger.debug(`🟥 FIN (return: rama reactivación)`);
+      // logger.debug(`🟥 FIN (return: rama reactivación)`);
       return;
     }
 
     // 4) Eliminar seguimiento
     const pharaseToDelSeguimiento = (userWithRelations.delSeguimiento ?? '').trim().toLowerCase();
-    logger.debug(`4) Eliminar seguimiento: msg="${msg}" vs del="${pharaseToDelSeguimiento}" => ${msg === pharaseToDelSeguimiento ? 'COINCIDE' : 'NO coincide'}`);
+    // logger.debug(`4) Eliminar seguimiento: msg="${msg}" vs del="${pharaseToDelSeguimiento}" => ${msg === pharaseToDelSeguimiento ? 'COINCIDE' : 'NO coincide'}`);
 
     if (msg === pharaseToDelSeguimiento) {
       logger.log('Frase correcta detectada. Eliminando seguimiento...');
       try {
-        logger.debug(`➡️ Llamando deleteSeguimientosByRemoteJid(${remoteJid})...`);
+        // logger.debug(`➡️ Llamando deleteSeguimientosByRemoteJid(${remoteJid})...`);
         const { count } = await this.seguimientosService.deleteSeguimientosByRemoteJid(remoteJid, instanceName);
-        logger.debug(`✅ deleteSeguimientosByRemoteJid respondió count=${count ?? 0}`);
+        // logger.debug(`✅ deleteSeguimientosByRemoteJid respondió count=${count ?? 0}`);
 
         if (count && count > 0) {
           logger.log('Seguimiento eliminado con exito.');
@@ -730,16 +733,16 @@ export class WebhookService implements OnModuleInit {
         }
       } catch (error) {
         logger.error('ERROR_SEGUIMIENTOS', error);
-        logger.debug(`🟥 FIN (return: error eliminando seguimiento)`);
+        // logger.debug(`🟥 FIN (return: error eliminando seguimiento)`);
       }
 
-      logger.debug(`🟥 FIN (return: rama eliminar seguimiento)`);
+      // logger.debug(`🟥 FIN (return: rama eliminar seguimiento)`);
       return;
     }
 
     // 5) AutoReplies
-    logger.debug(`5) Ninguna condición coincidió → llama onAutoReplies`);
-    logger.debug(`➡️ Ejecutando onAutoReplies...`);
+    // logger.debug(`5) Ninguna condición coincidió → llama onAutoReplies`);
+    // logger.debug(`➡️ Ejecutando onAutoReplies...`);
 
     await this.onAutoReplies({
       userId: userWithRelations.id.toString(),
@@ -750,8 +753,8 @@ export class WebhookService implements OnModuleInit {
       remoteJid,
     });
 
-    logger.debug(`✅ onAutoReplies terminó`);
-    logger.debug(`🟩 FIN stopOrResumeConversation`);
+    // logger.debug(`✅ onAutoReplies terminó`);
+    // logger.debug(`🟩 FIN stopOrResumeConversation`);
   }
 
 
