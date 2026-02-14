@@ -3,8 +3,8 @@ import { ESTADOS_POR_TIPO } from '../constants/estados-por-tipo';
 
 const allowedTipos = Object.keys(ESTADOS_POR_TIPO) as TipoRegistro[];
 
-export const buildLeadFunnelPrompt = () => {
-    return `
+export const buildLeadFunnelPrompt = ({ leadName }: { leadName: string }) => {
+  return `
 Eres un CLASIFICADOR para un embudo de clientes en WhatsApp.
 
 Tu tarea: analizar el MENSAJE y decidir UNA sola cosa:
@@ -36,12 +36,13 @@ Caso REGISTRO:
   "estado": "UNO_DE_LOS_ESTADOS_VALIDOS",
   "resumen": "1 línea (qué pasó)",
   "detalles": "2-5 líneas (qué quiere / qué problema / qué pidió)",
-  "lead": true|false,
-  "nombre": "si se detecta el nombre",
+  "lead": true,
+  "nombre": ${leadName},
   "meta": { "cualquier_dato_util": "..." }
 }
 
 IMPORTANTE:
 - Si no estás seguro entre REPORTE o REGISTRO, elige REPORTE.
+- Si el kind es REGISTRO de tipo PAGO entonces el estado siempre debe de ser 'Pendiente' al momento de la creación del registro, incluso si el cliente dice que ya pagó. El equipo revisará y actualizará el estado a 'Confirmado' una vez verificado el pago.
 `;
 };

@@ -160,7 +160,7 @@ export class LeadClassifierIaService {
             return { kind: 'REPORTE', sintesis: 'Conversación general.' };
         }
 
-        const systemPrompt = buildLeadFunnelPrompt();
+        const systemPrompt = buildLeadFunnelPrompt({ leadName: input.pushName ?? 'Cliente' });
 
         const historyText = history.slice(-5).join('\n');
         const finalInput = `

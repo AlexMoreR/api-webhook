@@ -162,8 +162,8 @@ export class AiAgentService {
         .map((flow, index) => `${index + 1}. ${flow.name}`)
         .join(',\n');
 
-      logger.log(`Lista de flujos (texto): ${formattedList}`);
-      logger.log(`Lista de flujos (obj): ${JSON.stringify(workflows)}`);
+      // logger.log(`Lista de flujos (texto): ${formattedList}`);
+      // logger.log(`Lista de flujos (obj): ${JSON.stringify(workflows)}`);
 
       const customWorkflowPrompt = systemPromptWorkflow(input, JSON.stringify(formattedList));
 
