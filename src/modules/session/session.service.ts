@@ -47,6 +47,7 @@ export class SessionService {
       return this.prisma.session.update({
         where: { id: existingSession.id },
         data: {
+          remoteJidAlt: remoteJidAlt?.trim() || existingSession.remoteJidAlt,
           remoteJid,      // ahora se actualiza al JID prioritario actual
           pushName,
           instanceId,
@@ -60,6 +61,7 @@ export class SessionService {
       data: {
         userId,
         remoteJid,
+        remoteJidAlt: remoteJidAlt?.trim() || null,
         pushName,
         instanceId,
         status: true,
@@ -92,14 +94,23 @@ export class SessionService {
       where: {
         remoteJid,
         userId,
+        instanceId
       },
     });
   }
 
   async updateSessionRemoteJid(id: number, newRemoteJid: string) {
+    const current = await this.prisma.session.findUnique({
+      where: { id },
+      select: { remoteJid: true, remoteJidAlt: true },
+    });
+
     return this.prisma.session.update({
       where: { id },
-      data: { remoteJid: newRemoteJid },
+      data: {
+        remoteJid: newRemoteJid,
+        remoteJidAlt: current?.remoteJidAlt ?? current?.remoteJid ?? null,
+      },
     });
   }
 

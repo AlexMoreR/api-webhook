@@ -184,7 +184,12 @@ export class WebhookService implements OnModuleInit {
     );
     const canonicalRemoteJid = sessionRes.canonicalRemoteJid;
     const logger = this.scopedLogger({ userId, instanceName, remoteJid: canonicalRemoteJid });
-    const sessionActiveNow = await this.sessionService.getSession(canonicalRemoteJid, instanceName, userId);
+    const canonicalSession = await this.sessionService.getSession(
+      canonicalRemoteJid,
+      instanceName,
+      userId,
+    );
+    const canonicalAlt = canonicalSession?.remoteJidAlt || remoteJidAlt || '';
     const msgChat = data?.message?.conversation ?? '';
     const conversationMsg = msgChat.trim().toLowerCase();
 
@@ -193,9 +198,9 @@ export class WebhookService implements OnModuleInit {
       await this.stopOrResumeConversation({
         conversationMsg,
         remoteJid: canonicalRemoteJid,
-        remoteJidAlt,
+        remoteJidAlt: canonicalAlt,
         instanceId,
-        sessionStatus: !!sessionActiveNow?.status, // status REAL de la sesión canónica
+        sessionStatus: canonicalSession ? !!canonicalSession.status : !!sessionRes.status,
         userWithRelations,
         instanceName,
         apikey,
@@ -305,7 +310,7 @@ export class WebhookService implements OnModuleInit {
 
           //TODO: Lead Funnel (bucket/sintetizador)
           // if (sessionActiveNow?.id && (userWithRelations.role === 'admin' || userWithRelations.role === 'reseller')) {
-          if (sessionActiveNow?.id) {
+          if (canonicalSession?.id) {
             this.logger.debug(`Entrando a sintetizador... instanceID=${instanceId} userId=${userId} remoteJid=${canonicalRemoteJid}`);
             const history = await this.chatHistoryService.getChatHistory(sessionHistoryId);
 
@@ -314,7 +319,7 @@ export class WebhookService implements OnModuleInit {
               instanceId,
               remoteJid: canonicalRemoteJid,
               pushName,
-              sessionDbId: sessionActiveNow.id,
+              sessionDbId: canonicalSession.id,
               text: mergedTextStr,
               history,
             });
