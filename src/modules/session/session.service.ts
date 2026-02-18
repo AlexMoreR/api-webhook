@@ -27,42 +27,53 @@ export class SessionService {
     instanceId: string,
     remoteJidAlt?: string | null,
   ) {
-    // Construimos la lista de JIDs posibles para buscar una sesión existente
-    const jidsToSearch: string[] = [remoteJid];
+    const clean = (s?: string | null) => (s ?? '').trim();
+    const isBadName = (n: string) =>
+      n === '' || n === '.' || n.toLowerCase() === 'desconocido';
 
-    if (remoteJidAlt && remoteJidAlt.trim() !== '') {
-      jidsToSearch.push(remoteJidAlt.trim());
-    }
+    const rj = clean(remoteJid);
+    const rjAlt = clean(remoteJidAlt);
+    const pn = clean(pushName);
+
+    const jidsToSearch: string[] = [rj];
+    if (rjAlt) jidsToSearch.push(rjAlt);
 
     const existingSession = await this.prisma.session.findFirst({
       where: {
         userId,
+        instanceId,
         remoteJid: { in: jidsToSearch },
       },
     });
 
     if (existingSession) {
-      // Si ya existe, solo actualizamos la sesión en vez de crear otra.
-      // Guardamos el remoteJid "prioritario" que estás usando en este momento.
+      // Solo mejoramos el nombre si llega uno “bueno”
+      const nextPushName = !isBadName(pn) ? pn : existingSession.pushName;
+
+      // Si estamos cambiando el remoteJid principal, guardamos el anterior como alt
+      const nextAlt =
+        rjAlt ||
+        existingSession.remoteJidAlt ||
+        (existingSession.remoteJid !== rj ? existingSession.remoteJid : null);
+
       return this.prisma.session.update({
         where: { id: existingSession.id },
         data: {
-          remoteJidAlt: remoteJidAlt?.trim() || existingSession.remoteJidAlt,
-          remoteJid,      // ahora se actualiza al JID prioritario actual
-          pushName,
+          remoteJid: rj,
+          remoteJidAlt: nextAlt,
+          pushName: nextPushName,
           instanceId,
           updatedAt: new Date(),
         },
       });
     }
 
-    // Si no existe ninguna sesión para ninguno de los JIDs, la creamos.
     return this.prisma.session.create({
       data: {
         userId,
-        remoteJid,
-        remoteJidAlt: remoteJidAlt?.trim() || null,
-        pushName,
+        remoteJid: rj,
+        remoteJidAlt: rjAlt || null,
+        pushName: !isBadName(pn) ? pn : 'Desconocido',
         instanceId,
         status: true,
         updatedAt: new Date(),
