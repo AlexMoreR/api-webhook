@@ -73,6 +73,14 @@ export class LeadFunnelService {
             };
         }
 
+        if (result.kind === 'REGISTRO' && result.tipo === 'REPORTE') {
+            this.logger.debug(`[FIX] kind=REGISTRO tipo=REPORTE => treating as REPORTE sessionDbId=${sessionDbId}`);
+            result = {
+                kind: 'REPORTE',
+                sintesis: result.sintesis ?? result.resumen ?? '',
+            };
+        }
+
         if (!result || !result.kind) {
             this.logger.debug(`[SKIP] classifier returned empty/invalid result sessionDbId=${sessionDbId}`);
             return {
@@ -176,7 +184,8 @@ export class LeadFunnelService {
         );
 
         try {
-            await this.reporteService.updateSintesis(sessionDbId, sintesis);
+            // await this.reporteService.updateSintesis(sessionDbId, sintesis);
+            await this.registroService.upsertReporte(sessionDbId, sintesis);
             this.logger.debug(`[UPDATE_SINTESIS] success sessionDbId=${sessionDbId}`);
             this.logger.log(`Síntesis actualizada sessionId=${sessionDbId}`);
 

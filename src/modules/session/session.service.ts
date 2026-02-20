@@ -98,6 +98,7 @@ export class SessionService {
 
     return !!session?.agentDisabled;
   }
+  
 
   // Get a specific session by remoteJid and instanceId
   async getSession(remoteJid: string, instanceId: string, userId: string) {

@@ -1,18 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/database/prisma.service';
-import { normalizeText } from '../../utils/normalize-text';
+import { RegistroService } from '../registro/registro.service';
 
 @Injectable()
 export class ReporteSintesisService {
-    constructor(private readonly prisma: PrismaService) { }
+    constructor(
+        private readonly registroService: RegistroService
+    ) { }
 
-    async updateSintesis(sessionId: number, sintesis: string): Promise<void> {
-        const s = normalizeText(sintesis);
-        if (!s) return;
-
-        await this.prisma.session.update({
-            where: { id: sessionId },
-            data: { seguimientos: s },
-        });
+    /**
+     * Guarda/actualiza la síntesis acumulada en Registro(tipo=REPORTE)
+     * sin tocar Session.seguimientos.
+     */
+    async updateSintesis(sessionId: number, sintesis: string) {
+        return this.registroService.upsertReporte(sessionId, sintesis);
     }
 }

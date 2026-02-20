@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/database/prisma.service';
 import { TipoRegistro } from '@prisma/client';
 import { getDefaultEstado, ESTADOS_POR_TIPO } from '../../constants/estados-por-tipo';
+import { normalizeText } from '../../utils/normalize-text';
 
 type CreateRegistroResult =
     | {
@@ -24,6 +25,47 @@ export class RegistroService {
     private readonly logger = new Logger(RegistroService.name);
 
     constructor(private readonly prisma: PrismaService) { }
+
+    private mergeResumen(prev: string | null | undefined, next: string) {
+        const p = normalizeText(prev ?? '');
+        const n = normalizeText(next ?? '');
+        if (!n) return p;
+        if (!p) return n;
+        if (p.includes(n)) return p;
+        const merged = `${p}\n${n}`;
+        return merged.length > 6000 ? merged.slice(-6000) : merged;
+    }
+
+    async upsertReporte(sessionId: number, resumen: string) {
+        const n = normalizeText(resumen);
+        if (!n) return;
+
+        const current = await this.prisma.registro.findFirst({
+            where: { sessionId, tipo: 'REPORTE' },
+            orderBy: { updatedAt: 'desc' },
+            select: { id: true, resumen: true },
+        });
+
+        if (!current) {
+            await this.prisma.registro.create({
+                data: {
+                    sessionId,
+                    tipo: 'REPORTE',
+                    estado: getDefaultEstado('REPORTE'),
+                    resumen: n,
+                    fecha: new Date(),
+                },
+            });
+            return;
+        }
+
+        const merged = this.mergeResumen(current.resumen, n);
+
+        await this.prisma.registro.update({
+            where: { id: current.id },
+            data: { resumen: merged, fecha: new Date() },
+        });
+    }
 
     async createRegistro(params: {
         sessionId: number;
