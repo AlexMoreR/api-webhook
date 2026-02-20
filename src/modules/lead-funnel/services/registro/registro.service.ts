@@ -40,10 +40,18 @@ export class RegistroService {
         const n = normalizeText(resumen);
         if (!n) return;
 
+        const session = await this.prisma.session.findUnique({
+            where: { id: sessionId },
+            select: { pushName: true },
+        });
+
+        const pushName = (session?.pushName ?? '').trim();
+        const nombreFinal = pushName && pushName.toLowerCase() !== 'desconocido' ? pushName : null;
+
         const current = await this.prisma.registro.findFirst({
             where: { sessionId, tipo: 'REPORTE' },
             orderBy: { updatedAt: 'desc' },
-            select: { id: true, resumen: true },
+            select: { id: true, resumen: true, nombre: true },
         });
 
         if (!current) {
@@ -53,6 +61,7 @@ export class RegistroService {
                     tipo: 'REPORTE',
                     estado: getDefaultEstado('REPORTE'),
                     resumen: n,
+                    nombre: nombreFinal,
                     fecha: new Date(),
                 },
             });
@@ -63,7 +72,12 @@ export class RegistroService {
 
         await this.prisma.registro.update({
             where: { id: current.id },
-            data: { resumen: merged, fecha: new Date() },
+            data: {
+                resumen: merged,
+                fecha: new Date(),
+                //si estaba vacío, se pone
+                ...(current.nombre ? {} : { nombre: nombreFinal }),
+            },
         });
     }
 

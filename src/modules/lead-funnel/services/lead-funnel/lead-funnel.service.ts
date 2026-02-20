@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ClassifyMessageDto } from '../../dto/classify-message.dto';
 import { LeadClassifierIaService } from '../lead-classifier-ia/lead-classifier-ia.service';
 import { RegistroService } from '../registro/registro.service';
-import { ReporteSintesisService } from '../reporte-sintesis/reporte-sintesis.service';
 import { TipoRegistro } from '@prisma/client';
 
 type LeadFunnelResult =
@@ -42,7 +41,6 @@ export class LeadFunnelService {
     constructor(
         private readonly classifier: LeadClassifierIaService,
         private readonly registroService: RegistroService,
-        private readonly reporteService: ReporteSintesisService,
     ) { }
 
     async processIncomingText(input: ClassifyMessageDto): Promise<LeadFunnelResult> {
