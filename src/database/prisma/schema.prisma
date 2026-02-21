@@ -386,6 +386,7 @@ model User {
   meetingDuration                    Int?
   onFacebook                         Boolean               @default(false)
   onInstagram                        Boolean               @default(false)
+  enabledSynthesizer                 Boolean               @default(false)
   aiModelId                          String?
   defaultAiModelId                   String?
   defaultProviderId                  String?
