@@ -942,5 +942,74 @@ export class AiAgentService {
     }
   }
 
+  async generateFollowUpMessage(args: {
+    userId: string;
+    sessionId: string;
+    goal?: string;
+    customPrompt?: string;
+    attempt: number;
+    pushName?: string;
+    registroResumen?: string;
+    fallbackMessage?: string;
+  }): Promise<string> {
+    const {
+      userId,
+      sessionId,
+      goal = '',
+      customPrompt = '',
+      attempt,
+      pushName = '',
+      registroResumen = '',
+      fallbackMessage = '',
+    } = args;
+    const logger = this.scopedLogger({ userId });
+
+    try {
+      const client = await this.getClientForUser(userId);
+      const systemPrompt = await this.promptService.getPromptUserId(userId).catch(() => '');
+      const extraRules = await this.promptService
+        .getPromptPadre('cm842kthc0000qd2l66nbnytv')
+        .catch(() => '');
+
+      const promptAI = `${extraRules} ${systemPrompt}`.trim();
+      const chatHistory = await this.chatHistoryService.getChatHistory(sessionId);
+      const recentMessages = chatHistory.slice(-12);
+
+      const response = await client.invoke([
+        new SystemMessage({ content: [{ type: 'text', text: promptAI }] }),
+        new SystemMessage({
+          content: [
+            {
+              type: 'text',
+              text:
+                'Genera un único mensaje de seguimiento por WhatsApp. Debe sonar humano, breve, claro y orientado a retomar la conversación. No uses JSON, no expliques reglas, no menciones prompts internos ni herramientas. Máximo 3 líneas.',
+            },
+          ],
+        }),
+        new HumanMessage({
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                leadName: pushName,
+                followUpGoal: goal,
+                followUpPrompt: customPrompt,
+                attempt,
+                latestRegistro: registroResumen,
+                recentMessages,
+                fallbackMessage,
+              }),
+            },
+          ],
+        }),
+      ]);
+
+      return (response?.content ?? '').toString().trim();
+    } catch (e: any) {
+      logger.warn(`generateFollowUpMessage error: ${e?.message ?? e}`);
+      return fallbackMessage.trim();
+    }
+  }
+
 
 }

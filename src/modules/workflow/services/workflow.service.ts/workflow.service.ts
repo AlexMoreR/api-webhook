@@ -10,6 +10,7 @@ import { SessionService } from 'src/modules/session/session.service';
 import { SessionTriggerService } from 'src/modules/session-trigger/session-trigger.service';
 import { PrismaService } from 'src/database/prisma.service';
 import { ChatHistoryService } from '../../../chat-history/chat-history.service';
+import { buildChatHistorySessionId } from '../../../chat-history/chat-history-session.helper';
 import type { AiAgentService } from '../../../ai-agent/ai-agent.service';
 
 type NodeDB = WorkflowNode;
@@ -57,9 +58,10 @@ export class WorkflowService implements OnModuleInit {
 
     private readonly NODE_TIMEOUT_MS = 15000;
 
-    private async getRecentUserTextsForIntention(sessionId: number, maxAttempts: number): Promise<string[]> {
-        const chatHistory = await this.chatHistoryService.getChatHistory(sessionId.toString());
-        return chatHistory.slice(maxAttempts).map(t => (t ?? '').trim()).filter(Boolean);
+    private async getRecentUserTextsForIntention(instanceName: string, remoteJid: string, limit: number): Promise<string[]> {
+        const sessionHistoryId = buildChatHistorySessionId(instanceName, remoteJid);
+        const chatHistory = await this.chatHistoryService.getChatHistory(sessionHistoryId);
+        return chatHistory.slice(-limit).map(t => (t ?? '').trim()).filter(Boolean);
     }
 
     /**
@@ -226,7 +228,7 @@ export class WorkflowService implements OnModuleInit {
 
                     const prevData = (state.intentionData as any) ?? {};
                     //TODO: Se quema maxAttempts para no traer todo el historial, pero ideal sería marcar de alguna forma los mensajes relacionados a la intención (ej: con metadata) para traer solo esos. 
-                    const recentUserTexts = await this.getRecentUserTextsForIntention(session.id, 15);
+                    const recentUserTexts = await this.getRecentUserTextsForIntention(instanceName, remoteJid, 15);
 
                     state = await this.prisma.sessionWorkflowState.update({
                         where: { id: state.id },
@@ -503,6 +505,13 @@ export class WorkflowService implements OnModuleInit {
                 time: delaySeguimiento ?? '',
                 nameFile: node.nameFile,
                 consecutivo: '',
+                followUpMode: node.followUpMode,
+                followUpPrompt: node.followUpPrompt,
+                followUpGoal: node.followUpGoal,
+                followUpCancelOnReply: node.followUpCancelOnReply,
+                followUpMaxAttempts: node.followUpMaxAttempts,
+                followUpAttempt: 0,
+                followUpStatus: 'pending',
             });
 
             const { id } = await this.seguimientosService.createSeguimiento(seguimientoData);

@@ -27,6 +27,8 @@ import { PromptCompressorService } from '../ai-agent/services/prompt-compressor/
 import { LlmClientFactory } from '../ai-agent/services/llmClientFactory/llmClientFactory.service';
 import { AiAgentModule } from '../ai-agent/ai-agent.module';
 import { LeadFunnelModule } from '../lead-funnel/lead-funnel.module';
+import { FollowUpRunnerService } from './services/follow-up-runner/follow-up-runner.service';
+import { FollowUpRunnerSchedulerService } from './services/follow-up-runner/follow-up-runner.scheduler.service';
 
 @Module({
   imports: [HttpModule,
@@ -54,6 +56,8 @@ import { LeadFunnelModule } from '../lead-funnel/lead-funnel.module';
     // pertenece
     WebhookService,
     WebhookControlService,
+    FollowUpRunnerService,
+    FollowUpRunnerSchedulerService,
     MessageDirectionService,
     AntifloodService,
     MessageBufferService,

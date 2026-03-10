@@ -38,8 +38,10 @@ export class NodeSenderService {
       );
 
       // this.logger.log(`Respuesta ${remoteJid}: ${JSON.stringify(response.data)}`, 'NodeSenderService');
+      return true;
     } catch (error) {
       this.logger.error(`Error enviando texto a ${remoteJid}`, error?.response?.data || error.message, 'NodeSenderService');
+      return false;
     }
   }
 
@@ -127,12 +129,14 @@ export class NodeSenderService {
       //   `Respuesta del ${type} a ${remoteJid}: ${JSON.stringify(response.data)}`,
       //   'NodeSenderService',
       // );
+      return true;
     } catch (error) {
       this.logger.error(
         `Error enviando ${type} a ${remoteJid}`,
         error?.response?.data || error.message,
         'NodeSenderService',
       );
+      return false;
     }
   }
 
@@ -175,12 +179,14 @@ export class NodeSenderService {
       //   `Respuesta del audio a ${remoteJid}: ${JSON.stringify(response.data)}`,
       //   'NodeSenderService',
       // );
+      return true;
     } catch (error) {
       this.logger.error(
         `Error enviando audio a ${remoteJid}`,
         error?.response?.data || error.message,
         'NodeSenderService',
       );
+      return false;
     }
   }
 

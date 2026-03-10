@@ -30,6 +30,8 @@ import {
 import { AntifloodService } from './services/antiflood/antiflood.service';
 import { executeWorkflow } from 'src/utils/execute-workflow';
 import { LeadFunnelService } from '../lead-funnel/services/lead-funnel/lead-funnel.service';
+import { buildChatHistorySessionId } from '../chat-history/chat-history-session.helper';
+import { FollowUpRunnerService } from './services/follow-up-runner/follow-up-runner.service';
 
 @Injectable()
 export class WebhookService implements OnModuleInit {
@@ -55,7 +57,8 @@ export class WebhookService implements OnModuleInit {
     private readonly aiCreditsService: AiCreditsService,
     private readonly sessionTriggerService: SessionTriggerService,
     private readonly antifloodService: AntifloodService,
-    private readonly leadFunnelService: LeadFunnelService
+    private readonly leadFunnelService: LeadFunnelService,
+    private readonly followUpRunnerService: FollowUpRunnerService,
   ) { }
 
   onModuleInit(): void {
@@ -211,7 +214,7 @@ export class WebhookService implements OnModuleInit {
 
     if (!sessionRes.status) return;
 
-    const sessionHistoryId = `${instanceName}-${canonicalRemoteJid}`;
+    const sessionHistoryId = buildChatHistorySessionId(instanceName, canonicalRemoteJid);
     const apiMsgUrl = `${server_url}/message/sendText/${instanceName}`;
 
     // this.logger.debug(`[PAUSA] fromMe=${fromMe} | msg="${conversationMsg}"`);
@@ -293,6 +296,18 @@ export class WebhookService implements OnModuleInit {
             mergedTextStr,
             'human',
           );
+
+          const cancelledFollowUps = await this.followUpRunnerService.cancelPendingFollowUpsOnReply({
+            userId,
+            remoteJid: canonicalRemoteJid,
+            instanceName,
+          });
+          if (cancelledFollowUps.count > 0) {
+            logger.log(
+              `Follow-ups cancelados por respuesta del lead: ${cancelledFollowUps.count}`,
+              'WebhookService',
+            );
+          }
 
           // cortar si agentDisabled está activo en la sesión
           const agentDisabled = await this.sessionService.getAgentDisabled(
@@ -802,7 +817,7 @@ export class WebhookService implements OnModuleInit {
           instanceName,
         );
 
-        const sessionHistoryId = `${instanceName}-${remoteJid}`;
+        const sessionHistoryId = buildChatHistorySessionId(instanceName, remoteJid);
         const apiMsgUrl = `${server_url}/message/sendText/${instanceName}`;
 
         await executeWorkflow({

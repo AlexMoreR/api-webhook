@@ -265,4 +265,42 @@ export class SessionService {
       'SessionService',
     );
   }
+
+  async removeSeguimientosFromSession(
+    ids: number[],
+    remoteJid: string,
+    instanceId: string,
+    userId: string,
+  ): Promise<void> {
+    if (!ids.length) return;
+
+    const session = await this.prisma.session.findFirst({
+      where: { userId, remoteJid, instanceId },
+    });
+
+    if (!session) return;
+
+    const parseIds = (value?: string | null): number[] => {
+      if (!value || !value.trim()) return [];
+      return value
+        .split(/[-,]/)
+        .map((s) => parseInt(s.trim(), 10))
+        .filter((n) => !Number.isNaN(n));
+    };
+
+    const buildString = (currentIds: number[]) =>
+      currentIds.length ? currentIds.map((id) => id.toString()).join('-') : '';
+
+    const removeSet = new Set(ids);
+    const nextSeguimientos = parseIds(session.seguimientos).filter((id) => !removeSet.has(id));
+    const nextInactividad = parseIds(session.inactividad).filter((id) => !removeSet.has(id));
+
+    await this.prisma.session.update({
+      where: { id: session.id },
+      data: {
+        seguimientos: buildString(nextSeguimientos),
+        inactividad: buildString(nextInactividad),
+      },
+    });
+  }
 }

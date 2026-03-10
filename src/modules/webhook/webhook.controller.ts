@@ -1,13 +1,15 @@
-import { Controller, Post, Body, Res } from '@nestjs/common';
+import { Controller, Post, Body, Headers, Res, UnauthorizedException } from '@nestjs/common';
 import { WebhookService } from './webhook.service';
 import { Response } from 'express';
 import { LoggerService } from 'src/core/logger/logger.service';
+import { FollowUpRunnerService } from './services/follow-up-runner/follow-up-runner.service';
 
 @Controller('webhook')
 export class WebhookController {
   constructor(
     private readonly webhookService: WebhookService,
     private readonly logger: LoggerService,
+    private readonly followUpRunnerService: FollowUpRunnerService,
   ) { }
 
   @Post()
@@ -25,6 +27,28 @@ export class WebhookController {
         // No se puede enviar error 500 al remitente, la respuesta ya fue enviada.
       });
     // El hilo de ejecución se libera aquí.
+  }
+
+  @Post('follow-up/process')
+  async processFollowUps(
+    @Body() body: { limit?: number; userId?: string; instanceId?: string; remoteJid?: string } | undefined,
+    @Headers('x-runner-key') runnerKey?: string,
+  ) {
+    const expectedKey = (process.env.FOLLOW_UP_RUNNER_KEY ?? '').trim();
+    if (expectedKey && runnerKey !== expectedKey) {
+      throw new UnauthorizedException('runner key invalida');
+    }
+
+    const requestedLimit = Number(body?.limit ?? 25);
+    const limit = Number.isFinite(requestedLimit) && requestedLimit > 0
+      ? Math.min(requestedLimit, 100)
+      : 25;
+
+    return this.followUpRunnerService.processDueFollowUps(limit, {
+      userId: body?.userId?.trim() || undefined,
+      instanceId: body?.instanceId?.trim() || undefined,
+      remoteJid: body?.remoteJid?.trim() || undefined,
+    });
   }
 
 }

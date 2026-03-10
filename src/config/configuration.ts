@@ -2,6 +2,11 @@ export default () => ({
     // App
     port: process.env.PORT || 3000,
     nodeEnv: process.env.NODE_ENV || 'development',
+    followUpRunner: {
+        enabled: process.env.FOLLOW_UP_RUNNER_ENABLED || 'false',
+        intervalMs: process.env.FOLLOW_UP_RUNNER_INTERVAL_MS || '60000',
+        limit: process.env.FOLLOW_UP_RUNNER_LIMIT || '25',
+    },
 
     // Auth
     authSecret: process.env.AUTH_SECRET,
