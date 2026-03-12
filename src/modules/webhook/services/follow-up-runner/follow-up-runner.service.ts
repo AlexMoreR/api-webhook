@@ -297,12 +297,9 @@ export class FollowUpRunnerService {
       take,
     });
 
-    const eligiblePending = pending.filter(
-      (seguimiento) => !this.isLegacyWorkflowFollowUp(seguimiento),
-    );
-    const due = eligiblePending.filter((seguimiento) => this.isDue(seguimiento)).slice(0, limit);
+    const due = pending.filter((seguimiento) => this.isDue(seguimiento)).slice(0, limit);
     const summary = {
-      scanned: eligiblePending.length,
+      scanned: pending.length,
       due: due.length,
       sent: 0,
       failed: 0,
