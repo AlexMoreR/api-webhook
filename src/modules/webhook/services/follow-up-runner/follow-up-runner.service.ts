@@ -6,6 +6,7 @@ import { PrismaService } from 'src/database/prisma.service';
 import { AiAgentService } from 'src/modules/ai-agent/ai-agent.service';
 import { ChatHistoryService } from 'src/modules/chat-history/chat-history.service';
 import { buildChatHistorySessionId } from 'src/modules/chat-history/chat-history-session.helper';
+import { isLegacyWorkflowSeguimiento } from 'src/modules/seguimientos/legacy-workflow-follow-up.helper';
 import { SessionService } from 'src/modules/session/session.service';
 import { NodeSenderService } from 'src/modules/workflow/services/node-sender.service.ts/node-sender.service';
 
@@ -33,6 +34,12 @@ export class FollowUpRunnerService {
   private getTipoBase(tipo?: string | null) {
     const raw = (tipo ?? '').trim().toLowerCase();
     return raw.startsWith('seguimiento-') ? raw.replace('seguimiento-', '') : raw;
+  }
+
+  private isLegacyWorkflowFollowUp(
+    seguimiento: Pick<Seguimiento, 'idNodo' | 'tipo'>,
+  ) {
+    return isLegacyWorkflowSeguimiento(seguimiento);
   }
 
   private async buildRegistroResumen(sessionId: number): Promise<string> {
@@ -212,12 +219,16 @@ export class FollowUpRunnerService {
         followUpStatus: 'pending',
         followUpCancelOnReply: true,
       },
-      select: { id: true },
+      select: { id: true, idNodo: true, tipo: true },
     });
 
-    if (!pending.length) return { count: 0, ids: [] as number[] };
+    const legacyPending = pending.filter((item) =>
+      this.isLegacyWorkflowFollowUp(item as Pick<Seguimiento, 'idNodo' | 'tipo'>),
+    );
 
-    const ids = pending.map((item) => item.id);
+    if (!legacyPending.length) return { count: 0, ids: [] as number[] };
+
+    const ids = legacyPending.map((item) => item.id);
     await this.prisma.seguimiento.updateMany({
       where: { id: { in: ids } },
       data: { followUpStatus: 'cancelled' },
@@ -286,9 +297,12 @@ export class FollowUpRunnerService {
       take,
     });
 
-    const due = pending.filter((seguimiento) => this.isDue(seguimiento)).slice(0, limit);
+    const eligiblePending = pending.filter(
+      (seguimiento) => !this.isLegacyWorkflowFollowUp(seguimiento),
+    );
+    const due = eligiblePending.filter((seguimiento) => this.isDue(seguimiento)).slice(0, limit);
     const summary = {
-      scanned: pending.length,
+      scanned: eligiblePending.length,
       due: due.length,
       sent: 0,
       failed: 0,

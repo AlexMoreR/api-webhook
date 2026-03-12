@@ -10,6 +10,7 @@ import { LeadStatusIaService } from './services/lead-status-ia.service';
 import { CrmFollowUpPlannerService } from './services/crm-follow-up-planner.service';
 import { CrmFollowUpRunnerService } from './services/crm-follow-up-runner.service';
 import { CrmFollowUpRunnerSchedulerService } from './services/crm-follow-up-runner.scheduler.service';
+import { CrmFollowUpRuleService } from './services/crm-follow-up-rule.service';
 
 @Module({
   imports: [AiAgentModule, ChatHistoryModule],
@@ -19,6 +20,7 @@ import { CrmFollowUpRunnerSchedulerService } from './services/crm-follow-up-runn
     RegistroService,
     ReporteSintesisService,
     LeadStatusIaService,
+    CrmFollowUpRuleService,
     CrmFollowUpPlannerService,
     CrmFollowUpRunnerService,
     CrmFollowUpRunnerSchedulerService,

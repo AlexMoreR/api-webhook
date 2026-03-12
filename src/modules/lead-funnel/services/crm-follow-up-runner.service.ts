@@ -7,7 +7,12 @@ import { AiAgentService } from 'src/modules/ai-agent/ai-agent.service';
 import { ChatHistoryService } from 'src/modules/chat-history/chat-history.service';
 import { buildChatHistorySessionId } from 'src/modules/chat-history/chat-history-session.helper';
 import { NodeSenderService } from 'src/modules/workflow/services/node-sender.service.ts/node-sender.service';
-import { CRM_FOLLOW_UP_RULES } from '../constants/lead-status.constants';
+import {
+  computeNextCrmFollowUpDate,
+  isWithinCrmFollowUpWindow,
+  sanitizeWeekdays,
+} from '../utils/crm-follow-up-schedule';
+import { CrmFollowUpRuleService } from './crm-follow-up-rule.service';
 
 @Injectable()
 export class CrmFollowUpRunnerService {
@@ -17,6 +22,7 @@ export class CrmFollowUpRunnerService {
     private readonly aiAgentService: AiAgentService,
     private readonly chatHistoryService: ChatHistoryService,
     private readonly nodeSenderService: NodeSenderService,
+    private readonly crmFollowUpRuleService: CrmFollowUpRuleService,
   ) {}
 
   private normalizeServerUrl(serverUrl: string) {
@@ -51,6 +57,32 @@ export class CrmFollowUpRunnerService {
         errorReason: error.slice(0, 500),
         lastProcessedAt: new Date(),
         scheduledFor: exhausted ? undefined : new Date(Date.now() + 15 * 60_000),
+      },
+    });
+  }
+
+  private async rescheduleForWindow(args: {
+    followUpId: string;
+    baseDate: Date;
+    timeZone?: string | null;
+    allowedWeekdays?: number[] | null;
+    sendStartTime?: string | null;
+    sendEndTime?: string | null;
+  }) {
+    const nextDate = computeNextCrmFollowUpDate({
+      baseDate: args.baseDate,
+      timeZone: args.timeZone,
+      allowedWeekdays: args.allowedWeekdays,
+      sendStartTime: args.sendStartTime,
+      sendEndTime: args.sendEndTime,
+    });
+
+    await this.prisma.crmFollowUp.update({
+      where: { id: args.followUpId },
+      data: {
+        status: CrmFollowUpStatus.PENDING,
+        scheduledFor: nextDate,
+        lastProcessedAt: new Date(),
       },
     });
   }
@@ -146,14 +178,50 @@ export class CrmFollowUpRunnerService {
         continue;
       }
 
-      const rule = CRM_FOLLOW_UP_RULES[followUp.leadStatusSnapshot];
-      if (!rule?.enabled) {
+      const currentRule = await this.crmFollowUpRuleService.getRuleForUser(
+        followUp.userId,
+        followUp.leadStatusSnapshot,
+      );
+
+      if (!currentRule?.enabled) {
         await this.prisma.crmFollowUp.update({
           where: { id: followUp.id },
           data: {
-            status: CrmFollowUpStatus.SKIPPED,
+            status: CrmFollowUpStatus.CANCELLED,
+            cancelledAt: new Date(),
             lastProcessedAt: new Date(),
           },
+        });
+        summary.skipped += 1;
+        continue;
+      }
+
+      const allowedWeekdays = sanitizeWeekdays(
+        followUp.allowedWeekdaysSnapshot?.length
+          ? followUp.allowedWeekdaysSnapshot
+          : currentRule.allowedWeekdays,
+      );
+      const sendStartTime =
+        followUp.sendStartTimeSnapshot ?? currentRule.sendStartTime;
+      const sendEndTime =
+        followUp.sendEndTimeSnapshot ?? currentRule.sendEndTime;
+
+      if (
+        !isWithinCrmFollowUpWindow({
+          date: new Date(),
+          timeZone: currentRule.timezone,
+          allowedWeekdays,
+          sendStartTime,
+          sendEndTime,
+        })
+      ) {
+        await this.rescheduleForWindow({
+          followUpId: followUp.id,
+          baseDate: new Date(),
+          timeZone: currentRule.timezone,
+          allowedWeekdays,
+          sendStartTime,
+          sendEndTime,
         });
         summary.skipped += 1;
         continue;
@@ -171,12 +239,14 @@ export class CrmFollowUpRunnerService {
         const finalMessage = await this.aiAgentService.generateFollowUpMessage({
           userId: followUp.userId,
           sessionId: buildChatHistorySessionId(followUp.instanceId, followUp.remoteJid),
-          goal: rule.goal,
-          customPrompt: rule.prompt,
+          goal: (followUp.goalSnapshot ?? currentRule.goal).trim(),
+          customPrompt: (followUp.promptSnapshot ?? currentRule.prompt).trim(),
           attempt: (followUp.attemptCount ?? 0) + 1,
           pushName: followUp.session.pushName ?? '',
           registroResumen: followUp.summarySnapshot ?? '',
-          fallbackMessage: rule.fallbackMessage,
+          fallbackMessage: (
+            followUp.fallbackMessageSnapshot ?? currentRule.fallbackMessage
+          ).trim(),
         });
 
         const safeMessage = finalMessage.trim();

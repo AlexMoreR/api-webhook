@@ -425,6 +425,7 @@ model User {
   reseller_reseller_userIdToUser     Reseller[]            @relation("reseller_userIdToUser")
   aiConfigs                          UserAiConfig[]
   crmFollowUps                       CrmFollowUp[]
+  crmFollowUpRules                   CrmFollowUpRule[]
 }
 
 enum LeadStatus {
@@ -455,6 +456,12 @@ model CrmFollowUp {
   summarySnapshot    String?           @map("summary_snapshot")
   ruleKey            String            @map("rule_key")
   sourceHash         String?           @map("source_hash")
+  goalSnapshot       String?           @map("goal_snapshot")
+  promptSnapshot     String?           @map("prompt_snapshot")
+  fallbackMessageSnapshot String?      @map("fallback_message_snapshot")
+  allowedWeekdaysSnapshot Int[]        @default([]) @map("allowed_weekdays_snapshot")
+  sendStartTimeSnapshot  String?       @map("send_start_time_snapshot")
+  sendEndTimeSnapshot    String?       @map("send_end_time_snapshot")
   scheduledFor       DateTime          @map("scheduled_for")
   status             CrmFollowUpStatus @default(PENDING)
   cancelOnReply      Boolean           @default(true) @map("cancel_on_reply")
@@ -477,6 +484,28 @@ model CrmFollowUp {
   @@index([remoteJid, instanceId, status])
   @@unique([sessionId, ruleKey, sourceHash])
   @@map("crm_follow_ups")
+}
+
+model CrmFollowUpRule {
+  id              String     @id @default(uuid())
+  userId          String
+  leadStatus      LeadStatus
+  enabled         Boolean    @default(true)
+  delayMinutes    Int        @default(60) @map("delay_minutes")
+  maxAttempts     Int        @default(1) @map("max_attempts")
+  goal            String?
+  prompt          String?
+  fallbackMessage String?    @map("fallback_message")
+  allowedWeekdays Int[]      @default([]) @map("allowed_weekdays")
+  sendStartTime   String     @default("08:00") @map("send_start_time")
+  sendEndTime     String     @default("18:00") @map("send_end_time")
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, leadStatus])
+  @@index([userId])
+  @@map("crm_follow_up_rules")
 }
 
 model UserAvailability {

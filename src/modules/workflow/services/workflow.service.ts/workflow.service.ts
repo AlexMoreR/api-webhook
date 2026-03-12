@@ -3,9 +3,8 @@ import { ModuleRef } from '@nestjs/core';
 
 import { NodeSenderService } from '../node-sender.service.ts/node-sender.service';
 import { LoggerService } from 'src/core/logger/logger.service';
-import { SeguimientosService } from 'src/modules/seguimientos/seguimientos.service';
 import { convertDelayToSeconds } from 'src/modules/webhook/utils/convert-delay-to-seconds.helper';
-import { Prisma, Session, WorkflowNode } from '@prisma/client';
+import { Session, WorkflowNode } from '@prisma/client';
 import { SessionService } from 'src/modules/session/session.service';
 import { SessionTriggerService } from 'src/modules/session-trigger/session-trigger.service';
 import { PrismaService } from 'src/database/prisma.service';
@@ -43,7 +42,6 @@ export class WorkflowService implements OnModuleInit {
     constructor(
         private prisma: PrismaService,
         private nodeSenderService: NodeSenderService,
-        private seguimientosService: SeguimientosService,
         private logger: LoggerService,
         private sessionService: SessionService,
         private readonly sessionTriggerService: SessionTriggerService,
@@ -491,70 +489,10 @@ export class WorkflowService implements OnModuleInit {
         }
 
         if (node.tipo.startsWith('seguimiento-')) {
-            const delaySeguimiento = convertDelayToSeconds(node.delay ?? '');
-
-            const seguimientoData = Prisma.validator<Prisma.SeguimientoUncheckedCreateInput>()({
-                idNodo: node.id,
-                serverurl: urlevo,
-                instancia: instanceName,
-                apikey,
-                remoteJid,
-                mensaje: node.message,
-                tipo: node.tipo,
-                media: node.url,
-                time: delaySeguimiento ?? '',
-                nameFile: node.nameFile,
-                consecutivo: '',
-                followUpMode: node.followUpMode,
-                followUpPrompt: node.followUpPrompt,
-                followUpGoal: node.followUpGoal,
-                followUpCancelOnReply: node.followUpCancelOnReply,
-                followUpMaxAttempts: node.followUpMaxAttempts,
-                followUpAttempt: 0,
-                followUpStatus: 'pending',
-            });
-
-            const { id } = await this.seguimientosService.createSeguimiento(seguimientoData);
-
-            const s = session ?? (await this.getSession({ remoteJid, instanceName, userId }));
-            if (!s) {
-                if (opts.warnMissingSessionForSeguimiento) {
-                    this.logger.warn(
-                        `No se pudo registrar el seguimiento porque la sesión no existe: ${remoteJid}`,
-                        'WorkflowService',
-                    );
-                }
-                return;
-            }
-
-            const seguimientos = this.buildSeguimientoID({
-                seguimientos: s.seguimientos,
-                current: id.toString(),
-            });
-
-            await this.registerIdSeguimientoInSession(
-                id.toString(),
-                remoteJid,
-                instanceName,
-                userId,
-                seguimientos,
+            this.logger.warn(
+                `Nodo seguimiento legacy omitido en workflow ${node.id}. Los follow-ups válidos ahora se gestionan desde CRM.`,
+                'WorkflowService',
             );
-
-            if (node.inactividad) {
-                const nuevosIdsInactividad = this.buildSeguimientoID({
-                    seguimientos: s.inactividad,
-                    current: id.toString(),
-                });
-
-                await this.registerIdsInactividadInSession(
-                    id.toString(),
-                    remoteJid,
-                    instanceName,
-                    userId,
-                    nuevosIdsInactividad,
-                );
-            }
-
             return;
         }
 

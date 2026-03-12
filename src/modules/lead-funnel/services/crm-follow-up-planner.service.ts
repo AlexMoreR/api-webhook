@@ -3,13 +3,15 @@ import { CrmFollowUpStatus, LeadStatus } from '@prisma/client';
 
 import { LoggerService } from 'src/core/logger/logger.service';
 import { PrismaService } from 'src/database/prisma.service';
-import { CRM_FOLLOW_UP_RULES } from '../constants/lead-status.constants';
+import { computeNextCrmFollowUpDate } from '../utils/crm-follow-up-schedule';
+import { CrmFollowUpRuleService } from './crm-follow-up-rule.service';
 
 @Injectable()
 export class CrmFollowUpPlannerService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly logger: LoggerService,
+    private readonly crmFollowUpRuleService: CrmFollowUpRuleService,
   ) {}
 
   async syncFromLeadStatus(args: {
@@ -52,7 +54,10 @@ export class CrmFollowUpPlannerService {
       };
     }
 
-    const rule = CRM_FOLLOW_UP_RULES[args.leadStatus];
+    const rule = await this.crmFollowUpRuleService.getRuleForUser(
+      args.userId,
+      args.leadStatus,
+    );
     if (!rule?.enabled || !args.summary.trim()) {
       return { ok: true as const, action: 'SKIPPED_RULE' };
     }
@@ -86,7 +91,13 @@ export class CrmFollowUpPlannerService {
       },
     });
 
-    const scheduledFor = new Date(Date.now() + rule.delayMinutes * 60_000);
+    const scheduledFor = computeNextCrmFollowUpDate({
+      baseDate: new Date(Date.now() + rule.delayMinutes * 60_000),
+      timeZone: rule.timezone,
+      allowedWeekdays: rule.allowedWeekdays,
+      sendStartTime: rule.sendStartTime,
+      sendEndTime: rule.sendEndTime,
+    });
 
     const created = await this.prisma.crmFollowUp.create({
       data: {
@@ -99,6 +110,12 @@ export class CrmFollowUpPlannerService {
         summarySnapshot: args.summary,
         ruleKey: rule.ruleKey,
         sourceHash: args.sourceHash,
+        goalSnapshot: rule.goal,
+        promptSnapshot: rule.prompt,
+        fallbackMessageSnapshot: rule.fallbackMessage,
+        allowedWeekdaysSnapshot: rule.allowedWeekdays,
+        sendStartTimeSnapshot: rule.sendStartTime,
+        sendEndTimeSnapshot: rule.sendEndTime,
         scheduledFor,
         status: CrmFollowUpStatus.PENDING,
         cancelOnReply: true,
