@@ -7,7 +7,7 @@ import { createHash } from 'crypto';
 import { LoggerService } from 'src/core/logger/logger.service';
 import { PrismaService } from 'src/database/prisma.service';
 import { LlmClientFactory } from 'src/modules/ai-agent/services/llmClientFactory/llmClientFactory.service';
-import { buildLeadStatusPrompt } from '../prompts/lead-status.prompt';
+import { resolveLeadStatusPrompt } from '../prompts/crm-prompt-template.prompt';
 import { LEAD_STATUS_VALUES } from '../constants/lead-status.constants';
 import { normalizeText } from '../utils/normalize-text';
 
@@ -204,7 +204,7 @@ export class LeadStatusIaService {
     try {
       const llm = await this.getClientForUser(args.userId);
       const response = await llm.invoke([
-        new SystemMessage({ content: [{ type: 'text', text: buildLeadStatusPrompt() }] }),
+        new SystemMessage({ content: [{ type: 'text', text: await resolveLeadStatusPrompt({ prisma: this.prisma, userId: args.userId }) }] }),
         new HumanMessage({
           content: [
             {
@@ -253,3 +253,4 @@ export class LeadStatusIaService {
     };
   }
 }
+

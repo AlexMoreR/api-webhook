@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ClassifyMessageDto } from '../../dto/classify-message.dto';
 import { ClassificationResultDto } from '../../dto/classification-result.dto';
-import { buildLeadFunnelPrompt } from '../../prompts/lead-funnel.prompt';
+import { resolveLeadFunnelPrompt } from '../../prompts/crm-prompt-template.prompt';
 import { normalizeText } from '../../utils/normalize-text';
 
 import { LlmClientFactory } from 'src/modules/ai-agent/services/llmClientFactory/llmClientFactory.service';
@@ -160,7 +160,11 @@ export class LeadClassifierIaService {
             return { kind: 'REPORTE', sintesis: 'Conversación general.' };
         }
 
-        const systemPrompt = buildLeadFunnelPrompt({ leadName: input.pushName ?? 'Cliente' });
+        const systemPrompt = await resolveLeadFunnelPrompt({
+            prisma: this.prisma,
+            userId: input.userId,
+            leadName: input.pushName ?? 'Cliente',
+        });
 
         const historyText = history.slice(-5).join('\n');
         const finalInput = `
