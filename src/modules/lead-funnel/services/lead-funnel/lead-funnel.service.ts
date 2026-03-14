@@ -52,6 +52,8 @@ export class LeadFunnelService {
 
   async processIncomingText(input: ClassifyMessageDto): Promise<LeadFunnelResult> {
     const sessionDbId = input.sessionDbId;
+    const shouldClassifyLeadStatus = !!input.enabledLeadStatusClassifier;
+    const shouldPlanCrmFollowUps = !!input.enabledCrmFollowUps;
 
     this.logger.debug(
       `[processIncomingText] start sessionDbId=${sessionDbId} userId=${input.userId} instanceId=${input.instanceId} remoteJid=${input.remoteJid}`,
@@ -187,13 +189,27 @@ export class LeadFunnelService {
       await this.registroService.upsertReporte(sessionDbId, sintesis);
       this.logger.debug(`[UPDATE_SINTESIS] success sessionDbId=${sessionDbId}`);
 
+      if (!shouldClassifyLeadStatus) {
+        this.logger.debug(
+          `[LEAD_STATUS] disabled sessionDbId=${sessionDbId} userId=${input.userId}`,
+        );
+        this.logger.log(`Sintesis actualizada sessionId=${sessionDbId}`);
+
+        return {
+          ok: true,
+          action: 'UPDATED_SINTESIS',
+          sessionDbId,
+          sintesisLength: sintesis.length,
+        };
+      }
+
       try {
         const leadStatusResult = await this.leadStatusIaService.refreshFromLatestReporte({
           sessionId: sessionDbId,
           userId: input.userId,
         });
 
-        if (leadStatusResult.applied) {
+        if (leadStatusResult.applied && shouldPlanCrmFollowUps) {
           await this.crmFollowUpPlannerService.syncFromLeadStatus({
             sessionId: sessionDbId,
             userId: input.userId,
@@ -202,6 +218,10 @@ export class LeadFunnelService {
             sourceHash: leadStatusResult.sourceHash,
             sourceReportId: leadStatusResult.sourceReportId,
           });
+        } else if (leadStatusResult.applied) {
+          this.logger.debug(
+            `[CRM_FOLLOW_UP] disabled sessionDbId=${sessionDbId} userId=${input.userId}`,
+          );
         }
       } catch (leadStatusError: any) {
         this.logger.warn(

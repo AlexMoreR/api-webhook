@@ -161,6 +161,7 @@ export class CrmFollowUpRunnerService {
           },
           user: {
             select: {
+              enabledCrmFollowUps: true,
               apiKey: {
                 select: {
                   url: true,
@@ -175,6 +176,19 @@ export class CrmFollowUpRunnerService {
       if (!followUp?.session) {
         await this.markFailure(candidate, 'Sesion no encontrada para CRM follow-up.');
         summary.failed += 1;
+        continue;
+      }
+
+      if (!followUp.user.enabledCrmFollowUps) {
+        await this.prisma.crmFollowUp.update({
+          where: { id: followUp.id },
+          data: {
+            status: CrmFollowUpStatus.CANCELLED,
+            cancelledAt: new Date(),
+            lastProcessedAt: new Date(),
+          },
+        });
+        summary.skipped += 1;
         continue;
       }
 

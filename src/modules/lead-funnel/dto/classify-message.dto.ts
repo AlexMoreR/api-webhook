@@ -3,6 +3,8 @@ export class ClassifyMessageDto {
     instanceId!: string;
     remoteJid!: string;
     pushName?: string;
+    enabledLeadStatusClassifier?: boolean;
+    enabledCrmFollowUps?: boolean;
 
     // id autoincrement real de Session
     sessionDbId!: number;

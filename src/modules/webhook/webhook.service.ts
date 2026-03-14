@@ -333,6 +333,9 @@ export class WebhookService implements OnModuleInit {
               instanceId,
               remoteJid: canonicalRemoteJid,
               pushName,
+              enabledLeadStatusClassifier:
+                !!userWithRelations.enabledLeadStatusClassifier,
+              enabledCrmFollowUps: !!userWithRelations.enabledCrmFollowUps,
               sessionDbId: canonicalSession.id,
               text: mergedTextStr,
               history,
