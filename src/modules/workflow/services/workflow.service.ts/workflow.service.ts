@@ -414,6 +414,19 @@ export class WorkflowService implements OnModuleInit {
             return;
         }
 
+        if (node.tipo === 'nodo-notify') {
+            await this.sendWorkflowNotification({
+                node,
+                session,
+                urlevo,
+                apikey,
+                instanceName,
+                remoteJid,
+                userId,
+            });
+            return;
+        }
+
         if (node.tipo === 'node_pause') {
             this.logger.log(
                 `Nodo pause: pausando sesiÃ³n para ${remoteJid} en instancia ${instanceName}`,
@@ -422,8 +435,32 @@ export class WorkflowService implements OnModuleInit {
 
             await this.sessionService.updateSessionStatus(remoteJid, instanceName, false, userId);
 
+            const s = session ?? (await this.getSession({ remoteJid, instanceName, userId }));
+            const aiEnabled = (node as WorkflowNode & { aiEnabled?: boolean | null }).aiEnabled === true;
+
+            if (!aiEnabled) {
+                if (s) {
+                    await this.clearSessionTriggerIfExists(
+                        s.id,
+                        `Nodo pause con IA desactivada. Se elimina SessionTrigger previo si existe (${remoteJid}).`,
+                    );
+                } else if (opts.logPauseDiagnostics) {
+                    this.logger.log(
+                        `Nodo pause con IA desactivada y sin sesiÃ³n disponible. No hay trigger para limpiar (${remoteJid}).`,
+                        'WorkflowService',
+                    );
+                }
+                return;
+            }
+
             const rawDelay = node.delay ?? '';
             if (!rawDelay) {
+                if (s) {
+                    await this.clearSessionTriggerIfExists(
+                        s.id,
+                        `Nodo pause sin delay. Se elimina SessionTrigger previo si existe (${remoteJid}).`,
+                    );
+                }
                 if (opts.logPauseDiagnostics) {
                     this.logger.log(
                         `Nodo pause sin delay definido. No se crea SessionTrigger (remoteJid=${remoteJid}).`,
@@ -437,6 +474,12 @@ export class WorkflowService implements OnModuleInit {
             const value = parseInt(valueStr, 10);
 
             if (!['seconds', 'minutes', 'hours', 'days'].includes(unit) || isNaN(value)) {
+                if (s) {
+                    await this.clearSessionTriggerIfExists(
+                        s.id,
+                        `Nodo pause con delay invÃ¡lido "${rawDelay}". Se elimina SessionTrigger previo si existe.`,
+                    );
+                }
                 if (opts.logPauseDiagnostics) {
                     this.logger.warn(
                         `Nodo pause con delay invÃ¡lido "${rawDelay}". No se crea SessionTrigger.`,
@@ -447,6 +490,12 @@ export class WorkflowService implements OnModuleInit {
             }
 
             if (value <= 0) {
+                if (s) {
+                    await this.clearSessionTriggerIfExists(
+                        s.id,
+                        `Nodo pause con delay 0. Se elimina SessionTrigger previo si existe (${remoteJid}).`,
+                    );
+                }
                 if (opts.logPauseDiagnostics) {
                     this.logger.log(
                         `Nodo pause con delay 0. Solo se pausa la sesiÃ³n, sin SessionTrigger.`,
@@ -456,7 +505,6 @@ export class WorkflowService implements OnModuleInit {
                 return;
             }
 
-            const s = session ?? (await this.getSession({ remoteJid, instanceName, userId }));
             if (!s) {
                 if (opts.logPauseDiagnostics) {
                     this.logger.warn(
@@ -469,11 +517,17 @@ export class WorkflowService implements OnModuleInit {
 
             try {
                 const reactivationDate = convertDelayToSeconds(rawDelay);
-                await this.sessionTriggerService.create(s.id.toString(), reactivationDate);
+                const existingTrigger = await this.sessionTriggerService.findBySessionId(s.id.toString());
+
+                if (!existingTrigger) {
+                    await this.sessionTriggerService.create(s.id.toString(), reactivationDate);
+                } else {
+                    await this.sessionTriggerService.updateTimeBySessionId(s.id.toString(), reactivationDate);
+                }
 
                 if (opts.logPauseDiagnostics) {
                     this.logger.log(
-                        `SessionTrigger creado para sesiÃ³n ${s.id} con fecha ${reactivationDate} (delay=${rawDelay}).`,
+                        `SessionTrigger configurado para sesiÃ³n ${s.id} con fecha ${reactivationDate} (delay=${rawDelay}, aiEnabled=${aiEnabled}).`,
                         'WorkflowService',
                     );
                 }
@@ -502,6 +556,127 @@ export class WorkflowService implements OnModuleInit {
         }
 
         this.logger.warn(`Tipo de nodo desconocido: ${node.tipo} (ID: ${node.id})`, 'WorkflowService');
+    }
+
+    private async clearSessionTriggerIfExists(sessionId: number, reason: string) {
+        const existingTrigger = await this.sessionTriggerService.findBySessionId(sessionId.toString());
+        if (!existingTrigger) {
+            return;
+        }
+
+        await this.sessionTriggerService.delete(existingTrigger.id);
+        this.logger.log(reason, 'WorkflowService');
+    }
+
+    private async sendWorkflowNotification(args: {
+        node: WorkflowNode;
+        session?: Session | null;
+        urlevo: string;
+        apikey: string;
+        instanceName: string;
+        remoteJid: string;
+        userId: string;
+    }) {
+        const { node, session, urlevo, apikey, instanceName, remoteJid, userId } = args;
+
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { notificationNumber: true },
+        });
+
+        const notificationNumber = (user?.notificationNumber ?? '').trim();
+        if (!notificationNumber || notificationNumber === '0000000000') {
+            this.logger.warn(
+                `Nodo notify sin notificationNumber configurado (userId=${userId}, nodeId=${node.id}).`,
+                'WorkflowService',
+            );
+            return;
+        }
+
+        const activeSession = session ?? (await this.getSession({ remoteJid, instanceName, userId }));
+        const latestRegistro = activeSession
+            ? await this.prisma.registro.findFirst({
+                where: { sessionId: activeSession.id },
+                orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+                select: {
+                    tipo: true,
+                    estado: true,
+                    resumen: true,
+                    detalles: true,
+                    nombre: true,
+                },
+            })
+            : null;
+
+        const notifyMessage = this.buildWorkflowNotificationMessage({
+            remoteJid,
+            pushName: activeSession?.pushName ?? latestRegistro?.nombre ?? '',
+            latestRegistro,
+            customMessage: node.message ?? '',
+        });
+
+        const url = `${urlevo}/message/sendText/${instanceName}`;
+        const sent = await this.nodeSenderService.sendTextNode(
+            url,
+            apikey,
+            notificationNumber,
+            notifyMessage,
+        );
+
+        if (!sent) {
+            this.logger.warn(
+                `Nodo notify no pudo enviar mensaje a ${notificationNumber} (nodeId=${node.id}).`,
+                'WorkflowService',
+            );
+            return;
+        }
+
+        this.logger.log(
+            `Nodo notify enviado a ${notificationNumber} para cliente ${remoteJid} (nodeId=${node.id}).`,
+            'WorkflowService',
+        );
+    }
+
+    private buildWorkflowNotificationMessage(args: {
+        remoteJid: string;
+        pushName?: string | null;
+        latestRegistro?: {
+            tipo: string;
+            estado: string | null;
+            resumen: string | null;
+            detalles: string | null;
+            nombre: string | null;
+        } | null;
+        customMessage?: string | null;
+    }) {
+        const { remoteJid, pushName, latestRegistro, customMessage } = args;
+
+        const clientPhone = remoteJid.split('@')[0] ?? remoteJid;
+        const lines: string[] = [
+            '✅ *Tienes una nueva notificación del workflow*',
+            '',
+            `👤 *Cliente:* ${pushName?.trim() || 'Sin nombre'}`,
+            `📱 *WhatsApp del usuario:* +${clientPhone}`,
+        ];
+
+        if (latestRegistro?.tipo) {
+            lines.push(`📌 *Tipo de registro:* ${latestRegistro.tipo}`);
+        }
+
+        if (latestRegistro?.estado) {
+            lines.push(`📍 *Estado:* ${latestRegistro.estado}`);
+        }
+
+        const detail =
+            latestRegistro?.resumen?.trim() ||
+            latestRegistro?.detalles?.trim() ||
+            customMessage?.trim();
+
+        if (detail) {
+            lines.push('', '📝 *Descripción:*', detail);
+        }
+
+        return lines.join('\n');
     }
 
     async continuePausedWorkflow(

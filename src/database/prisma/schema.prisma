@@ -600,6 +600,7 @@ model WorkflowNode {
   miniPrompt            String?
   noMatchMessage        String?
   threshold             Float?
+  aiEnabled             Boolean                @default(false)
   followUpCancelOnReply Boolean                @default(true)
   followUpGoal          String?
   followUpMaxAttempts   Int                    @default(3)
