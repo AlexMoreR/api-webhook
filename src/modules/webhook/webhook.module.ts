@@ -24,15 +24,15 @@ import { WebhookControlService } from './services/webhook-control/webhook-contro
 import { SessionTriggerService } from '../session-trigger/session-trigger.service';
 import { AntifloodService } from './services/antiflood/antiflood.service';
 import { PromptCompressorService } from '../ai-agent/services/prompt-compressor/prompt-compressor.service';
-import { LlmClientFactory } from '../ai-agent/services/llmClientFactory/llmClientFactory.service';
 import { AiAgentModule } from '../ai-agent/ai-agent.module';
 import { LeadFunnelModule } from '../lead-funnel/lead-funnel.module';
 import { FollowUpRunnerService } from './services/follow-up-runner/follow-up-runner.service';
 import { FollowUpRunnerSchedulerService } from './services/follow-up-runner/follow-up-runner.scheduler.service';
+import { BillingCronService } from './services/billing-cron/billing-cron.service';
+import { BillingCronSchedulerService } from './services/billing-cron/billing-cron.scheduler.service';
 
 @Module({
-  imports: [HttpModule,
-    WorkflowModule, AiAgentModule, LeadFunnelModule],
+  imports: [HttpModule, WorkflowModule, AiAgentModule, LeadFunnelModule],
 
   controllers: [WebhookController],
 
@@ -56,13 +56,15 @@ import { FollowUpRunnerSchedulerService } from './services/follow-up-runner/foll
     // pertenece
     WebhookService,
     WebhookControlService,
+    BillingCronService,
+    BillingCronSchedulerService,
     FollowUpRunnerService,
     FollowUpRunnerSchedulerService,
     MessageDirectionService,
     AntifloodService,
     MessageBufferService,
     MessageTypeHandlerService,
-    WebhookService
-  ]
+    WebhookService,
+  ],
 })
-export class WebhookModule { }
+export class WebhookModule {}

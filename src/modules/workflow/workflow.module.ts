@@ -10,7 +10,12 @@ import { AiAgentModule } from '../ai-agent/ai-agent.module';
 import { ChatHistoryModule } from '../chat-history/chat-history.module';
 
 @Module({
-  imports: [HttpModule, SessionTriggerModule, forwardRef(() => AiAgentModule), ChatHistoryModule],
+  imports: [
+    HttpModule,
+    SessionTriggerModule,
+    forwardRef(() => AiAgentModule),
+    ChatHistoryModule,
+  ],
   providers: [
     WorkflowService,
     PrismaService,
@@ -20,4 +25,4 @@ import { ChatHistoryModule } from '../chat-history/chat-history.module';
   ],
   exports: [WorkflowService],
 })
-export class WorkflowModule { }
+export class WorkflowModule {}

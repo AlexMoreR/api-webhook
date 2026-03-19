@@ -20,7 +20,7 @@ export class FollowUpRunnerService {
     private readonly chatHistoryService: ChatHistoryService,
     private readonly sessionService: SessionService,
     private readonly nodeSenderService: NodeSenderService,
-  ) { }
+  ) {}
 
   private clean(value?: string | null) {
     return (value ?? '').trim();
@@ -89,7 +89,9 @@ export class FollowUpRunnerService {
 
   private getTipoBase(tipo?: string | null) {
     const raw = (tipo ?? '').trim().toLowerCase();
-    return raw.startsWith('seguimiento-') ? raw.replace('seguimiento-', '') : raw;
+    return raw.startsWith('seguimiento-')
+      ? raw.replace('seguimiento-', '')
+      : raw;
   }
 
   private isLegacyWorkflowFollowUp(
@@ -124,7 +126,12 @@ export class FollowUpRunnerService {
 
   private async resolveFollowUpMessage(
     seguimiento: Seguimiento,
-    session: { id: number; userId: string; pushName: string | null; remoteJid: string },
+    session: {
+      id: number;
+      userId: string;
+      pushName: string | null;
+      remoteJid: string;
+    },
   ) {
     const fallbackMessage = (seguimiento.mensaje ?? '').trim();
     if (seguimiento.followUpMode !== 'ai') return fallbackMessage;
@@ -143,7 +150,8 @@ export class FollowUpRunnerService {
       pushName: session.pushName ?? '',
       registroResumen: await this.buildRegistroResumen(session.id),
       fallbackMessage:
-        fallbackMessage || 'Hola, sigo atento por si quieres retomar la conversacion.',
+        fallbackMessage ||
+        'Hola, sigo atento por si quieres retomar la conversacion.',
     });
   }
 
@@ -154,7 +162,8 @@ export class FollowUpRunnerService {
   ) {
     const serverUrl = (seguimiento.serverurl ?? '').trim();
     const instanceName = (seguimiento.instancia ?? '').trim();
-    const remoteJid = this.clean(targetRemoteJid) || (seguimiento.remoteJid ?? '').trim();
+    const remoteJid =
+      this.clean(targetRemoteJid) || (seguimiento.remoteJid ?? '').trim();
     const apikey = (seguimiento.apikey ?? '').trim();
     const media = (seguimiento.media ?? '').trim();
     const tipoBase = this.getTipoBase(seguimiento.tipo);
@@ -164,7 +173,8 @@ export class FollowUpRunnerService {
     }
 
     if (tipoBase === 'text') {
-      if (!finalMessage.trim()) throw new Error('Follow-up de texto sin mensaje final.');
+      if (!finalMessage.trim())
+        throw new Error('Follow-up de texto sin mensaje final.');
       const ok = await this.nodeSenderService.sendTextNode(
         `${serverUrl}/message/sendText/${instanceName}`,
         apikey,
@@ -211,7 +221,9 @@ export class FollowUpRunnerService {
       return;
     }
 
-    throw new Error(`Tipo de seguimiento no soportado: ${seguimiento.tipo ?? 'unknown'}`);
+    throw new Error(
+      `Tipo de seguimiento no soportado: ${seguimiento.tipo ?? 'unknown'}`,
+    );
   }
 
   private async markSent(
@@ -241,7 +253,11 @@ export class FollowUpRunnerService {
 
   private async markFailure(
     seguimiento: Seguimiento,
-    sessionData: { userId: string; remoteJid: string; instanceId: string } | null,
+    sessionData: {
+      userId: string;
+      remoteJid: string;
+      instanceId: string;
+    } | null,
     errorReason?: string | null,
   ) {
     const nextAttempt = (seguimiento.followUpAttempt ?? 0) + 1;
@@ -292,7 +308,9 @@ export class FollowUpRunnerService {
     });
 
     const legacyPending = pending.filter((item) =>
-      this.isLegacyWorkflowFollowUp(item as Pick<Seguimiento, 'idNodo' | 'tipo'>),
+      this.isLegacyWorkflowFollowUp(
+        item as Pick<Seguimiento, 'idNodo' | 'tipo'>,
+      ),
     );
 
     if (!legacyPending.length) return { count: 0, ids: [] as number[] };
@@ -303,7 +321,12 @@ export class FollowUpRunnerService {
       data: { followUpStatus: 'cancelled' },
     });
 
-    await this.sessionService.removeSeguimientosFromSession(ids, remoteJid, instanceName, userId);
+    await this.sessionService.removeSeguimientosFromSession(
+      ids,
+      remoteJid,
+      instanceName,
+      userId,
+    );
     return { count: ids.length, ids };
   }
 
@@ -323,7 +346,9 @@ export class FollowUpRunnerService {
       const sessionWhere: {
         userId?: string;
         instanceId?: string;
-        OR?: Array<{ remoteJid: { in: string[] } } | { remoteJidAlt: { in: string[] } }>;
+        OR?: Array<
+          { remoteJid: { in: string[] } } | { remoteJidAlt: { in: string[] } }
+        >;
       } = {
         ...(scope?.userId ? { userId: scope.userId } : {}),
         ...(scope?.instanceId ? { instanceId: scope.instanceId } : {}),
@@ -346,7 +371,10 @@ export class FollowUpRunnerService {
         },
       });
 
-      const sessionPairsMap = new Map<string, { remoteJid: string; instancia: string }>();
+      const sessionPairsMap = new Map<
+        string,
+        { remoteJid: string; instancia: string }
+      >();
       for (const session of sessions) {
         for (const pair of this.buildSeguimientoPairsForSession(session)) {
           sessionPairsMap.set(`${pair.instancia}::${pair.remoteJid}`, pair);
@@ -376,7 +404,9 @@ export class FollowUpRunnerService {
       take,
     });
 
-    const due = pending.filter((seguimiento) => this.isDue(seguimiento)).slice(0, limit);
+    const due = pending
+      .filter((seguimiento) => this.isDue(seguimiento))
+      .slice(0, limit);
     const summary = {
       scanned: pending.length,
       due: due.length,
@@ -413,22 +443,40 @@ export class FollowUpRunnerService {
       const loggerCtx = `[FOLLOW_UP][id=${seguimiento.id}][instance=${seguimiento.instancia ?? '-'}][remoteJid=${seguimiento.remoteJid ?? '-'}]`;
 
       if (!session) {
-        this.logger.warn(`${loggerCtx} sesion no encontrada.`, 'FollowUpRunnerService');
-        await this.markFailure(seguimiento, null, 'Sesion no encontrada para ejecutar el follow-up.');
+        this.logger.warn(
+          `${loggerCtx} sesion no encontrada.`,
+          'FollowUpRunnerService',
+        );
+        await this.markFailure(
+          seguimiento,
+          null,
+          'Sesion no encontrada para ejecutar el follow-up.',
+        );
         summary.failed++;
         continue;
       }
 
       try {
-        const finalMessage = await this.resolveFollowUpMessage(seguimiento, session);
-        await this.sendSeguimiento(seguimiento, finalMessage, session.remoteJid);
+        const finalMessage = await this.resolveFollowUpMessage(
+          seguimiento,
+          session,
+        );
+        await this.sendSeguimiento(
+          seguimiento,
+          finalMessage,
+          session.remoteJid,
+        );
 
         if (finalMessage.trim()) {
           const sessionHistoryId = buildChatHistorySessionId(
             seguimiento.instancia ?? '',
             session.remoteJid,
           );
-          await this.chatHistoryService.saveMessage(sessionHistoryId, finalMessage, 'ia');
+          await this.chatHistoryService.saveMessage(
+            sessionHistoryId,
+            finalMessage,
+            'ia',
+          );
         }
 
         await this.markSent(
@@ -447,11 +495,15 @@ export class FollowUpRunnerService {
           error?.message || error,
           'FollowUpRunnerService',
         );
-        await this.markFailure(seguimiento, {
-          userId: session.userId,
-          remoteJid: session.remoteJid,
-          instanceId: session.instanceId,
-        }, error?.message || String(error));
+        await this.markFailure(
+          seguimiento,
+          {
+            userId: session.userId,
+            remoteJid: session.remoteJid,
+            instanceId: session.instanceId,
+          },
+          error?.message || String(error),
+        );
         summary.failed++;
       }
     }

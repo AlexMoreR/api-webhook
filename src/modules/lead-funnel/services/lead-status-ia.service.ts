@@ -62,7 +62,10 @@ export class LeadStatusIaService {
     return createHash('sha1').update(summary).digest('hex');
   }
 
-  private buildFallback(summary: string, current: LeadStatus | null): { leadStatus: LeadStatus; reason: string } {
+  private buildFallback(
+    summary: string,
+    current: LeadStatus | null,
+  ): { leadStatus: LeadStatus; reason: string } {
     const normalized = summary.toLowerCase();
 
     if (
@@ -70,13 +73,21 @@ export class LeadStatusIaService {
         normalized,
       )
     ) {
-      return { leadStatus: LeadStatus.DESCARTADO, reason: 'La sintesis muestra desinteres o rechazo claro.' };
+      return {
+        leadStatus: LeadStatus.DESCARTADO,
+        reason: 'La sintesis muestra desinteres o rechazo claro.',
+      };
     }
 
     if (
-      /(ya compre|ya pague|cerrado|cerramos|implementado|finalizado|terminado|listo|completado)/i.test(normalized)
+      /(ya compre|ya pague|cerrado|cerramos|implementado|finalizado|terminado|listo|completado)/i.test(
+        normalized,
+      )
     ) {
-      return { leadStatus: LeadStatus.FINALIZADO, reason: 'La sintesis sugiere cierre o proceso completado.' };
+      return {
+        leadStatus: LeadStatus.FINALIZADO,
+        reason: 'La sintesis sugiere cierre o proceso completado.',
+      };
     }
 
     if (
@@ -84,7 +95,10 @@ export class LeadStatusIaService {
         normalized,
       )
     ) {
-      return { leadStatus: LeadStatus.CALIENTE, reason: 'La sintesis contiene senales fuertes de cierre.' };
+      return {
+        leadStatus: LeadStatus.CALIENTE,
+        reason: 'La sintesis contiene senales fuertes de cierre.',
+      };
     }
 
     if (
@@ -92,14 +106,24 @@ export class LeadStatusIaService {
         normalized,
       )
     ) {
-      return { leadStatus: LeadStatus.TIBIO, reason: 'La sintesis muestra interes real pero aun sin cierre.' };
+      return {
+        leadStatus: LeadStatus.TIBIO,
+        reason: 'La sintesis muestra interes real pero aun sin cierre.',
+      };
     }
 
     if (current) {
-      return { leadStatus: current, reason: 'Se mantiene el estado previo por falta de nuevas senales claras.' };
+      return {
+        leadStatus: current,
+        reason:
+          'Se mantiene el estado previo por falta de nuevas senales claras.',
+      };
     }
 
-    return { leadStatus: LeadStatus.FRIO, reason: 'La sintesis es exploratoria o temprana.' };
+    return {
+      leadStatus: LeadStatus.FRIO,
+      reason: 'La sintesis es exploratoria o temprana.',
+    };
   }
 
   private async getClientForUser(userId: string): Promise<BaseChatModel> {
@@ -140,7 +164,7 @@ export class LeadStatusIaService {
       provider: provider.name as any,
       apiKey: cfg.apiKey,
       model: model.name,
-    }) as BaseChatModel;
+    });
   }
 
   async refreshFromLatestReporte(args: {
@@ -204,7 +228,17 @@ export class LeadStatusIaService {
     try {
       const llm = await this.getClientForUser(args.userId);
       const response = await llm.invoke([
-        new SystemMessage({ content: [{ type: 'text', text: await resolveLeadStatusPrompt({ prisma: this.prisma, userId: args.userId }) }] }),
+        new SystemMessage({
+          content: [
+            {
+              type: 'text',
+              text: await resolveLeadStatusPrompt({
+                prisma: this.prisma,
+                userId: args.userId,
+              }),
+            },
+          ],
+        }),
         new HumanMessage({
           content: [
             {
@@ -216,13 +250,16 @@ export class LeadStatusIaService {
       ]);
 
       const parsed = this.extractJson(response?.content?.toString?.() ?? '');
-      const candidate = String(parsed?.leadStatus ?? '').trim().toUpperCase();
+      const candidate = String(parsed?.leadStatus ?? '')
+        .trim()
+        .toUpperCase();
       const reason = String(parsed?.reason ?? '').trim();
 
       if ((LEAD_STATUS_VALUES as string[]).includes(candidate)) {
         resolved = {
           leadStatus: candidate as LeadStatus,
-          reason: reason || 'Clasificacion IA aplicada sobre la sintesis actual.',
+          reason:
+            reason || 'Clasificacion IA aplicada sobre la sintesis actual.',
         };
       }
     } catch (error: any) {
@@ -253,4 +290,3 @@ export class LeadStatusIaService {
     };
   }
 }
-

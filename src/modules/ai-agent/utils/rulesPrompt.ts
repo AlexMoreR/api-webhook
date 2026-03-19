@@ -239,16 +239,13 @@ Si no se encuentra registro para ese número (o id):
 ---
 `;
 
-
 export const ERROR_OPENAI_EMPTY_RESPONSE = `¡Ups! Algo salió mal 😅
 Parece que hubo un problema al procesar tu mensaje. ¿Podrías intentarlo de nuevo?`;
 
 export const extraRulesV2 = ``;
 
-
 //export const systemPromptWorkflow = (input, formattedList) =>''
 export const systemPromptWorkflow = (input, formattedList) => {
-
   return `
   # 🎯 Objetivo
   Detectar todos los flujos cuyo nombre comience exactamente con el valor de 'nombre_flujo' recibido como input, y retornar un objeto con:

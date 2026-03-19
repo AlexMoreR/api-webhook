@@ -5,7 +5,9 @@ import { LoggerService } from 'src/core/logger/logger.service';
 import { FollowUpRunnerService } from './follow-up-runner.service';
 
 @Injectable()
-export class FollowUpRunnerSchedulerService implements OnModuleInit, OnModuleDestroy {
+export class FollowUpRunnerSchedulerService
+  implements OnModuleInit, OnModuleDestroy
+{
   private timer: NodeJS.Timeout | null = null;
   private isRunning = false;
 
@@ -13,7 +15,7 @@ export class FollowUpRunnerSchedulerService implements OnModuleInit, OnModuleDes
     private readonly configService: ConfigService,
     private readonly logger: LoggerService,
     private readonly followUpRunnerService: FollowUpRunnerService,
-  ) { }
+  ) {}
 
   private parseBoolean(value: string | undefined, fallback = false) {
     if (!value) return fallback;
@@ -31,18 +33,18 @@ export class FollowUpRunnerSchedulerService implements OnModuleInit, OnModuleDes
 
   private getSettings() {
     const enabled = this.parseBoolean(
-      this.configService.get<string>('followUpRunner.enabled')
-        ?? this.configService.get<string>('FOLLOW_UP_RUNNER_ENABLED'),
+      this.configService.get<string>('followUpRunner.enabled') ??
+        this.configService.get<string>('FOLLOW_UP_RUNNER_ENABLED'),
       false,
     );
     const intervalMs = this.parsePositiveInt(
-      this.configService.get<string>('followUpRunner.intervalMs')
-        ?? this.configService.get<string>('FOLLOW_UP_RUNNER_INTERVAL_MS'),
+      this.configService.get<string>('followUpRunner.intervalMs') ??
+        this.configService.get<string>('FOLLOW_UP_RUNNER_INTERVAL_MS'),
       60_000,
     );
     const limit = this.parsePositiveInt(
-      this.configService.get<string>('followUpRunner.limit')
-        ?? this.configService.get<string>('FOLLOW_UP_RUNNER_LIMIT'),
+      this.configService.get<string>('followUpRunner.limit') ??
+        this.configService.get<string>('FOLLOW_UP_RUNNER_LIMIT'),
       25,
     );
 
@@ -94,7 +96,8 @@ export class FollowUpRunnerSchedulerService implements OnModuleInit, OnModuleDes
 
     try {
       const { limit } = this.getSettings();
-      const summary = await this.followUpRunnerService.processDueFollowUps(limit);
+      const summary =
+        await this.followUpRunnerService.processDueFollowUps(limit);
 
       if (summary.due > 0 || summary.failed > 0 || summary.sent > 0) {
         this.logger.log(

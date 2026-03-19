@@ -6,19 +6,19 @@ import { TipoRegistro } from '@prisma/client';
  * - kind=REGISTRO => crea Registro con tipo/estado/resumen/detalles/meta.
  */
 export class ClassificationResultDto {
-    kind!: 'REPORTE' | 'REGISTRO';
+  kind!: 'REPORTE' | 'REGISTRO';
 
-    // Solo cuando kind=REGISTRO
-    tipo?: TipoRegistro;
-    estado?: string;
+  // Solo cuando kind=REGISTRO
+  tipo?: TipoRegistro;
+  estado?: string;
 
-    // Campos de Registro (cuando aplique)
-    resumen?: string;
-    detalles?: string;
-    lead?: boolean;
-    nombre?: string;
-    meta?: Record<string, any>;
+  // Campos de Registro (cuando aplique)
+  resumen?: string;
+  detalles?: string;
+  lead?: boolean;
+  nombre?: string;
+  meta?: Record<string, any>;
 
-    // Cuando kind=REPORTE
-    sintesis?: string;
+  // Cuando kind=REPORTE
+  sintesis?: string;
 }

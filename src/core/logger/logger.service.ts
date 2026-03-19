@@ -42,7 +42,11 @@ export class LoggerService extends Logger {
    * @param {string} message - Contenido del log.
    * @param {string} [context] - Contexto o servicio donde ocurrió.
    */
-  private async saveLog(level: string, message: string, context?: string): Promise<void> {
+  private async saveLog(
+    level: string,
+    message: string,
+    context?: string,
+  ): Promise<void> {
     try {
       await this.prisma.log.create({
         data: {
@@ -54,7 +58,11 @@ export class LoggerService extends Logger {
       });
     } catch (error) {
       // Evitar que un fallo en guardar el log crashee toda la app
-      super.error('Failed to save log to database', error.stack, 'LoggerService');
+      super.error(
+        'Failed to save log to database',
+        error.stack,
+        'LoggerService',
+      );
     }
   }
 }

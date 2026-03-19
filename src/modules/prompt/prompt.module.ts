@@ -6,8 +6,8 @@ import { HttpModule } from '@nestjs/axios';
 
 @Module({
   imports: [
-      HttpModule, 
-      ConfigModule, // necesario porque usas ConfigService
+    HttpModule,
+    ConfigModule, // necesario porque usas ConfigService
   ],
   providers: [PromptService, PrismaService],
   exports: [PromptService],

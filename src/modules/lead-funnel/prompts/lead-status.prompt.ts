@@ -1,6 +1,7 @@
 import { LEAD_STATUS_VALUES } from '../constants/lead-status.constants';
 
-export const buildLeadStatusPrompt = () => `Eres un clasificador de estado comercial del lead.
+export const buildLeadStatusPrompt =
+  () => `Eres un clasificador de estado comercial del lead.
 
 Debes responder SOLO con JSON valido, sin markdown, sin texto adicional.
 

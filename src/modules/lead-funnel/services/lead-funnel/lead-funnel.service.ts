@@ -50,7 +50,9 @@ export class LeadFunnelService {
     private readonly crmFollowUpRunnerService: CrmFollowUpRunnerService,
   ) {}
 
-  async processIncomingText(input: ClassifyMessageDto): Promise<LeadFunnelResult> {
+  async processIncomingText(
+    input: ClassifyMessageDto,
+  ): Promise<LeadFunnelResult> {
     const sessionDbId = input.sessionDbId;
     const shouldClassifyLeadStatus = !!input.enabledLeadStatusClassifier;
     const shouldPlanCrmFollowUps = !!input.enabledCrmFollowUps;
@@ -58,7 +60,9 @@ export class LeadFunnelService {
     this.logger.debug(
       `[processIncomingText] start sessionDbId=${sessionDbId} userId=${input.userId} instanceId=${input.instanceId} remoteJid=${input.remoteJid}`,
     );
-    this.logger.debug(`[processIncomingText] text="${(input.text ?? '').toString().slice(0, 180)}"`);
+    this.logger.debug(
+      `[processIncomingText] text="${(input.text ?? '').toString().slice(0, 180)}"`,
+    );
 
     try {
       await this.crmFollowUpRunnerService.cancelPendingOnReply({
@@ -73,12 +77,17 @@ export class LeadFunnelService {
 
     let result: any;
     try {
-      this.logger.debug(`[CLASSIFY] calling classifier.classify() sessionDbId=${sessionDbId}`);
+      this.logger.debug(
+        `[CLASSIFY] calling classifier.classify() sessionDbId=${sessionDbId}`,
+      );
       result = await this.classifier.classify(input);
       this.logger.debug(`[CLASSIFY] result=${JSON.stringify(result)}`);
     } catch (err: any) {
       const msg = err?.message || String(err);
-      this.logger.error(`[CLASSIFY] error sessionDbId=${sessionDbId}: ${msg}`, err?.stack || err);
+      this.logger.error(
+        `[CLASSIFY] error sessionDbId=${sessionDbId}: ${msg}`,
+        err?.stack || err,
+      );
       return {
         ok: false,
         action: 'ERROR',
@@ -89,7 +98,9 @@ export class LeadFunnelService {
     }
 
     if (result.kind === 'REGISTRO' && result.tipo === 'REPORTE') {
-      this.logger.debug(`[FIX] kind=REGISTRO tipo=REPORTE => treating as REPORTE sessionDbId=${sessionDbId}`);
+      this.logger.debug(
+        `[FIX] kind=REGISTRO tipo=REPORTE => treating as REPORTE sessionDbId=${sessionDbId}`,
+      );
       result = {
         kind: 'REPORTE',
         sintesis: result.sintesis ?? result.resumen ?? '',
@@ -97,7 +108,9 @@ export class LeadFunnelService {
     }
 
     if (!result || !result.kind) {
-      this.logger.debug(`[SKIP] classifier returned empty/invalid result sessionDbId=${sessionDbId}`);
+      this.logger.debug(
+        `[SKIP] classifier returned empty/invalid result sessionDbId=${sessionDbId}`,
+      );
       return {
         ok: true,
         action: 'SKIPPED',
@@ -108,7 +121,9 @@ export class LeadFunnelService {
 
     if (result.kind === 'REGISTRO') {
       if (!result.tipo) {
-        this.logger.debug(`[SKIP] kind=REGISTRO but tipo missing sessionDbId=${sessionDbId}`);
+        this.logger.debug(
+          `[SKIP] kind=REGISTRO but tipo missing sessionDbId=${sessionDbId}`,
+        );
         return {
           ok: true,
           action: 'SKIPPED',
@@ -132,10 +147,14 @@ export class LeadFunnelService {
       this.logger.debug(`[CREATE_REGISTRO] payload=${JSON.stringify(payload)}`);
 
       try {
-        const created = await this.registroService.createRegistro(payload as any);
+        const created = await this.registroService.createRegistro(
+          payload as any,
+        );
 
         if (!created.ok) {
-          this.logger.error(`[CREATE_REGISTRO] failed sessionDbId=${sessionDbId} error=${created.error}`);
+          this.logger.error(
+            `[CREATE_REGISTRO] failed sessionDbId=${sessionDbId} error=${created.error}`,
+          );
           return {
             ok: false,
             action: 'ERROR',
@@ -148,7 +167,9 @@ export class LeadFunnelService {
         this.logger.debug(
           `[CREATE_REGISTRO] success sessionDbId=${sessionDbId} registroId=${created.registroId}`,
         );
-        this.logger.log(`Registro creado: tipo=${payload.tipo} estado=${payload.estado ?? '-'} sessionId=${sessionDbId}`);
+        this.logger.log(
+          `Registro creado: tipo=${payload.tipo} estado=${payload.estado ?? '-'} sessionId=${sessionDbId}`,
+        );
 
         return {
           ok: true,
@@ -161,7 +182,10 @@ export class LeadFunnelService {
         };
       } catch (err: any) {
         const msg = err?.message || String(err);
-        this.logger.error(`[CREATE_REGISTRO] exception sessionDbId=${sessionDbId}: ${msg}`, err?.stack || err);
+        this.logger.error(
+          `[CREATE_REGISTRO] exception sessionDbId=${sessionDbId}: ${msg}`,
+          err?.stack || err,
+        );
         return {
           ok: false,
           action: 'ERROR',
@@ -174,7 +198,9 @@ export class LeadFunnelService {
 
     const sintesis = result.sintesis ?? result.resumen ?? '';
     if (!sintesis || !sintesis.trim()) {
-      this.logger.debug(`[SKIP] kind=REPORTE but sintesis empty sessionDbId=${sessionDbId}`);
+      this.logger.debug(
+        `[SKIP] kind=REPORTE but sintesis empty sessionDbId=${sessionDbId}`,
+      );
       return {
         ok: true,
         action: 'SKIPPED',
@@ -183,7 +209,9 @@ export class LeadFunnelService {
       };
     }
 
-    this.logger.debug(`[UPDATE_SINTESIS] sessionDbId=${sessionDbId} sintesisLength=${sintesis.length}`);
+    this.logger.debug(
+      `[UPDATE_SINTESIS] sessionDbId=${sessionDbId} sintesisLength=${sintesis.length}`,
+    );
 
     try {
       await this.registroService.upsertReporte(sessionDbId, sintesis);
@@ -204,10 +232,11 @@ export class LeadFunnelService {
       }
 
       try {
-        const leadStatusResult = await this.leadStatusIaService.refreshFromLatestReporte({
-          sessionId: sessionDbId,
-          userId: input.userId,
-        });
+        const leadStatusResult =
+          await this.leadStatusIaService.refreshFromLatestReporte({
+            sessionId: sessionDbId,
+            userId: input.userId,
+          });
 
         if (leadStatusResult.applied && shouldPlanCrmFollowUps) {
           await this.crmFollowUpPlannerService.syncFromLeadStatus({
@@ -239,7 +268,10 @@ export class LeadFunnelService {
       };
     } catch (err: any) {
       const msg = err?.message || String(err);
-      this.logger.error(`[UPDATE_SINTESIS] error sessionDbId=${sessionDbId}: ${msg}`, err?.stack || err);
+      this.logger.error(
+        `[UPDATE_SINTESIS] error sessionDbId=${sessionDbId}: ${msg}`,
+        err?.stack || err,
+      );
       return {
         ok: false,
         action: 'ERROR',

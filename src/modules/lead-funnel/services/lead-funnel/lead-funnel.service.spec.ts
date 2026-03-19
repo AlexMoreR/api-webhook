@@ -37,7 +37,9 @@ describe('LeadFunnelService', () => {
       crmFollowUpRunnerService as any,
     );
 
-    crmFollowUpRunnerService.cancelPendingOnReply.mockResolvedValue({ count: 0 });
+    crmFollowUpRunnerService.cancelPendingOnReply.mockResolvedValue({
+      count: 0,
+    });
     registroService.upsertReporte.mockResolvedValue(undefined);
     classifier.classify.mockResolvedValue({
       kind: 'REPORTE',

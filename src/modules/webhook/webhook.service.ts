@@ -64,7 +64,7 @@ export class WebhookService implements OnModuleInit {
     private readonly antifloodService: AntifloodService,
     private readonly leadFunnelService: LeadFunnelService,
     private readonly followUpRunnerService: FollowUpRunnerService,
-  ) { }
+  ) {}
 
   onModuleInit(): void {
     const { AiAgentService } = require('../ai-agent/ai-agent.service');
@@ -99,13 +99,20 @@ export class WebhookService implements OnModuleInit {
   /**
    * Crea un logger con contexto fijo para prefijar todos los mensajes.
    */
-  private scopedLogger(ctx: { userId?: string; instanceName?: string; remoteJid?: string }) {
+  private scopedLogger(ctx: {
+    userId?: string;
+    instanceName?: string;
+    remoteJid?: string;
+  }) {
     // const tag = `[UID=${ctx.userId ?? '-'}][I=${ctx.instanceName ?? '-'}][R=${ctx.remoteJid ?? '-'}]`;
     const tag = ``;
     return {
-      log: (msg: string, context = 'WebhookService') => this.logger.log(`${tag} ${msg}`, context),
-      debug: (msg: string) => this.logger.debug(`${tag} ${msg}`, 'WebhookService'),
-      warn: (msg: string, context = 'WebhookService') => this.logger.warn(`${tag} ${msg}`, context),
+      log: (msg: string, context = 'WebhookService') =>
+        this.logger.log(`${tag} ${msg}`, context),
+      debug: (msg: string) =>
+        this.logger.debug(`${tag} ${msg}`, 'WebhookService'),
+      warn: (msg: string, context = 'WebhookService') =>
+        this.logger.warn(`${tag} ${msg}`, context),
       error: (msg: string, err?: any, context = 'WebhookService') =>
         this.logger.error(`${tag} ${msg}`, err, context),
     };
@@ -121,7 +128,9 @@ export class WebhookService implements OnModuleInit {
     if (msgId) {
       const dedupeKey = `${instanceName}:${msgId}`;
       if (this.isDuplicateMessage(dedupeKey)) {
-        this.logger.warn(`[WEBHOOK] DEDUPE: mensaje duplicado ignorado. key=${dedupeKey}`);
+        this.logger.warn(
+          `[WEBHOOK] DEDUPE: mensaje duplicado ignorado. key=${dedupeKey}`,
+        );
         return;
       }
     }
@@ -136,7 +145,12 @@ export class WebhookService implements OnModuleInit {
     const rawRemoteJidAlt = data?.key?.remoteJidAlt ?? '';
     const rawSenderLid = data?.key?.senderLid ?? '';
     const rawSenderPn = data?.key?.senderPn ?? data?.senderPn ?? '';
-    const observedJids = [rawRemoteJid, rawRemoteJidAlt, rawSenderPn, rawSenderLid];
+    const observedJids = [
+      rawRemoteJid,
+      rawRemoteJidAlt,
+      rawSenderPn,
+      rawSenderLid,
+    ];
     const remoteJid =
       pickExplicitWhatsAppPhoneJid(observedJids) ||
       pickPreferredWhatsAppRemoteJid(observedJids) ||
@@ -144,7 +158,8 @@ export class WebhookService implements OnModuleInit {
       rawRemoteJidAlt ||
       rawSenderLid ||
       '';
-    const remoteJidAlt = pickObservedAlternateRemoteJid(remoteJid, observedJids) || '';
+    const remoteJidAlt =
+      pickObservedAlternateRemoteJid(remoteJid, observedJids) || '';
 
     const pushName = data?.pushName || 'Desconocido';
 
@@ -154,13 +169,19 @@ export class WebhookService implements OnModuleInit {
     const instanceId = prismaInstancia?.instanceId ?? '';
 
     // Logger con contexto ya incluye userId/inst/jid
-    const userWithRelations = await this.userService.getUserWithPausar(userId) as UserWithPausar;
+    const userWithRelations = (await this.userService.getUserWithPausar(
+      userId,
+    )) as UserWithPausar;
 
     const aiConfig = await this.userService.getUserDefaultAiConfig(userId);
 
     const { defaultModel, defaultProvider, defaultApiKey } = aiConfig || {};
-    const mask = (k?: string | null) => (k ? `${k.slice(0, 4)}…${k.slice(-4)}` : null);
-    this.logger.log(`AI config recibida → provider=${defaultProvider?.name ?? '-'} model=${defaultModel?.name ?? '-'} apiKey=${mask(defaultApiKey)}`, 'WebhookService');
+    const mask = (k?: string | null) =>
+      k ? `${k.slice(0, 4)}…${k.slice(-4)}` : null;
+    this.logger.log(
+      `AI config recibida → provider=${defaultProvider?.name ?? '-'} model=${defaultModel?.name ?? '-'} apiKey=${mask(defaultApiKey)}`,
+      'WebhookService',
+    );
 
     // 🔹 Delay dinámico por usuario (delayTimeGPT en SEGUNDOS → convertir a ms)
     const defaultDelay = WebhookService.DELAYCONVERSATION; // 10000 ms por defecto (10s)
@@ -171,15 +192,20 @@ export class WebhookService implements OnModuleInit {
 
       if (!isNaN(seconds) && seconds > 0) {
         delayConversation = seconds * 1000; // convertir segundos → milisegundos
-        this.logger.log(`delayTimeGPT personalizado: ${seconds}s → ${delayConversation}ms`, 'WebhookService');
+        this.logger.log(
+          `delayTimeGPT personalizado: ${seconds}s → ${delayConversation}ms`,
+          'WebhookService',
+        );
       } else {
-        this.logger.warn(`delayTimeGPT inválido ("${userWithRelations.delayTimeGpt}"), usando default ${defaultDelay}ms`, 'WebhookService');
+        this.logger.warn(
+          `delayTimeGPT inválido ("${userWithRelations.delayTimeGpt}"), usando default ${defaultDelay}ms`,
+          'WebhookService',
+        );
       }
     }
 
     const fromMe = data?.key?.fromMe ?? false;
     const messageType = data?.messageType ?? '';
-
 
     //Check de sesión + normalización entre @lid y @s.whatsapp.net
     const sessionRes = await this.checkOrRegisterSession(
@@ -192,7 +218,11 @@ export class WebhookService implements OnModuleInit {
       rawSenderPn,
     );
     const canonicalRemoteJid = sessionRes.canonicalRemoteJid;
-    const logger = this.scopedLogger({ userId, instanceName, remoteJid: canonicalRemoteJid });
+    const logger = this.scopedLogger({
+      userId,
+      instanceName,
+      remoteJid: canonicalRemoteJid,
+    });
     const canonicalSession = await this.sessionService.getSession(
       canonicalRemoteJid,
       instanceName,
@@ -209,7 +239,9 @@ export class WebhookService implements OnModuleInit {
         remoteJid: canonicalRemoteJid,
         remoteJidAlt: canonicalAlt,
         instanceId,
-        sessionStatus: canonicalSession ? !!canonicalSession.status : !!sessionRes.status,
+        sessionStatus: canonicalSession
+          ? !!canonicalSession.status
+          : !!sessionRes.status,
         userWithRelations,
         instanceName,
         apikey,
@@ -220,7 +252,10 @@ export class WebhookService implements OnModuleInit {
 
     if (!sessionRes.status) return;
 
-    const sessionHistoryId = buildChatHistorySessionId(instanceName, canonicalRemoteJid);
+    const sessionHistoryId = buildChatHistorySessionId(
+      instanceName,
+      canonicalRemoteJid,
+    );
     const apiMsgUrl = `${server_url}/message/sendText/${instanceName}`;
 
     // this.logger.debug(`[PAUSA] fromMe=${fromMe} | msg="${conversationMsg}"`);
@@ -279,7 +314,12 @@ export class WebhookService implements OnModuleInit {
     /* Anti-flood */
     this.antifloodService.registerMessageTimestamp(canonicalRemoteJid);
     if (this.antifloodService.isSynchronizedPattern(canonicalRemoteJid)) {
-      await this.sessionService.updateSessionStatus(canonicalRemoteJid, instanceName, false, userWithRelations.id);
+      await this.sessionService.updateSessionStatus(
+        canonicalRemoteJid,
+        instanceName,
+        false,
+        userWithRelations.id,
+      );
       logger.warn('Patrón sincronizado detectado → sesión desactivada.');
       return;
     }
@@ -294,7 +334,11 @@ export class WebhookService implements OnModuleInit {
           const mergedTextStr = mergedText.toString();
 
           // Limpiar inactividad porque el agente ya respondió con un flujo
-          await this.sessionService.clearInactividadAfterAgentReply(userId, canonicalRemoteJid, instanceName);
+          await this.sessionService.clearInactividadAfterAgentReply(
+            userId,
+            canonicalRemoteJid,
+            instanceName,
+          );
 
           // Guardamos el mensaje completo que se acumuló en el buffer
           await this.chatHistoryService.saveMessage(
@@ -303,11 +347,12 @@ export class WebhookService implements OnModuleInit {
             'human',
           );
 
-          const cancelledFollowUps = await this.followUpRunnerService.cancelPendingFollowUpsOnReply({
-            userId,
-            remoteJid: canonicalRemoteJid,
-            instanceName,
-          });
+          const cancelledFollowUps =
+            await this.followUpRunnerService.cancelPendingFollowUpsOnReply({
+              userId,
+              remoteJid: canonicalRemoteJid,
+              instanceName,
+            });
           if (cancelledFollowUps.count > 0) {
             logger.log(
               `Follow-ups cancelados por respuesta del lead: ${cancelledFollowUps.count}`,
@@ -327,12 +372,15 @@ export class WebhookService implements OnModuleInit {
               `[WEBHOOK] agentDisabled=true → flujo detenido. userId=${userId} instance=${instanceName} remoteJid=${canonicalRemoteJid}`,
             );
             return;
-          };
+          }
 
           //TODO: Lead Funnel (bucket/sintetizador)
           if (canonicalSession?.id && userWithRelations.enabledSynthesizer) {
-            this.logger.debug(`Entrando a sintetizador... instanceID=${instanceId} userId=${userId} remoteJid=${canonicalRemoteJid}`);
-            const history = await this.chatHistoryService.getChatHistory(sessionHistoryId);
+            this.logger.debug(
+              `Entrando a sintetizador... instanceID=${instanceId} userId=${userId} remoteJid=${canonicalRemoteJid}`,
+            );
+            const history =
+              await this.chatHistoryService.getChatHistory(sessionHistoryId);
 
             const funnelRes = await this.leadFunnelService.processIncomingText({
               userId,
@@ -347,15 +395,25 @@ export class WebhookService implements OnModuleInit {
               history,
             });
 
-            this.logger.debug(`[LEAD_FUNNEL] result=${JSON.stringify(funnelRes)}`);
+            this.logger.debug(
+              `[LEAD_FUNNEL] result=${JSON.stringify(funnelRes)}`,
+            );
           }
 
           const resumed = await this.workflowService.continuePausedWorkflow(
-            server_url, apikey, instanceName, canonicalRemoteJid, userId, mergedTextStr
+            server_url,
+            apikey,
+            instanceName,
+            canonicalRemoteJid,
+            userId,
+            mergedTextStr,
           );
 
           if (resumed) {
-            logger.log('Continuación de workflow pausado (intention) ejecutada. No se usa IA.', 'WebhookService');
+            logger.log(
+              'Continuación de workflow pausado (intention) ejecutada. No se usa IA.',
+              'WebhookService',
+            );
             return;
           }
 
@@ -437,9 +495,8 @@ export class WebhookService implements OnModuleInit {
             remoteJid: canonicalRemoteJid,
           };
 
-          const aiResponse = await this.aiAgentService.processInput(
-            dataProccessInput,
-          );
+          const aiResponse =
+            await this.aiAgentService.processInput(dataProccessInput);
           if (!aiResponse || aiResponse === '') return;
 
           await this.chatHistoryService.saveMessage(
@@ -466,10 +523,14 @@ export class WebhookService implements OnModuleInit {
               `📤 Enviando bloque ${index + 1}/${msgBlocks.length}`,
               'NodeSenderService',
             );
-            await this.nodeSenderService.sendTextNode(apiMsgUrl, apikey, canonicalRemoteJid, msgBlock);
+            await this.nodeSenderService.sendTextNode(
+              apiMsgUrl,
+              apikey,
+              canonicalRemoteJid,
+              msgBlock,
+            );
             await new Promise((res) => setTimeout(res, 300));
           }
-
         } catch (err: any) {
           logger.error(
             'Error en callback de messageBufferService.handleIncomingMessage (se evita crash global).',
@@ -478,8 +539,6 @@ export class WebhookService implements OnModuleInit {
         }
       },
     );
-
-
   }
 
   private async creditValidation({
@@ -501,9 +560,17 @@ export class WebhookService implements OnModuleInit {
 
       if (!credits.success) {
         try {
-          await this.nodeSenderService.sendTextNode(apiUrl, apikey, userPhone, flags[0].message);
+          await this.nodeSenderService.sendTextNode(
+            apiUrl,
+            apikey,
+            userPhone,
+            flags[0].message,
+          );
         } catch (error) {
-          logger.error(`Error enviando notificación por flag ${credits.msg}`, error);
+          logger.error(
+            `Error enviando notificación por flag ${credits.msg}`,
+            error,
+          );
         }
         return false;
       }
@@ -520,9 +587,17 @@ export class WebhookService implements OnModuleInit {
             `⚠️ alcanzó rango de créditos ${flag.value} (dentro de ${min}-${max}). Enviando mensaje... "${flag.message}"`,
           );
           try {
-            await this.nodeSenderService.sendTextNode(apiUrl, apikey, userPhone, flag.message);
+            await this.nodeSenderService.sendTextNode(
+              apiUrl,
+              apikey,
+              userPhone,
+              flag.message,
+            );
           } catch (error) {
-            logger.error(`Error enviando notificación por flag ${flag.value}`, error);
+            logger.error(
+              `Error enviando notificación por flag ${flag.value}`,
+              error,
+            );
           }
         }
       }
@@ -554,20 +629,35 @@ export class WebhookService implements OnModuleInit {
     const logger = this.scopedLogger({ userId, instanceName, remoteJid });
 
     // 1) Intentar con el JID principal (prioriza @s.whatsapp.net)
-    let session = await this.sessionService.getSession(remoteJid, instanceName, userId);
+    let session = await this.sessionService.getSession(
+      remoteJid,
+      instanceName,
+      userId,
+    );
 
     // 2) Si no existe y hay alternativo (ej: @lid), intentar con él
     if (!session && remoteJidAlt && remoteJidAlt !== remoteJid) {
-      const sessionAlt = await this.sessionService.getSession(remoteJidAlt, instanceName, userId);
+      const sessionAlt = await this.sessionService.getSession(
+        remoteJidAlt,
+        instanceName,
+        userId,
+      );
 
       if (sessionAlt) {
-        logger.log(`[SESSION] Usuario ya registrado con JID alternativo: ${remoteJidAlt}`);
+        logger.log(
+          `[SESSION] Usuario ya registrado con JID alternativo: ${remoteJidAlt}`,
+        );
 
         // Normalizar: actualizamos remoteJid en BD al canon
         if (sessionAlt.remoteJid !== remoteJid) {
           try {
-            await this.sessionService.updateSessionRemoteJid(sessionAlt.id, remoteJid);
-            logger.log(`[SESSION] remoteJid actualizado de ${sessionAlt.remoteJid} → ${remoteJid}`);
+            await this.sessionService.updateSessionRemoteJid(
+              sessionAlt.id,
+              remoteJid,
+            );
+            logger.log(
+              `[SESSION] remoteJid actualizado de ${sessionAlt.remoteJid} → ${remoteJid}`,
+            );
             sessionAlt.remoteJid = remoteJid;
           } catch (error) {
             logger.error('Error actualizando remoteJid de la sesión', error);
@@ -581,7 +671,8 @@ export class WebhookService implements OnModuleInit {
     if (session) {
       if (
         session.remoteJid !== remoteJid ||
-        ((session.remoteJidAlt ?? '') !== (remoteJidAlt ?? '') && Boolean(remoteJidAlt))
+        ((session.remoteJidAlt ?? '') !== (remoteJidAlt ?? '') &&
+          Boolean(remoteJidAlt))
       ) {
         try {
           session = await this.sessionService.registerSession(
@@ -599,17 +690,29 @@ export class WebhookService implements OnModuleInit {
 
       logger.log(`[SESSION] Usuario ya registrado: ${session.remoteJid}`);
 
-      const hasTrigger = await this.sessionTriggerService.findBySessionId(session.id.toString());
-      const dateReactivate = await this.getReactivateDate({ userWithRelations });
+      const hasTrigger = await this.sessionTriggerService.findBySessionId(
+        session.id.toString(),
+      );
+      const dateReactivate = await this.getReactivateDate({
+        userWithRelations,
+      });
 
       if (!hasTrigger) {
         if (dateReactivate) {
-          await this.sessionTriggerService.create(session.id.toString(), dateReactivate);
-          logger.log(`[TRIGGER] Reactivación programada para: ${dateReactivate}`);
+          await this.sessionTriggerService.create(
+            session.id.toString(),
+            dateReactivate,
+          );
+          logger.log(
+            `[TRIGGER] Reactivación programada para: ${dateReactivate}`,
+          );
         }
       } else {
         if (dateReactivate) {
-          await this.sessionTriggerService.updateTimeBySessionId(session.id.toString(), dateReactivate);
+          await this.sessionTriggerService.updateTimeBySessionId(
+            session.id.toString(),
+            dateReactivate,
+          );
           logger.log(`[TRIGGER] Fecha actualizada a: ${dateReactivate}`);
         }
       }
@@ -639,9 +742,13 @@ export class WebhookService implements OnModuleInit {
       return null;
     }
 
-    const minutesToReactivate = parseInt(userWithRelations.autoReactivate ?? '');
+    const minutesToReactivate = parseInt(
+      userWithRelations.autoReactivate ?? '',
+    );
     if (isNaN(minutesToReactivate)) {
-      logger.error(`Valor inválido para autoReactivate: "${userWithRelations.autoReactivate}"`);
+      logger.error(
+        `Valor inválido para autoReactivate: "${userWithRelations.autoReactivate}"`,
+      );
       return null;
     }
 
@@ -673,7 +780,11 @@ export class WebhookService implements OnModuleInit {
     apikey,
     server_url,
   }: stopOrResumeConversation) {
-    const logger = this.scopedLogger({ userId: userWithRelations?.id, instanceName, remoteJid });
+    const logger = this.scopedLogger({
+      userId: userWithRelations?.id,
+      instanceName,
+      remoteJid,
+    });
 
     const msg = (conversationMsg ?? '').trim().toLowerCase();
 
@@ -685,7 +796,12 @@ export class WebhookService implements OnModuleInit {
 
     if (sessionStatus) {
       // logger.debug(`➡️ Llamando updateSessionStatus(false) para sesión principal...`);
-      await this.sessionService.updateSessionStatus(remoteJid, instanceName, false, userWithRelations.id);
+      await this.sessionService.updateSessionStatus(
+        remoteJid,
+        instanceName,
+        false,
+        userWithRelations.id,
+      );
       // logger.debug(`✅ updateSessionStatus(false) sesión principal OK`);
       logger.log(`Chat pausado para ${remoteJid}.`);
     } else {
@@ -697,16 +813,29 @@ export class WebhookService implements OnModuleInit {
 
     if (remoteJidAlt && remoteJidAlt !== remoteJid) {
       // logger.debug(`➡️ Consultando getSession() para alternativo: ${remoteJidAlt}...`);
-      const altSession = await this.sessionService.getSession(remoteJidAlt, instanceName, userWithRelations.id);
+      const altSession = await this.sessionService.getSession(
+        remoteJidAlt,
+        instanceName,
+        userWithRelations.id,
+      );
       // logger.debug(`✅ getSession() alternativo respondió: ${altSession ? 'HAY sesión' : 'NO hay sesión'}`);
 
       if (altSession) {
         // logger.debug(`➡️ Llamando updateSessionStatus(false) para alternativo...`);
-        await this.sessionService.updateSessionStatus(remoteJidAlt, instanceName, false, userWithRelations.id);
+        await this.sessionService.updateSessionStatus(
+          remoteJidAlt,
+          instanceName,
+          false,
+          userWithRelations.id,
+        );
         // logger.debug(`✅ updateSessionStatus(false) alternativo OK`);
-        logger.log(`Chat pausado también para JID alternativo: ${remoteJidAlt}.`);
+        logger.log(
+          `Chat pausado también para JID alternativo: ${remoteJidAlt}.`,
+        );
       } else {
-        logger.log(`JID alternativo no tiene sesión; se omite pausa: ${remoteJidAlt}.`);
+        logger.log(
+          `JID alternativo no tiene sesión; se omite pausa: ${remoteJidAlt}.`,
+        );
       }
     }
 
@@ -714,7 +843,9 @@ export class WebhookService implements OnModuleInit {
     // logger.debug(`3) Reactivación: validando usuario y frase...`);
 
     if (!userWithRelations) {
-      logger.warn('❌ No se encontró el usuario para obtener la frase de reactivación.');
+      logger.warn(
+        '❌ No se encontró el usuario para obtener la frase de reactivación.',
+      );
       // logger.debug(`🟥 FIN (return: no userWithRelations)`);
       return;
     }
@@ -730,7 +861,9 @@ export class WebhookService implements OnModuleInit {
       return;
     }
 
-    const phraseToReactivateChat = (pausarItem.mensaje ?? '').trim().toLowerCase();
+    const phraseToReactivateChat = (pausarItem.mensaje ?? '')
+      .trim()
+      .toLowerCase();
     logger.log(`Frase de reactivación del usuario: "${pausarItem.mensaje}"`);
     // logger.debug(`Comparación reactivación: msg="${msg}" vs frase="${phraseToReactivateChat}" => ${msg === phraseToReactivateChat ? 'COINCIDE' : 'NO coincide'}`);
 
@@ -742,7 +875,12 @@ export class WebhookService implements OnModuleInit {
         logger.log('Frase correcta detectada. Reactivando chat...');
 
         // logger.debug(`➡️ Llamando updateSessionStatus(true) para sesión principal...`);
-        await this.sessionService.updateSessionStatus(remoteJid, instanceName, true, userWithRelations.id);
+        await this.sessionService.updateSessionStatus(
+          remoteJid,
+          instanceName,
+          true,
+          userWithRelations.id,
+        );
         // logger.debug(`✅ updateSessionStatus(true) sesión principal OK`);
 
         // Reactivar alternativo SOLO si existe sesión
@@ -750,20 +888,35 @@ export class WebhookService implements OnModuleInit {
 
         if (remoteJidAlt && remoteJidAlt !== remoteJid) {
           // logger.debug(`➡️ Consultando getSession() para alternativo antes de reactivar...`);
-          const altSession = await this.sessionService.getSession(remoteJidAlt, instanceName, userWithRelations.id);
+          const altSession = await this.sessionService.getSession(
+            remoteJidAlt,
+            instanceName,
+            userWithRelations.id,
+          );
           // logger.debug(`✅ getSession() alternativo respondió: ${altSession ? 'HAY sesión' : 'NO hay sesión'}`);
 
           if (altSession) {
             // logger.debug(`➡️ Llamando updateSessionStatus(true) para alternativo...`);
-            await this.sessionService.updateSessionStatus(remoteJidAlt, instanceName, true, userWithRelations.id);
+            await this.sessionService.updateSessionStatus(
+              remoteJidAlt,
+              instanceName,
+              true,
+              userWithRelations.id,
+            );
             // logger.debug(`✅ updateSessionStatus(true) alternativo OK`);
-            logger.log(`Chat reactivado también para JID alternativo: ${remoteJidAlt}.`);
+            logger.log(
+              `Chat reactivado también para JID alternativo: ${remoteJidAlt}.`,
+            );
           } else {
-            logger.log(`JID alternativo no tiene sesión; se omite reactivación: ${remoteJidAlt}.`);
+            logger.log(
+              `JID alternativo no tiene sesión; se omite reactivación: ${remoteJidAlt}.`,
+            );
           }
         }
       } else {
-        logger.log('Frase de reactivación recibida, pero el chat ya estaba activo.');
+        logger.log(
+          'Frase de reactivación recibida, pero el chat ya estaba activo.',
+        );
       }
 
       // logger.debug(`🟥 FIN (return: rama reactivación)`);
@@ -771,14 +924,20 @@ export class WebhookService implements OnModuleInit {
     }
 
     // 4) Eliminar seguimiento
-    const pharaseToDelSeguimiento = (userWithRelations.delSeguimiento ?? '').trim().toLowerCase();
+    const pharaseToDelSeguimiento = (userWithRelations.delSeguimiento ?? '')
+      .trim()
+      .toLowerCase();
     // logger.debug(`4) Eliminar seguimiento: msg="${msg}" vs del="${pharaseToDelSeguimiento}" => ${msg === pharaseToDelSeguimiento ? 'COINCIDE' : 'NO coincide'}`);
 
     if (msg === pharaseToDelSeguimiento) {
       logger.log('Frase correcta detectada. Eliminando seguimiento...');
       try {
         // logger.debug(`➡️ Llamando deleteSeguimientosByRemoteJid(${remoteJid})...`);
-        const { count } = await this.seguimientosService.deleteSeguimientosByRemoteJid(remoteJid, instanceName);
+        const { count } =
+          await this.seguimientosService.deleteSeguimientosByRemoteJid(
+            remoteJid,
+            instanceName,
+          );
         // logger.debug(`✅ deleteSeguimientosByRemoteJid respondió count=${count ?? 0}`);
 
         if (count && count > 0) {
@@ -812,7 +971,6 @@ export class WebhookService implements OnModuleInit {
     // logger.debug(`🟩 FIN stopOrResumeConversation`);
   }
 
-
   private async onAutoReplies({
     userId,
     conversationMsg,
@@ -823,7 +981,9 @@ export class WebhookService implements OnModuleInit {
   }: onAutoRepliesInterface): Promise<void> {
     const logger = this.scopedLogger({ userId, instanceName, remoteJid });
 
-    const userWithRelations = (await this.userService.getUserWithPausar(userId)) as UserWithPausar;
+    const userWithRelations = (await this.userService.getUserWithPausar(
+      userId,
+    )) as UserWithPausar;
 
     const aiConfig = await this.userService.getUserDefaultAiConfig(userId);
     const { defaultModel, defaultProvider, defaultApiKey } = aiConfig || {};
@@ -832,7 +992,8 @@ export class WebhookService implements OnModuleInit {
     const provider = defaultProvider?.name || 'openai';
 
     try {
-      const autoReplies = await this.autoRepliesService.getAutoRepliesByUserId(userId);
+      const autoReplies =
+        await this.autoRepliesService.getAutoRepliesByUserId(userId);
       if (!autoReplies || autoReplies.length === 0) return;
 
       const matchedReply = autoReplies.find(
@@ -852,7 +1013,10 @@ export class WebhookService implements OnModuleInit {
           instanceName,
         );
 
-        const sessionHistoryId = buildChatHistorySessionId(instanceName, remoteJid);
+        const sessionHistoryId = buildChatHistorySessionId(
+          instanceName,
+          remoteJid,
+        );
         const apiMsgUrl = `${server_url}/message/sendText/${instanceName}`;
 
         await executeWorkflow({
@@ -880,7 +1044,12 @@ export class WebhookService implements OnModuleInit {
         });
 
         /* Deja la session con status en true siempre despues de ejecutar  una respuesta rapida  */
-        await this.sessionService.updateSessionStatus(remoteJid, instanceName, true, userWithRelations.id);
+        await this.sessionService.updateSessionStatus(
+          remoteJid,
+          instanceName,
+          true,
+          userWithRelations.id,
+        );
       }
     } catch (error) {
       logger.error('Error al procesar autoReplies', error);

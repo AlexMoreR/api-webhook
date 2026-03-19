@@ -4,7 +4,10 @@ import {
   pickPreferredWhatsAppRemoteJid,
 } from 'src/utils/whatsapp-jid.util';
 
-export function buildChatHistorySessionId(instanceName: string, remoteJid: string) {
+export function buildChatHistorySessionId(
+  instanceName: string,
+  remoteJid: string,
+) {
   const safeInstanceName = (instanceName ?? '').trim();
   const safeRemoteJid = (remoteJid ?? '').trim();
   const normalizedRemoteJid =

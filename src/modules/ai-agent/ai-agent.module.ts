@@ -19,11 +19,7 @@ import { UserService } from '../user/user.service';
 import { AgentNotificationService } from './services/notificacionService/notificacion.service';
 
 @Module({
-  imports: [
-    HttpModule,
-    ConfigModule,
-    forwardRef(() => WorkflowModule),
-  ],
+  imports: [HttpModule, ConfigModule, forwardRef(() => WorkflowModule)],
   providers: [
     AiAgentService,
     PromptService,
@@ -45,7 +41,7 @@ import { AgentNotificationService } from './services/notificacionService/notific
     AiCreditsService,
     LlmClientFactory,
     AgentNotificationService,
-    AiAgentService
+    AiAgentService,
   ],
 })
 export class AiAgentModule {}

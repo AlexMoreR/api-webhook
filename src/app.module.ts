@@ -31,7 +31,7 @@ import { ChatHistoryModule } from './modules/chat-history/chat-history.module';
     AiAgentModule,
     LeadFunnelModule,
     RegistrosModule,
-    ChatHistoryModule
+    ChatHistoryModule,
   ],
   providers: [
     ServicesService,
@@ -46,4 +46,4 @@ import { ChatHistoryModule } from './modules/chat-history/chat-history.module';
     SessionTriggerService,
   ],
 })
-export class AppModule { }
+export class AppModule {}

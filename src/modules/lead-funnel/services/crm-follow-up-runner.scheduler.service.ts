@@ -5,7 +5,9 @@ import { LoggerService } from 'src/core/logger/logger.service';
 import { CrmFollowUpRunnerService } from './crm-follow-up-runner.service';
 
 @Injectable()
-export class CrmFollowUpRunnerSchedulerService implements OnModuleInit, OnModuleDestroy {
+export class CrmFollowUpRunnerSchedulerService
+  implements OnModuleInit, OnModuleDestroy
+{
   private timer: NodeJS.Timeout | null = null;
   private isRunning = false;
 
@@ -30,18 +32,18 @@ export class CrmFollowUpRunnerSchedulerService implements OnModuleInit, OnModule
 
   private getSettings() {
     const enabled = this.parseBoolean(
-      this.configService.get<string>('crmFollowUpRunner.enabled')
-        ?? this.configService.get<string>('CRM_FOLLOW_UP_RUNNER_ENABLED'),
+      this.configService.get<string>('crmFollowUpRunner.enabled') ??
+        this.configService.get<string>('CRM_FOLLOW_UP_RUNNER_ENABLED'),
       false,
     );
     const intervalMs = this.parsePositiveInt(
-      this.configService.get<string>('crmFollowUpRunner.intervalMs')
-        ?? this.configService.get<string>('CRM_FOLLOW_UP_RUNNER_INTERVAL_MS'),
+      this.configService.get<string>('crmFollowUpRunner.intervalMs') ??
+        this.configService.get<string>('CRM_FOLLOW_UP_RUNNER_INTERVAL_MS'),
       60_000,
     );
     const limit = this.parsePositiveInt(
-      this.configService.get<string>('crmFollowUpRunner.limit')
-        ?? this.configService.get<string>('CRM_FOLLOW_UP_RUNNER_LIMIT'),
+      this.configService.get<string>('crmFollowUpRunner.limit') ??
+        this.configService.get<string>('CRM_FOLLOW_UP_RUNNER_LIMIT'),
       25,
     );
 

@@ -55,11 +55,16 @@ export class CrmFollowUpRuleService {
       userId: args.userId,
       leadStatus: args.leadStatus,
       enabled: persisted?.enabled ?? defaults.enabled,
-      delayMinutes: Math.max(persisted?.delayMinutes ?? defaults.delayMinutes, 0),
+      delayMinutes: Math.max(
+        persisted?.delayMinutes ?? defaults.delayMinutes,
+        0,
+      ),
       maxAttempts: Math.max(persisted?.maxAttempts ?? defaults.maxAttempts, 0),
       goal: (persisted?.goal ?? defaults.goal).trim(),
       prompt: (persisted?.prompt ?? defaults.prompt).trim(),
-      fallbackMessage: (persisted?.fallbackMessage ?? defaults.fallbackMessage).trim(),
+      fallbackMessage: (
+        persisted?.fallbackMessage ?? defaults.fallbackMessage
+      ).trim(),
       allowedWeekdays: sanitizeWeekdays(
         persisted?.allowedWeekdays ?? defaults.allowedWeekdays,
       ),
@@ -107,7 +112,9 @@ export class CrmFollowUpRuleService {
       }),
     ]);
 
-    const existingMap = new Map(existing.map((rule) => [rule.leadStatus, rule]));
+    const existingMap = new Map(
+      existing.map((rule) => [rule.leadStatus, rule]),
+    );
     const missingStatuses = (Object.values(LeadStatus) as LeadStatus[]).filter(
       (leadStatus) => !existingMap.has(leadStatus),
     );
@@ -169,8 +176,8 @@ export class CrmFollowUpRuleService {
   async getRuleForUser(userId: string, leadStatus: LeadStatus) {
     const rules = await this.ensureRulesForUser(userId);
     return (
-      rules.find((rule) => rule.leadStatus === leadStatus)
-      ?? this.normalizeRule({
+      rules.find((rule) => rule.leadStatus === leadStatus) ??
+      this.normalizeRule({
         userId,
         leadStatus,
       })

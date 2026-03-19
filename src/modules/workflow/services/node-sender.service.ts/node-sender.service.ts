@@ -8,7 +8,7 @@ export class NodeSenderService {
   constructor(
     private readonly http: HttpService,
     private readonly logger: LoggerService,
-  ) { }
+  ) {}
 
   /**
    * Send message type text
@@ -19,7 +19,12 @@ export class NodeSenderService {
    * @param {string} text - message.
    * @returns {void} - Nombre del flujo a ejecutar o null si no se debe ejecutar.
    */
-  async sendTextNode(url: string, apikey: string, remoteJid: string, text: string) {
+  async sendTextNode(
+    url: string,
+    apikey: string,
+    remoteJid: string,
+    text: string,
+  ) {
     try {
       const body = {
         number: remoteJid,
@@ -40,7 +45,11 @@ export class NodeSenderService {
       // this.logger.log(`Respuesta ${remoteJid}: ${JSON.stringify(response.data)}`, 'NodeSenderService');
       return true;
     } catch (error) {
-      this.logger.error(`Error enviando texto a ${remoteJid}`, error?.response?.data || error.message, 'NodeSenderService');
+      this.logger.error(
+        `Error enviando texto a ${remoteJid}`,
+        error?.response?.data || error.message,
+        'NodeSenderService',
+      );
       return false;
     }
   }
@@ -84,7 +93,7 @@ export class NodeSenderService {
   /**
    * Envía un nodo multimedia (imagen, video o documento) y registra la respuesta.
    */
-  async   sendMediaNode(
+  async sendMediaNode(
     url: string,
     apikey: string,
     remoteJid: string,
@@ -101,7 +110,8 @@ export class NodeSenderService {
         text: 'text/plain',
       };
 
-      const mimetype = mimeMap[type.toLowerCase()] || 'application/octet-stream';
+      const mimetype =
+        mimeMap[type.toLowerCase()] || 'application/octet-stream';
       const filename = this.extractFilenameFromUrl(mediaUrl);
 
       const body = {
@@ -140,7 +150,7 @@ export class NodeSenderService {
     }
   }
 
-    /**
+  /**
    * Envía un audio de WhatsApp usando el endpoint sendWhatsAppAudio.
    *
    * @param {string} url - `${urlevo}/message/sendWhatsAppAudio/${instanceName}`.
@@ -159,8 +169,8 @@ export class NodeSenderService {
         // Mantenemos el mismo formato que ya usas para "number"
         // (si hoy remoteJid funciona en sendText, lo dejamos igual para no romper nada)
         number: remoteJid,
-        audio: audioUrl,   // url o base64
-        delay: 1200,       // opcional, mismo criterio que en sendMediaNode
+        audio: audioUrl, // url o base64
+        delay: 1200, // opcional, mismo criterio que en sendMediaNode
       };
 
       this.logger.log(

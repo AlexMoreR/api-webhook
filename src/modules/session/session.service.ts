@@ -13,8 +13,8 @@ import {
 export class SessionService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly logger: LoggerService
-  ) { }
+    private readonly logger: LoggerService,
+  ) {}
 
   private clean(value?: string | null) {
     return (value ?? '').trim();
@@ -31,13 +31,19 @@ export class SessionService {
     return (
       pickExplicitWhatsAppPhoneJid(values) ||
       pickPreferredWhatsAppRemoteJid(values) ||
-      normalizeWhatsAppConversationJid(values.find((value) => value?.trim()) ?? '') ||
+      normalizeWhatsAppConversationJid(
+        values.find((value) => value?.trim()) ?? '',
+      ) ||
       values.find((value) => value?.trim())?.trim() ||
       ''
     );
   }
 
-  private async findSessionByCandidates(userId: string, instanceId: string, candidates: string[]) {
+  private async findSessionByCandidates(
+    userId: string,
+    instanceId: string,
+    candidates: string[],
+  ) {
     return this.prisma.session.findFirst({
       where: {
         userId,
@@ -70,7 +76,8 @@ export class SessionService {
     remoteJidAlt?: string | null,
     senderPn?: string | null,
   ) {
-    const isBadName = (n: string) => n === '' || n === '.' || n.toLowerCase() === 'desconocido';
+    const isBadName = (n: string) =>
+      n === '' || n === '.' || n.toLowerCase() === 'desconocido';
 
     const pn = this.clean(pushName);
     const observedAliases = [
@@ -81,7 +88,11 @@ export class SessionService {
     const rj = this.resolvePreferredRemoteJid(observedAliases);
     const candidates = this.buildRemoteJidCandidates(rj, observedAliases);
 
-    const existingSession = await this.findSessionByCandidates(userId, instanceId, candidates);
+    const existingSession = await this.findSessionByCandidates(
+      userId,
+      instanceId,
+      candidates,
+    );
 
     if (existingSession) {
       const nextPushName = !isBadName(pn) ? pn : existingSession.pushName;
@@ -117,7 +128,11 @@ export class SessionService {
   }
 
   // Nuevo método para obtener el estado de agentDisabled
-  async getAgentDisabled(remoteJid: string, instanceName: string, userId: string): Promise<boolean> {
+  async getAgentDisabled(
+    remoteJid: string,
+    instanceName: string,
+    userId: string,
+  ): Promise<boolean> {
     const rj = this.clean(remoteJid);
     const inst = this.clean(instanceName);
     const uid = this.clean(userId);
@@ -127,12 +142,15 @@ export class SessionService {
 
     return !!session?.agentDisabled;
   }
-  
 
   // Get a specific session by remoteJid and instanceId
   async getSession(remoteJid: string, instanceId: string, userId: string) {
     const candidates = this.buildRemoteJidCandidates(this.clean(remoteJid));
-    return this.findSessionByCandidates(this.clean(userId), this.clean(instanceId), candidates);
+    return this.findSessionByCandidates(
+      this.clean(userId),
+      this.clean(instanceId),
+      candidates,
+    );
   }
 
   async updateSessionRemoteJid(id: number, newRemoteJid: string) {
@@ -151,7 +169,12 @@ export class SessionService {
   }
 
   // Update state session by remoteJid y instanceId
-  async updateSessionStatus(remoteJid: string, instanceId: string, status: boolean, userId: string) {
+  async updateSessionStatus(
+    remoteJid: string,
+    instanceId: string,
+    status: boolean,
+    userId: string,
+  ) {
     const candidates = this.buildRemoteJidCandidates(this.clean(remoteJid));
     return this.prisma.session.updateMany({
       where: {
@@ -167,7 +190,11 @@ export class SessionService {
   }
 
   // Consulta el estado del chat
-  async isSessionActive(remoteJid: string, userId: string, instanceId: string): Promise<boolean> {
+  async isSessionActive(
+    remoteJid: string,
+    userId: string,
+    instanceId: string,
+  ): Promise<boolean> {
     const session = await this.getSession(remoteJid, instanceId, userId);
     return session?.status ?? false;
   }
@@ -256,11 +283,13 @@ export class SessionService {
 
     const parseIds = (value?: string | null): number[] => {
       if (!value || !value.trim()) return [];
-      return value
-        // soporta ambos formatos: "1-2-3" o "1,2,3"
-        .split(/[-,]/)
-        .map((s) => parseInt(s.trim(), 10))
-        .filter((n) => !Number.isNaN(n));
+      return (
+        value
+          // soporta ambos formatos: "1-2-3" o "1,2,3"
+          .split(/[-,]/)
+          .map((s) => parseInt(s.trim(), 10))
+          .filter((n) => !Number.isNaN(n))
+      );
     };
 
     const buildString = (ids: number[]) =>
@@ -272,7 +301,9 @@ export class SessionService {
     const todosSeguimientos = parseIds(session.seguimientos);
 
     // IDs que permanecerán como seguimientos normales (no eran de inactividad)
-    const restantes = todosSeguimientos.filter((id) => !inactividadIds.includes(id));
+    const restantes = todosSeguimientos.filter(
+      (id) => !inactividadIds.includes(id),
+    );
 
     // 1) Eliminar o marcar los seguimientos de inactividad
     // Si tienes un campo estado en Seguimiento, cámbialo a updateMany
@@ -321,8 +352,12 @@ export class SessionService {
       currentIds.length ? currentIds.map((id) => id.toString()).join('-') : '';
 
     const removeSet = new Set(ids);
-    const nextSeguimientos = parseIds(session.seguimientos).filter((id) => !removeSet.has(id));
-    const nextInactividad = parseIds(session.inactividad).filter((id) => !removeSet.has(id));
+    const nextSeguimientos = parseIds(session.seguimientos).filter(
+      (id) => !removeSet.has(id),
+    );
+    const nextInactividad = parseIds(session.inactividad).filter(
+      (id) => !removeSet.has(id),
+    );
 
     await this.prisma.session.update({
       where: { id: session.id },

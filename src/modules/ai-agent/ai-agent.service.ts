@@ -29,8 +29,8 @@ import { z } from 'zod';
 import { tool } from '@langchain/core/tools';
 import { PrismaService } from 'src/database/prisma.service';
 import { systemPromptWorkflow } from './utils/rulesPrompt';
-import OpenAI from "openai";
-import { toFile } from "openai/uploads";
+import OpenAI from 'openai';
+import { toFile } from 'openai/uploads';
 import { CRM_AGENT_PROMPT_IDS } from '../../types/CRM_AGENT_PROMPT_IDS';
 
 @Injectable()
@@ -55,7 +55,7 @@ export class AiAgentService {
 
     @Inject(forwardRef(() => WorkflowService))
     private readonly workflowService: WorkflowService,
-  ) { }
+  ) {}
 
   private async getClientForUser(userId: string): Promise<BaseChatModel> {
     // 1) Usuario (default provider/model)
@@ -99,14 +99,18 @@ export class AiAgentService {
       provider: provider.name as any, // ideal: tipar provider como 'openai' | 'google'
       apiKey: cfg.apiKey,
       model: model.name,
-    }) as BaseChatModel;
+    });
   }
 
-
   // Logger con contexto fijo: [UID=...][I=...][R=...]
-  private scopedLogger(ctx: { userId?: string; instanceName?: string; remoteJid?: string }) {
-    const tag = `[UID=${ctx.userId ?? '-'}][I=${ctx.instanceName ?? '-'}][R=${ctx.remoteJid ?? '-'
-      }]`;
+  private scopedLogger(ctx: {
+    userId?: string;
+    instanceName?: string;
+    remoteJid?: string;
+  }) {
+    const tag = `[UID=${ctx.userId ?? '-'}][I=${ctx.instanceName ?? '-'}][R=${
+      ctx.remoteJid ?? '-'
+    }]`;
     return {
       log: (msg: string, context = 'AiAgentService') =>
         this.logger.log(`${tag} ${msg}`, context),
@@ -118,7 +122,11 @@ export class AiAgentService {
   }
 
   // Inicializa el cliente LLM (LangChain) según provider y modelo.
-  private initializeClient(apikeyOpenAi: string, model: string, provider: string): BaseChatModel {
+  private initializeClient(
+    apikeyOpenAi: string,
+    model: string,
+    provider: string,
+  ): BaseChatModel {
     this.logger.log(
       `Inicializando cliente LLM. provider=${provider} model=${model}`,
       'AiAgentService',
@@ -166,7 +174,10 @@ export class AiAgentService {
       // logger.log(`Lista de flujos (texto): ${formattedList}`);
       // logger.log(`Lista de flujos (obj): ${JSON.stringify(workflows)}`);
 
-      const customWorkflowPrompt = systemPromptWorkflow(input, JSON.stringify(formattedList));
+      const customWorkflowPrompt = systemPromptWorkflow(
+        input,
+        JSON.stringify(formattedList),
+      );
 
       const messagesR = [
         new SystemMessage({
@@ -183,7 +194,9 @@ export class AiAgentService {
       const content = choice.trim();
 
       const totalTokensR = responseR?.usage_metadata?.total_tokens;
-      const tokensUsedR = totalTokensR ? parseInt(totalTokensR.toString(), 10) : 0;
+      const tokensUsedR = totalTokensR
+        ? parseInt(totalTokensR.toString(), 10)
+        : 0;
       await this.aiCredits.trackTokens(userId, tokensUsedR);
 
       if (!choice || !content) {
@@ -195,7 +208,7 @@ export class AiAgentService {
     } catch (error) {
       logger.error(
         'Error procesando entrada con OpenAI (detección de flujos).',
-        (error as any)?.response?.data || (error as any).message,
+        error?.response?.data || error.message,
       );
       return { content: null };
     }
@@ -214,7 +227,8 @@ export class AiAgentService {
     instanceName: string;
     remoteJid: string;
   }): any[] {
-    const { userId, sessionId, server_url, apikey, instanceName, remoteJid } = params;
+    const { userId, sessionId, server_url, apikey, instanceName, remoteJid } =
+      params;
     const logger = this.scopedLogger({ userId, instanceName, remoteJid });
 
     // Tool: Notificacion_Asesor
@@ -246,7 +260,9 @@ export class AiAgentService {
           'Utiliza esta herramienta cuando un usuario necesite la ayuda directa de un asesor humano (reclamos, solicitudes complejas, dudas de pago o agendamiento).',
         schema: z.object({
           nombre: z.string().describe('Nombre del usuario'),
-          detalles: z.string().describe('Detalle de la notificación o solicitud'),
+          detalles: z
+            .string()
+            .describe('Detalle de la notificación o solicitud'),
         }),
       },
     );
@@ -254,8 +270,16 @@ export class AiAgentService {
     // Tool: Ejecutar_Flujos
     // @ts-ignore - evitar problemas de tipos profundos con LangChain + zod
     const ejecutarFlujos = tool(
-      async ({ nombre_flujo, detalles }: { nombre_flujo: string; detalles: string }) => {
-        logger.log(`Tool Ejecutar_Flujos llamada con flujo sugerido "${nombre_flujo}"`);
+      async ({
+        nombre_flujo,
+        detalles,
+      }: {
+        nombre_flujo: string;
+        detalles: string;
+      }) => {
+        logger.log(
+          `Tool Ejecutar_Flujos llamada con flujo sugerido "${nombre_flujo}"`,
+        );
 
         const args: any = {
           nombre_flujo: [nombre_flujo],
@@ -279,10 +303,14 @@ export class AiAgentService {
         description:
           'Siempre consulta y ejecuta si existen flujos disponibles en la base de datos que correspondan a la solicitud del usuario. Si se encuentra un flujo, se ejecuta. Si no hay flujos, la IA continúa la conversación normalmente.',
         schema: z.object({
-          nombre_flujo: z.string().describe('Nombre del flujo que se debe ejecutar'),
+          nombre_flujo: z
+            .string()
+            .describe('Nombre del flujo que se debe ejecutar'),
           detalles: z
             .string()
-            .describe('Texto original de la solicitud del usuario o contexto adicional'),
+            .describe(
+              'Texto original de la solicitud del usuario o contexto adicional',
+            ),
         }),
       },
     );
@@ -293,13 +321,18 @@ export class AiAgentService {
       async () => {
         logger.log('Tool listar_workflows llamada.');
 
-        const workflows = await this.workflowService.getWorkflow(userId).catch(() => []);
+        const workflows = await this.workflowService
+          .getWorkflow(userId)
+          .catch(() => []);
         if (!Array.isArray(workflows) || workflows.length === 0) {
           return 'No hay flujos configurados actualmente para este usuario.';
         }
 
         const formatted = workflows
-          .map((w: any, index: number) => `${index + 1}. ${w.name ?? 'SIN_NOMBRE'}`)
+          .map(
+            (w: any, index: number) =>
+              `${index + 1}. ${w.name ?? 'SIN_NOMBRE'}`,
+          )
           .join('\n');
 
         return `Flujos disponibles:\n${formatted}`;
@@ -323,7 +356,7 @@ export class AiAgentService {
     const messages = Array.isArray(result.messages) ? result.messages : [];
     if (messages.length === 0) return '';
 
-    const last = messages[messages.length - 1] as any;
+    const last = messages[messages.length - 1];
     const content = last?.content;
 
     if (typeof content === 'string') {
@@ -342,15 +375,15 @@ export class AiAgentService {
       return joined;
     }
 
-    if ((content as any)?.text) {
-      return String((content as any).text).trim();
+    if (content?.text) {
+      return String(content.text).trim();
     }
 
     return String(content ?? '').trim();
   }
 
   private extractWorkflowNameFromLiteral(text: string): string | null {
-    const raw = (text || "").trim();
+    const raw = (text || '').trim();
 
     const m =
       raw.match(/ejecuta\s+el\s+flujo\s+['"`]([^'"`]+)['"`]/i) ??
@@ -360,14 +393,15 @@ export class AiAgentService {
   }
 
   private sanitizeOutgoingText(text: string): string {
-    const lines = (text || "").split("\n");
+    const lines = (text || '').split('\n');
 
     const banned = (line: string) => {
       const s = line.trim();
 
       // bullets típicos del prompt
       if (/^\-\s*\(\d+\)\s*\*\*función\*\*/i.test(s)) return true;
-      if (/\*\*función\*\*/i.test(s) && /ejecuta\s+el\s+flujo/i.test(s)) return true;
+      if (/\*\*función\*\*/i.test(s) && /ejecuta\s+el\s+flujo/i.test(s))
+        return true;
 
       if (/\*\*regla\/parámetro\*\*/i.test(s)) return true;
       if (/comportamiento\s+obligatorio/i.test(s)) return true;
@@ -379,8 +413,11 @@ export class AiAgentService {
       return false;
     };
 
-    const cleaned = lines.filter(l => !banned(l)).join("\n").trim();
-    return cleaned.replace(/\n{3,}/g, "\n\n").trim();
+    const cleaned = lines
+      .filter((l) => !banned(l))
+      .join('\n')
+      .trim();
+    return cleaned.replace(/\n{3,}/g, '\n\n').trim();
   }
 
   /**
@@ -396,28 +433,39 @@ export class AiAgentService {
     instanceName: string;
     remoteJid: string;
   }): Promise<boolean> {
-    const { workflowName, userId, sessionId, server_url, apikey, instanceName, remoteJid } = params;
+    const {
+      workflowName,
+      userId,
+      sessionId,
+      server_url,
+      apikey,
+      instanceName,
+      remoteJid,
+    } = params;
     const logger = this.scopedLogger({ userId, instanceName, remoteJid });
 
-    const workflows = await this.workflowService.getWorkflow(userId).catch(() => []);
+    const workflows = await this.workflowService
+      .getWorkflow(userId)
+      .catch(() => []);
     if (!Array.isArray(workflows) || workflows.length === 0) return false;
 
     const currentWorkflow = workflows.find(
-      (w: any) => (w?.name || "").toLowerCase() === workflowName.toLowerCase(),
+      (w: any) => (w?.name || '').toLowerCase() === workflowName.toLowerCase(),
     );
     if (!currentWorkflow) return false;
 
-    const alreadyExecuted = await this.chatHistoryService.hasIntentionBeenExecuted(
-      sessionId,
-      currentWorkflow.name,
-    );
+    const alreadyExecuted =
+      await this.chatHistoryService.hasIntentionBeenExecuted(
+        sessionId,
+        currentWorkflow.name,
+      );
 
     if (alreadyExecuted) return true; // ya estaba hecho, igual “consumimos” la instrucción literal
 
     await this.chatHistoryService.registerExecutedIntention(
       sessionId,
       currentWorkflow.name,
-      "intention",
+      'intention',
     );
 
     await this.workflowService.executeWorkflow(
@@ -436,7 +484,9 @@ export class AiAgentService {
       userId,
     );
 
-    logger.log(`OutboundGuard: workflow ejecutado por literal => ${currentWorkflow.name}`);
+    logger.log(
+      `OutboundGuard: workflow ejecutado por literal => ${currentWorkflow.name}`,
+    );
     return true;
   }
 
@@ -462,7 +512,9 @@ export class AiAgentService {
       // Inicializar LLM (LangChain client)
       this.initializeClient(apikeyOpenAi, defaultModel, defaultProvider);
 
-      const systemPrompt = await this.promptService.getPromptUserId(userId, CRM_AGENT_PROMPT_IDS.systemPrompAI).catch(() => '');
+      const systemPrompt = await this.promptService
+        .getPromptUserId(userId, CRM_AGENT_PROMPT_IDS.systemPrompAI)
+        .catch(() => '');
 
       //logger.log('PROMPT:', systemPrompt);
 
@@ -475,7 +527,8 @@ export class AiAgentService {
 
       // logger.log('PROMPT:', promptAI);
 
-      const chatHistory = await this.chatHistoryService.getChatHistory(sessionId);
+      const chatHistory =
+        await this.chatHistoryService.getChatHistory(sessionId);
 
       const historyMessages = chatHistory.map(
         (text) =>
@@ -494,7 +547,11 @@ export class AiAgentService {
         content: [{ type: 'text', text: promptAI }],
       });
 
-      const messagesForLlm = [systemMessage, ...historyMessages, rawInputMessage];
+      const messagesForLlm = [
+        systemMessage,
+        ...historyMessages,
+        rawInputMessage,
+      ];
 
       const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
@@ -537,8 +594,12 @@ export class AiAgentService {
               throw err;
             }
 
-            const backoff = Math.floor(2 ** attempt * 1000 + Math.random() * 1000);
-            logger.warn(`Rate limit (ReAct agent): reintento #${attempt} en ${backoff}ms`);
+            const backoff = Math.floor(
+              2 ** attempt * 1000 + Math.random() * 1000,
+            );
+            logger.warn(
+              `Rate limit (ReAct agent): reintento #${attempt} en ${backoff}ms`,
+            );
             await sleep(backoff);
           }
         }
@@ -566,17 +627,23 @@ export class AiAgentService {
 
           try {
             const apiUrl = `${server_url}/message/sendText/${instanceName}`;
-            const notificationPhone = await this.agentNotificationService.getNotificationPhone(
-              userId,
-              remoteJid,
-            );
+            const notificationPhone =
+              await this.agentNotificationService.getNotificationPhone(
+                userId,
+                remoteJid,
+              );
 
             if (notificationPhone) {
               const aviso =
                 '⚠️ Tu *agente IA* alcanzó el límite de uso del proveedor de IA.\n\n' +
                 '🧐 Por favor revisa el plan o la facturación del modelo configurado\n\n' +
                 '👉 https://platform.openai.com/settings/organization/billing/overview';
-              await this.nodeSenderService.sendTextNode(apiUrl, apikey, notificationPhone, aviso);
+              await this.nodeSenderService.sendTextNode(
+                apiUrl,
+                apikey,
+                notificationPhone,
+                aviso,
+              );
             } else {
               logger.warn(
                 'Error de cuota: no se envió aviso porque no hay número de notificación ni fallback.',
@@ -611,7 +678,9 @@ export class AiAgentService {
       const finalTextRaw = this.extractReactAgentReply(result);
 
       if (!finalTextRaw || !finalTextRaw.trim()) {
-        logger.warn('Respuesta vacía del agente ReAct, usamos mensaje plano de fallback.');
+        logger.warn(
+          'Respuesta vacía del agente ReAct, usamos mensaje plano de fallback.',
+        );
         return 'No pude procesar tu solicitud correctamente. ¿Puedes reformular tu mensaje?';
       }
 
@@ -635,24 +704,26 @@ export class AiAgentService {
       // CAPA B: sanitizar meta-salida
       const finalText = this.sanitizeOutgoingText(finalTextRaw);
       if (!finalText) {
-        logger.warn('OutboundGuard: salida vacía tras sanitizar. No se envía nada.');
+        logger.warn(
+          'OutboundGuard: salida vacía tras sanitizar. No se envía nada.',
+        );
         return '';
       }
 
       return finalText;
-
     } catch (error: any) {
       const logger = this.scopedLogger({ userId, instanceName, remoteJid });
 
-      const rawError = error?.response?.data || error?.message || JSON.stringify(error);
+      const rawError =
+        error?.response?.data || error?.message || JSON.stringify(error);
       const msgStr = rawError?.toString?.() ?? String(rawError);
 
       // 🔹 Detectar errores de autenticación tanto de OpenAI como de Google (Gemini)
       const isAuthError =
-        msgStr.includes('Incorrect API key provided') ||      // OpenAI
-        msgStr.includes('MODEL_AUTHENTICATION') ||            // OpenAI
-        msgStr.includes('API key not valid') ||               // GoogleGenerativeAI
-        msgStr.includes('API_KEY_INVALID') ||                 // GoogleGenerativeAI ErrorInfo
+        msgStr.includes('Incorrect API key provided') || // OpenAI
+        msgStr.includes('MODEL_AUTHENTICATION') || // OpenAI
+        msgStr.includes('API key not valid') || // GoogleGenerativeAI
+        msgStr.includes('API_KEY_INVALID') || // GoogleGenerativeAI ErrorInfo
         error?.status === 401;
 
       if (isAuthError) {
@@ -697,14 +768,16 @@ export class AiAgentService {
       }
 
       // 🔹 Otros errores genéricos del proveedor de IA (timeout, 500, etc.)
-      logger.error('Error procesando entrada con el proveedor de IA.', rawError);
+      logger.error(
+        'Error procesando entrada con el proveedor de IA.',
+        rawError,
+      );
 
       // Aquí, por ahora, NO notificamos por WhatsApp para evitar usar variables fuera de scope.
       // Si luego quieres, se puede agregar una notificación genérica similar pero con su propio bloque try/catch.
 
       return '';
     }
-
   }
 
   /**
@@ -722,7 +795,9 @@ export class AiAgentService {
     const logger = this.scopedLogger({ userId, instanceName, remoteJid });
     logger.log('Se está ejecutando la tool Ejecutar_Flujos... 😎');
 
-    const workflows = await this.workflowService.getWorkflow(userId).catch(() => []);
+    const workflows = await this.workflowService
+      .getWorkflow(userId)
+      .catch(() => []);
 
     if (!Array.isArray(workflows) || workflows.length === 0) {
       return 'No hay flujos configurados actualmente.';
@@ -767,10 +842,11 @@ export class AiAgentService {
         continue;
       }
 
-      const alreadyExecuted = await this.chatHistoryService.hasIntentionBeenExecuted(
-        sessionId,
-        currentWorkflow.name,
-      );
+      const alreadyExecuted =
+        await this.chatHistoryService.hasIntentionBeenExecuted(
+          sessionId,
+          currentWorkflow.name,
+        );
 
       if (!alreadyExecuted) {
         await this.chatHistoryService.registerExecutedIntention(
@@ -788,7 +864,9 @@ export class AiAgentService {
           userId,
         );
 
-        logger.log(`[Workflow]: ${currentWorkflow.name} ejecutado, registrando en sesión ${remoteJid}`)
+        logger.log(
+          `[Workflow]: ${currentWorkflow.name} ejecutado, registrando en sesión ${remoteJid}`,
+        );
 
         await this.sessionService.registerWorkflow(
           currentWorkflow.name,
@@ -817,34 +895,41 @@ export class AiAgentService {
   ): Promise<string> {
     const logger = this.scopedLogger({}); // sin contexto disponible en firma
     try {
-      const axiosRes = await axios.get(audioUrl, { responseType: 'arraybuffer' });
+      const axiosRes = await axios.get(audioUrl, {
+        responseType: 'arraybuffer',
+      });
       const audioBuffer = Buffer.from(axiosRes.data);
       const base64Audio = Buffer.from(axiosRes.data).toString('base64');
       const audioStream = Readable.from(audioBuffer);
       (audioStream as any).path = 'audio.ogg';
 
-      if (defaultProvider === "openai") {
+      if (defaultProvider === 'openai') {
         // LangChain NO expone .audio.transcriptions; para Whisper usa el SDK oficial.
         const openai = new OpenAI({ apiKey: apikeyOpenAi });
 
-        const mime = (audioType || "").toLowerCase();
-        const ext =
-          mime.includes("ogg") ? "ogg" :
-            mime.includes("webm") ? "webm" :
-              mime.includes("wav") ? "wav" :
-                (mime.includes("mpeg") || mime.includes("mp3")) ? "mp3" :
-                  mime.includes("mp4") ? "mp4" :
-                    mime.includes("m4a") ? "m4a" :
-                      "ogg";
+        const mime = (audioType || '').toLowerCase();
+        const ext = mime.includes('ogg')
+          ? 'ogg'
+          : mime.includes('webm')
+            ? 'webm'
+            : mime.includes('wav')
+              ? 'wav'
+              : mime.includes('mpeg') || mime.includes('mp3')
+                ? 'mp3'
+                : mime.includes('mp4')
+                  ? 'mp4'
+                  : mime.includes('m4a')
+                    ? 'm4a'
+                    : 'ogg';
 
         const file = await toFile(audioBuffer, `audio.${ext}`, {
-          type: audioType || "application/octet-stream",
+          type: audioType || 'application/octet-stream',
         });
 
         const transcription = await openai.audio.transcriptions.create({
           file,
-          model: "whisper-1",
-          response_format: "text",
+          model: 'whisper-1',
+          response_format: 'text',
         });
 
         return transcription;
@@ -854,17 +939,29 @@ export class AiAgentService {
 
       const message = new HumanMessage({
         content: [
-          { type: 'text', text: 'Transcribe de forma clara y detallada este audio.' },
+          {
+            type: 'text',
+            text: 'Transcribe de forma clara y detallada este audio.',
+          },
           defaultProvider == 'openai'
-            ? { type: 'input_audio', input_audio: { data: base64Audio, format: `${audioType}` } }
+            ? {
+                type: 'input_audio',
+                input_audio: { data: base64Audio, format: `${audioType}` },
+              }
             : { type: 'media', data: base64Audio, mimeType: `${audioType}` },
         ],
       });
       const state = await this.aiClient.invoke([message]);
       return state.content.toString();
     } catch (error: any) {
-      logger.error('Error transcribiendo audio.', error?.response?.data || error.message);
-      logger.error('Error transcribiendo audio.', error?.message || JSON.stringify(error, null, 2));
+      logger.error(
+        'Error transcribiendo audio.',
+        error?.response?.data || error.message,
+      );
+      logger.error(
+        'Error transcribiendo audio.',
+        error?.message || JSON.stringify(error, null, 2),
+      );
       return '[ERROR_TRANSCRIBING_AUDIO]';
     }
   }
@@ -898,7 +995,10 @@ export class AiAgentService {
       const response = await this.aiClient.invoke([message]);
       return response.content.toString() ?? '[ERROR_DESCRIBING_IMAGE]';
     } catch (error: any) {
-      logger.error('Error describiendo imagen.', error?.response?.data || error.message);
+      logger.error(
+        'Error describiendo imagen.',
+        error?.response?.data || error.message,
+      );
       return '[ERROR_DESCRIBING_IMAGE]';
     }
   }
@@ -924,7 +1024,9 @@ export class AiAgentService {
             },
           ],
         }),
-        new HumanMessage({ content: [{ type: 'text', text: JSON.stringify(userJson) }] }),
+        new HumanMessage({
+          content: [{ type: 'text', text: JSON.stringify(userJson) }],
+        }),
       ]);
 
       const content = (res?.content ?? '').toString();
@@ -967,13 +1069,16 @@ export class AiAgentService {
 
     try {
       const client = await this.getClientForUser(userId);
-      const systemPrompt = await this.promptService.getPromptUserId(userId, CRM_AGENT_PROMPT_IDS.systemPrompAI).catch(() => '');
+      const systemPrompt = await this.promptService
+        .getPromptUserId(userId, CRM_AGENT_PROMPT_IDS.systemPrompAI)
+        .catch(() => '');
       const extraRules = await this.promptService
         .getPromptPadre('cm842kthc0000qd2l66nbnytv')
         .catch(() => '');
 
       const promptAI = `${extraRules} ${systemPrompt}`.trim();
-      const chatHistory = await this.chatHistoryService.getChatHistory(sessionId);
+      const chatHistory =
+        await this.chatHistoryService.getChatHistory(sessionId);
       const recentMessages = chatHistory.slice(-12);
 
       const response = await client.invoke([
@@ -982,8 +1087,7 @@ export class AiAgentService {
           content: [
             {
               type: 'text',
-              text:
-                'Genera un único mensaje de seguimiento por WhatsApp. Debe sonar humano, breve, claro y orientado a retomar la conversación. No uses JSON, no expliques reglas, no menciones prompts internos ni herramientas. Máximo 3 líneas.',
+              text: 'Genera un único mensaje de seguimiento por WhatsApp. Debe sonar humano, breve, claro y orientado a retomar la conversación. No uses JSON, no expliques reglas, no menciones prompts internos ni herramientas. Máximo 3 líneas.',
             },
           ],
         }),
@@ -1011,6 +1115,4 @@ export class AiAgentService {
       return fallbackMessage.trim();
     }
   }
-
-
 }

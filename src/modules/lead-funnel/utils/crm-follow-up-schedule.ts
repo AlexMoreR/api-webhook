@@ -36,7 +36,10 @@ export function sanitizeWeekdays(value?: number[] | null) {
   return normalized.length ? normalized : DEFAULT_ALLOWED_WEEKDAYS;
 }
 
-export function sanitizeTimeValue(value: string | null | undefined, fallback: string) {
+export function sanitizeTimeValue(
+  value: string | null | undefined,
+  fallback: string,
+) {
   const clean = String(value ?? '').trim();
   return /^([01]\d|2[0-3]):([0-5]\d)$/.test(clean) ? clean : fallback;
 }
@@ -110,7 +113,14 @@ function zonedDateTimeToUtc(args: {
   timeZone: string;
 }) {
   const guess = new Date(
-    Date.UTC(args.year, args.month - 1, args.day, args.hour, args.minute, args.second ?? 0),
+    Date.UTC(
+      args.year,
+      args.month - 1,
+      args.day,
+      args.hour,
+      args.minute,
+      args.second ?? 0,
+    ),
   );
   const initialOffset = getTimezoneOffsetMs(guess, args.timeZone);
   const firstPass = new Date(guess.getTime() - initialOffset);
@@ -132,7 +142,10 @@ export function isWithinCrmFollowUpWindow(args: {
 }) {
   const timeZone = sanitizeTimezone(args.timeZone);
   const allowedWeekdays = sanitizeWeekdays(args.allowedWeekdays);
-  const sendStartTime = sanitizeTimeValue(args.sendStartTime, DEFAULT_START_TIME);
+  const sendStartTime = sanitizeTimeValue(
+    args.sendStartTime,
+    DEFAULT_START_TIME,
+  );
   const sendEndTime = sanitizeTimeValue(args.sendEndTime, DEFAULT_END_TIME);
 
   const zoned = getZonedParts(args.date, timeZone);
@@ -156,7 +169,10 @@ export function computeNextCrmFollowUpDate(args: {
 }) {
   const timeZone = sanitizeTimezone(args.timeZone);
   const allowedWeekdays = sanitizeWeekdays(args.allowedWeekdays);
-  const sendStartTime = sanitizeTimeValue(args.sendStartTime, DEFAULT_START_TIME);
+  const sendStartTime = sanitizeTimeValue(
+    args.sendStartTime,
+    DEFAULT_START_TIME,
+  );
   const sendEndTime = sanitizeTimeValue(args.sendEndTime, DEFAULT_END_TIME);
 
   if (
@@ -180,7 +196,9 @@ export function computeNextCrmFollowUpDate(args: {
   );
 
   for (let offset = 0; offset < 21; offset += 1) {
-    const localDate = new Date(calendarBase.getTime() + offset * 24 * 60 * 60 * 1000);
+    const localDate = new Date(
+      calendarBase.getTime() + offset * 24 * 60 * 60 * 1000,
+    );
     const weekday = localDate.getUTCDay();
 
     if (!allowedWeekdays.includes(weekday)) {

@@ -1,40 +1,51 @@
 export default () => ({
-    // App
-    port: process.env.PORT || 3000,
-    nodeEnv: process.env.NODE_ENV || 'development',
-    followUpRunner: {
-        enabled: process.env.FOLLOW_UP_RUNNER_ENABLED || 'false',
-        intervalMs: process.env.FOLLOW_UP_RUNNER_INTERVAL_MS || '60000',
-        limit: process.env.FOLLOW_UP_RUNNER_LIMIT || '25',
-    },
-    crmFollowUpRunner: {
-        enabled: process.env.CRM_FOLLOW_UP_RUNNER_ENABLED || 'false',
-        intervalMs: process.env.CRM_FOLLOW_UP_RUNNER_INTERVAL_MS || '60000',
-        limit: process.env.CRM_FOLLOW_UP_RUNNER_LIMIT || '25',
-    },
+  // App
+  port: process.env.PORT || 3000,
+  nodeEnv: process.env.NODE_ENV || 'development',
+  followUpRunner: {
+    enabled: process.env.FOLLOW_UP_RUNNER_ENABLED || 'false',
+    intervalMs: process.env.FOLLOW_UP_RUNNER_INTERVAL_MS || '60000',
+    limit: process.env.FOLLOW_UP_RUNNER_LIMIT || '25',
+  },
+  crmFollowUpRunner: {
+    enabled: process.env.CRM_FOLLOW_UP_RUNNER_ENABLED || 'false',
+    intervalMs: process.env.CRM_FOLLOW_UP_RUNNER_INTERVAL_MS || '60000',
+    limit: process.env.CRM_FOLLOW_UP_RUNNER_LIMIT || '25',
+  },
+  billingCron: {
+    enabled: process.env.BILLING_CRON_ENABLED || 'false',
+    intervalMs: process.env.BILLING_CRON_INTERVAL_MS || '60000',
+    hour: process.env.BILLING_CRON_HOUR || '10',
+    minute: process.env.BILLING_CRON_MINUTE || '0',
+    timeZone: process.env.BILLING_CRON_TIME_ZONE || 'America/Bogota',
+    endpointUrl: process.env.BILLING_CRON_ENDPOINT_URL || '',
+    secret: process.env.BILLING_CRON_SECRET || '',
+    runnerKey: process.env.BILLING_CRON_RUNNER_KEY || '',
+    timeoutMs: process.env.BILLING_CRON_TIMEOUT_MS || '20000',
+  },
 
-    // Auth
-    authSecret: process.env.AUTH_SECRET,
-    authResendKey: process.env.AUTH_RESEND_KEY,
-    nextAuthUrl: process.env.NEXTAUTH_URL,
+  // Auth
+  authSecret: process.env.AUTH_SECRET,
+  authResendKey: process.env.AUTH_RESEND_KEY,
+  nextAuthUrl: process.env.NEXTAUTH_URL,
 
-    // Google Auth
-    authGoogleId: process.env.AUTH_GOOGLE_ID,
-    authGoogleSecret: process.env.AUTH_GOOGLE_SECRET,
+  // Google Auth
+  authGoogleId: process.env.AUTH_GOOGLE_ID,
+  authGoogleSecret: process.env.AUTH_GOOGLE_SECRET,
 
-    // Github Auth
-    authGithubId: process.env.AUTH_GITHUB_ID,
-    authGithubSecret: process.env.AUTH_GITHUB_SECRET,
+  // Github Auth
+  authGithubId: process.env.AUTH_GITHUB_ID,
+  authGithubSecret: process.env.AUTH_GITHUB_SECRET,
 
-    // Database
-    databaseUrl: process.env.DATABASE_URL,
+  // Database
+  databaseUrl: process.env.DATABASE_URL,
 
-    // S3 Storage
-    s3: {
-        accessKey: process.env.S3_ACCESS_KEY,
-        secretKey: process.env.S3_SECRET_KEY,
-        endpoint: process.env.S3_ENDPOINT,
-        publicUrl: process.env.S3_PUBLIC_URL,
-        bucketName: process.env.S3_BUCKET_NAME,
-    },
+  // S3 Storage
+  s3: {
+    accessKey: process.env.S3_ACCESS_KEY,
+    secretKey: process.env.S3_SECRET_KEY,
+    endpoint: process.env.S3_ENDPOINT,
+    publicUrl: process.env.S3_PUBLIC_URL,
+    bucketName: process.env.S3_BUCKET_NAME,
+  },
 });

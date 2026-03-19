@@ -36,7 +36,11 @@ export class CrmFollowUpRunnerService {
     return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
   }
 
-  private async markSent(followUpId: string, message: string, remoteJid?: string) {
+  private async markSent(
+    followUpId: string,
+    message: string,
+    remoteJid?: string,
+  ) {
     await this.prisma.crmFollowUp.update({
       where: { id: followUpId },
       data: {
@@ -62,11 +66,15 @@ export class CrmFollowUpRunnerService {
     await this.prisma.crmFollowUp.update({
       where: { id: followUp.id },
       data: {
-        status: exhausted ? CrmFollowUpStatus.FAILED : CrmFollowUpStatus.PENDING,
+        status: exhausted
+          ? CrmFollowUpStatus.FAILED
+          : CrmFollowUpStatus.PENDING,
         attemptCount: nextAttempt,
         errorReason: error.slice(0, 500),
         lastProcessedAt: new Date(),
-        scheduledFor: exhausted ? undefined : new Date(Date.now() + 15 * 60_000),
+        scheduledFor: exhausted
+          ? undefined
+          : new Date(Date.now() + 15 * 60_000),
         remoteJid: remoteJid?.trim() || undefined,
       },
     });
@@ -98,10 +106,7 @@ export class CrmFollowUpRunnerService {
     });
   }
 
-  async cancelPendingOnReply(args: {
-    remoteJid: string;
-    instanceId: string;
-  }) {
+  async cancelPendingOnReply(args: { remoteJid: string; instanceId: string }) {
     const candidates = this.buildRemoteJidCandidates(args.remoteJid);
     const result = await this.prisma.crmFollowUp.updateMany({
       where: {
@@ -119,8 +124,12 @@ export class CrmFollowUpRunnerService {
     return { count: result.count };
   }
 
-  async processDueFollowUps(limit = 25, scope?: { userId?: string; instanceId?: string; remoteJid?: string }) {
-    const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 25;
+  async processDueFollowUps(
+    limit = 25,
+    scope?: { userId?: string; instanceId?: string; remoteJid?: string },
+  ) {
+    const safeLimit =
+      Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 25;
     const remoteJidCandidates = scope?.remoteJid
       ? this.buildRemoteJidCandidates(scope.remoteJid)
       : [];
@@ -133,7 +142,9 @@ export class CrmFollowUpRunnerService {
         },
         ...(scope?.userId ? { userId: scope.userId } : {}),
         ...(scope?.instanceId ? { instanceId: scope.instanceId } : {}),
-        ...(remoteJidCandidates.length ? { remoteJid: { in: remoteJidCandidates } } : {}),
+        ...(remoteJidCandidates.length
+          ? { remoteJid: { in: remoteJidCandidates } }
+          : {}),
       },
       orderBy: [{ scheduledFor: 'asc' }, { createdAt: 'asc' }],
       take: safeLimit,
@@ -190,7 +201,10 @@ export class CrmFollowUpRunnerService {
       });
 
       if (!followUp?.session) {
-        await this.markFailure(candidate, 'Sesion no encontrada para CRM follow-up.');
+        await this.markFailure(
+          candidate,
+          'Sesion no encontrada para CRM follow-up.',
+        );
         summary.failed += 1;
         continue;
       }
@@ -257,10 +271,15 @@ export class CrmFollowUpRunnerService {
         continue;
       }
 
-      const serverUrl = this.normalizeServerUrl(followUp.user.apiKey?.url ?? '');
+      const serverUrl = this.normalizeServerUrl(
+        followUp.user.apiKey?.url ?? '',
+      );
       const apiKey = (followUp.user.apiKey?.key ?? '').trim();
       if (!serverUrl || !apiKey) {
-        await this.markFailure(candidate, 'Usuario sin API de Evolution configurada.');
+        await this.markFailure(
+          candidate,
+          'Usuario sin API de Evolution configurada.',
+        );
         summary.failed += 1;
         continue;
       }
@@ -268,7 +287,10 @@ export class CrmFollowUpRunnerService {
       try {
         const finalMessage = await this.aiAgentService.generateFollowUpMessage({
           userId: followUp.userId,
-          sessionId: buildChatHistorySessionId(followUp.instanceId, followUp.session.remoteJid),
+          sessionId: buildChatHistorySessionId(
+            followUp.instanceId,
+            followUp.session.remoteJid,
+          ),
           goal: (followUp.goalSnapshot ?? currentRule.goal).trim(),
           customPrompt: (followUp.promptSnapshot ?? currentRule.prompt).trim(),
           attempt: (followUp.attemptCount ?? 0) + 1,
@@ -281,7 +303,9 @@ export class CrmFollowUpRunnerService {
 
         const safeMessage = finalMessage.trim();
         if (!safeMessage) {
-          throw new Error('La IA no produjo un mensaje util para el CRM follow-up.');
+          throw new Error(
+            'La IA no produjo un mensaje util para el CRM follow-up.',
+          );
         }
 
         const ok = await this.nodeSenderService.sendTextNode(
@@ -296,12 +320,19 @@ export class CrmFollowUpRunnerService {
         }
 
         await this.chatHistoryService.saveMessage(
-          buildChatHistorySessionId(followUp.instanceId, followUp.session.remoteJid),
+          buildChatHistorySessionId(
+            followUp.instanceId,
+            followUp.session.remoteJid,
+          ),
           safeMessage,
           'ia',
         );
 
-        await this.markSent(followUp.id, safeMessage, followUp.session.remoteJid);
+        await this.markSent(
+          followUp.id,
+          safeMessage,
+          followUp.session.remoteJid,
+        );
         summary.sent += 1;
       } catch (error: any) {
         this.logger.error(

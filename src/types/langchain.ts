@@ -3,7 +3,7 @@
 // Importa la configuración de los proveedores de IA. Este objeto actúa como la "fuente de verdad"
 // que define qué proveedores y modelos están disponibles, permitiendo que los tipos se generen
 // automáticamente a partir de esta única fuente de datos.
-import { providersConfig } from "src/modules/ai-agent/config/providers";
+import { providersConfig } from 'src/modules/ai-agent/config/providers';
 
 /**
  * Tipo de unión que representa los nombres de todos los proveedores de IA disponibles.
@@ -59,4 +59,8 @@ const exampleFactoryClient = <P extends Provider>(config: ModelConfig<P>) => {
 // Ejemplo de uso: La llamada a la función es segura y el autocompletado funciona.
 // Si intentas usar un modelo que no es de OpenAI (por ejemplo, 'gemini-pro'),
 // TypeScript te mostrará un error de compilación.
-exampleFactoryClient({ provider: "openai", model: "gpt-3.5-turbo", apiKey: "ejemplo_api_key_openai" });
+exampleFactoryClient({
+  provider: 'openai',
+  model: 'gpt-3.5-turbo',
+  apiKey: 'ejemplo_api_key_openai',
+});

@@ -3,13 +3,12 @@ import { PrismaService } from 'src/database/prisma.service';
 
 @Injectable()
 export class AutoRepliesService {
-    constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
-    
-    async getAutoRepliesByUserId(userId: string) {
-        return this.prisma.quickReply.findMany({
-            where: { userId },
-            orderBy: { id: 'asc' },
-        });
-    }
+  async getAutoRepliesByUserId(userId: string) {
+    return this.prisma.quickReply.findMany({
+      where: { userId },
+      orderBy: { id: 'asc' },
+    });
+  }
 }

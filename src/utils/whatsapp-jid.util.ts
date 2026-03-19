@@ -17,7 +17,9 @@ function isGroupJid(value?: string | null) {
 }
 
 function isBroadcastJid(value?: string | null) {
-  return cleanValue(value).toLowerCase().endsWith(WHATSAPP_BROADCAST_JID_SUFFIX);
+  return cleanValue(value)
+    .toLowerCase()
+    .endsWith(WHATSAPP_BROADCAST_JID_SUFFIX);
 }
 
 export function extractWhatsAppDigits(value?: string | null) {
@@ -53,8 +55,12 @@ export function normalizeWhatsAppConversationJid(value: string) {
   return `${digits}${WHATSAPP_USER_JID_SUFFIX}`;
 }
 
-export function pickExplicitWhatsAppPhoneJid(values: Array<string | null | undefined>) {
-  const cleanedValues = values.map((value) => cleanValue(value)).filter(Boolean);
+export function pickExplicitWhatsAppPhoneJid(
+  values: Array<string | null | undefined>,
+) {
+  const cleanedValues = values
+    .map((value) => cleanValue(value))
+    .filter(Boolean);
 
   const explicitUserJid = cleanedValues.find((value) =>
     value.toLowerCase().endsWith(WHATSAPP_USER_JID_SUFFIX),
@@ -76,11 +82,16 @@ export function pickExplicitWhatsAppPhoneJid(values: Array<string | null | undef
   return '';
 }
 
-export function pickPreferredWhatsAppRemoteJid(values: Array<string | null | undefined>) {
-  const cleanedValues = values.map((value) => cleanValue(value)).filter(Boolean);
+export function pickPreferredWhatsAppRemoteJid(
+  values: Array<string | null | undefined>,
+) {
+  const cleanedValues = values
+    .map((value) => cleanValue(value))
+    .filter(Boolean);
 
   const directGroupOrBroadcast = cleanedValues.find(
-    (value) => isStatusBroadcastJid(value) || isGroupJid(value) || isBroadcastJid(value),
+    (value) =>
+      isStatusBroadcastJid(value) || isGroupJid(value) || isBroadcastJid(value),
   );
   if (directGroupOrBroadcast) {
     return directGroupOrBroadcast;

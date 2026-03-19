@@ -35,7 +35,10 @@ export class CrmFollowUpPlannerService {
       return { ok: false as const, reason: 'SESSION_NOT_FOUND' };
     }
 
-    if (args.leadStatus === LeadStatus.FINALIZADO || args.leadStatus === LeadStatus.DESCARTADO) {
+    if (
+      args.leadStatus === LeadStatus.FINALIZADO ||
+      args.leadStatus === LeadStatus.DESCARTADO
+    ) {
       const cancelled = await this.prisma.crmFollowUp.updateMany({
         where: {
           sessionId: args.sessionId,

@@ -3,7 +3,9 @@ export function isLegacyWorkflowSeguimiento(input: {
   tipo?: string | null;
 }) {
   const nodeId = String(input.idNodo ?? '').trim();
-  const tipo = String(input.tipo ?? '').trim().toLowerCase();
+  const tipo = String(input.tipo ?? '')
+    .trim()
+    .toLowerCase();
 
   return nodeId.length > 0 || tipo.startsWith('seguimiento-');
 }

@@ -1,134 +1,135 @@
-import { Pausar, Prisma, User } from "@prisma/client";
+import { Pausar, Prisma, User } from '@prisma/client';
 // import { ChatCompletionMessageToolCall } from "openai/resources/chat";
-import { ChatCompletionMessageToolCall } from "openai/resources/index.mjs";
+import { ChatCompletionMessageToolCall } from 'openai/resources/index.mjs';
 
 const whatsappCreditsMsg = 'https://w.app/verzay';
 
 export type UserWithPausar = Prisma.UserGetPayload<{
-    include: { pausar: true };
+  include: { pausar: true };
 }>;
 
 export type DefaultAiConfig = {
-    userId: string;
-    defaultProvider?: { id: string; name: string } | null;
-    defaultModel?: { id: string; name: string } | null;
-    defaultApiKey: string | null;
+  userId: string;
+  defaultProvider?: { id: string; name: string } | null;
+  defaultModel?: { id: string; name: string } | null;
+  defaultApiKey: string | null;
 };
 export interface IntentionItem {
-    name: string;
-    tipo: 'flujo' | 'seguimiento' | 'notificacion';
-    frase: string; // frase representativa o pregunta que activa esta intención
-    umbral: number;
+  name: string;
+  tipo: 'flujo' | 'seguimiento' | 'notificacion';
+  frase: string; // frase representativa o pregunta que activa esta intención
+  umbral: number;
 }
 export interface Decision {
-    type: string;
-    name: string;
-    tipo: string;
+  type: string;
+  name: string;
+  tipo: string;
 }
 export interface ToolHandler {
-    name: string;
-    handle(args: any): Promise<string>;
+  name: string;
+  handle(args: any): Promise<string>;
 }
 
 export interface proccessInput {
-    input: string,
-    userId: string,
-    apikeyOpenAi: string,
-    sessionId: string,
-    server_url: string,
-    apikey: string,
-    instanceName: string,
-    remoteJid: string,
-    defaultModel: string,
-    defaultProvider: string,
+  input: string;
+  userId: string;
+  apikeyOpenAi: string;
+  sessionId: string;
+  server_url: string;
+  apikey: string;
+  instanceName: string;
+  remoteJid: string;
+  defaultModel: string;
+  defaultProvider: string;
 }
 
 export interface inputWorkflow {
-    nombre_flujo: { type: string, description: string }
-    detalles: { type: string, description: string }
+  nombre_flujo: { type: string; description: string };
+  detalles: { type: string; description: string };
 }
 
 export interface openAIToolDetection {
-    input: inputWorkflow,
-    sessionId: string,
-    userId: string,
-
+  input: inputWorkflow;
+  sessionId: string;
+  userId: string;
 }
 
 export interface ChoiceWithToolCall {
-    message: {
-        content?: string;
-        tool_calls?: ChatCompletionMessageToolCall[];
-    };
+  message: {
+    content?: string;
+    tool_calls?: ChatCompletionMessageToolCall[];
+  };
 }
 
 export interface ChoiceWithToolCall {
-    message: {
-        content?: string;
-        tool_calls?: ChatCompletionMessageToolCall[];
-    };
+  message: {
+    content?: string;
+    tool_calls?: ChatCompletionMessageToolCall[];
+  };
 }
 export interface OpenAIDetectionResult {
-    // choice: ChoiceWithToolCall | null;
-    // toolCall: ChatCompletionMessageToolCall | null;
-    content: string | null;
+  // choice: ChoiceWithToolCall | null;
+  // toolCall: ChatCompletionMessageToolCall | null;
+  content: string | null;
 }
 
 export interface stopOrResumeConversation {
-    conversationMsg: string,
-    remoteJid: string,
-    remoteJidAlt?: string; // 👈 NUEVO
-    instanceId: string,
-    sessionStatus: boolean,
-    userWithRelations: UserWithPausar,
-    instanceName: string,
-    apikey: string,
-    server_url: string
-};
-
+  conversationMsg: string;
+  remoteJid: string;
+  remoteJidAlt?: string; // 👈 NUEVO
+  instanceId: string;
+  sessionStatus: boolean;
+  userWithRelations: UserWithPausar;
+  instanceName: string;
+  apikey: string;
+  server_url: string;
+}
 
 export interface getReactivateDate {
-    userWithRelations: UserWithPausar,
-};
+  userWithRelations: UserWithPausar;
+}
 
 export interface onAutoRepliesInterface {
-    userId: string
-    conversationMsg: string
-    server_url: string
-    apikey: string
-    instanceName: string
-    remoteJid: string
-};
+  userId: string;
+  conversationMsg: string;
+  server_url: string;
+  apikey: string;
+  instanceName: string;
+  remoteJid: string;
+}
 
 export interface CreditFlag {
-    value: number; // valor en créditos requeridos
-    message: string; // mensaje a mostrar si se activa esta flag
-};
+  value: number; // valor en créditos requeridos
+  message: string; // mensaje a mostrar si se activa esta flag
+}
 
 export interface CreditValidationInput {
-    userId: string;
-    flags: { value: number; message: string }[];
-    webhookUrl: string;
-    apiUrl: string,
-    apikey: string,
-    userPhone: string,
-};
+  userId: string;
+  flags: { value: number; message: string }[];
+  webhookUrl: string;
+  apiUrl: string;
+  apikey: string;
+  userPhone: string;
+}
 
 export const flags = [
-    {
-        value: 0,
-        message: `🛑 CRÍTICO: ¡Te has quedado *SIN CRÉDITOS*! \n\n• Tu servicio está *SUSPENDIDO* \n• No podrás recibir mensajes \n• Perderás números asociados \n\n🔴 *RECARGA URGENTE* para reactivar: ${whatsappCreditsMsg}`,
-    },
-    {
-        value: 500,
-        message: "🚨 Tienes menos de *500 créditos* disponibles. Tu cuenta podría ser pausada pronto. Considera recargar urgentemente.",
-    },
-    {
-        value: 1000,
-        message: "⚠️ Estás por debajo de *1000 créditos*. Te recomendamos recargar antes de que se agoten.",
-    },
-    {
-        value: 2000,
-        message: "🔔 Aviso: tienes menos de *2000 créditos* disponibles. Aún estás a tiempo de recargar.",
-    },
+  {
+    value: 0,
+    message: `🛑 CRÍTICO: ¡Te has quedado *SIN CRÉDITOS*! \n\n• Tu servicio está *SUSPENDIDO* \n• No podrás recibir mensajes \n• Perderás números asociados \n\n🔴 *RECARGA URGENTE* para reactivar: ${whatsappCreditsMsg}`,
+  },
+  {
+    value: 500,
+    message:
+      '🚨 Tienes menos de *500 créditos* disponibles. Tu cuenta podría ser pausada pronto. Considera recargar urgentemente.',
+  },
+  {
+    value: 1000,
+    message:
+      '⚠️ Estás por debajo de *1000 créditos*. Te recomendamos recargar antes de que se agoten.',
+  },
+  {
+    value: 2000,
+    message:
+      '🔔 Aviso: tienes menos de *2000 créditos* disponibles. Aún estás a tiempo de recargar.',
+  },
 ];

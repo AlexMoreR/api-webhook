@@ -30,7 +30,8 @@ function parseArgs(argv: string[]): CliOptions {
   return {
     cleanup,
     userId: userIdArg?.slice('--user-id='.length).trim() || undefined,
-    archiveFile: archiveFileArg?.slice('--archive-file='.length).trim() || undefined,
+    archiveFile:
+      archiveFileArg?.slice('--archive-file='.length).trim() || undefined,
   };
 }
 
@@ -42,12 +43,18 @@ function parseStoredIds(value?: string | null) {
 }
 
 function buildStoredIds(ids: number[]) {
-  return Array.from(new Set(ids)).sort((a, b) => a - b).join('-');
+  return Array.from(new Set(ids))
+    .sort((a, b) => a - b)
+    .join('-');
 }
 
 function getDefaultArchiveFile() {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  return resolve(process.cwd(), 'legacy-archives', `legacy-workflow-follow-up-${stamp}.json`);
+  return resolve(
+    process.cwd(),
+    'legacy-archives',
+    `legacy-workflow-follow-up-${stamp}.json`,
+  );
 }
 
 async function main() {
@@ -181,8 +188,8 @@ async function main() {
         const afterInactividad = buildStoredIds(nextInactividad);
 
         if (
-          beforeSeguimientos === afterSeguimientos
-          && beforeInactividad === afterInactividad
+          beforeSeguimientos === afterSeguimientos &&
+          beforeInactividad === afterInactividad
         ) {
           return null;
         }
@@ -234,7 +241,11 @@ async function main() {
     };
 
     await mkdir(dirname(archiveFile), { recursive: true });
-    await writeFile(archiveFile, JSON.stringify(archivePayload, null, 2), 'utf8');
+    await writeFile(
+      archiveFile,
+      JSON.stringify(archivePayload, null, 2),
+      'utf8',
+    );
 
     if (!options.cleanup) {
       console.log(

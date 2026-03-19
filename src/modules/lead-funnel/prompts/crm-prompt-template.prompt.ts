@@ -5,7 +5,11 @@ import { buildLeadStatusPrompt } from './lead-status.prompt';
 import { CRM_AGENT_PROMPT_IDS } from '../../../types/CRM_AGENT_PROMPT_IDS';
 const CRM_LEAD_NAME_JSON_PLACEHOLDER = '{{leadNameJson}}';
 
-async function findPromptText(prisma: PrismaService, userId: string, agentId: string) {
+async function findPromptText(
+  prisma: PrismaService,
+  userId: string,
+  agentId: string,
+) {
   const prompt = await prisma.agentPrompt.findFirst({
     where: {
       userId,
@@ -48,5 +52,7 @@ export async function resolveLeadFunnelPrompt(args: {
     return buildLeadFunnelPrompt({ leadName: args.leadName });
   }
 
-  return promptText.split(CRM_LEAD_NAME_JSON_PLACEHOLDER).join(JSON.stringify(args.leadName));
+  return promptText
+    .split(CRM_LEAD_NAME_JSON_PLACEHOLDER)
+    .join(JSON.stringify(args.leadName));
 }

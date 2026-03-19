@@ -62,7 +62,7 @@ IMPORTANTE:
 - NUNCA uses tipo="REPORTE" cuando kind="REGISTRO".
 - Si es conversación general o resumen del chat => kind="REPORTE".
 - Solo puedes usar estos tipos (si kind="REGISTRO"): ${allowedTipos
-      .filter((t) => t !== 'REPORTE')
-      .join(', ')}.
+    .filter((t) => t !== 'REPORTE')
+    .join(', ')}.
 `;
 };
