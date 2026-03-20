@@ -374,7 +374,7 @@ export class WebhookService implements OnModuleInit {
             return;
           }
 
-          //TODO: Lead Funnel (bucket/sintetizador)
+          //Lead Funnel (bucket/sintetizador)
           if (canonicalSession?.id && userWithRelations.enabledSynthesizer) {
             this.logger.debug(
               `Entrando a sintetizador... instanceID=${instanceId} userId=${userId} remoteJid=${canonicalRemoteJid}`,
