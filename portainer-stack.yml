@@ -5,56 +5,72 @@ services:
     image: ghcr.io/alexmorer/api-webhook:latest
     container_name: api-webhook-verzay
     restart: unless-stopped
-    ports:
-      - "5001:5001"
+    networks:
+      - minha_rede
     environment:
       NODE_ENV: production
-      PORT: 5001
+      PORT: 3000
+      TZ: America/Bogota
+      AUTH_TRUST_HOST: "true"
 
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: postgresql://postgres:Verzay.123456@62.146.177.144:5432/ia-crm?schema=public
 
-      AUTH_SECRET: ${AUTH_SECRET}
-      AUTH_RESEND_KEY: ${AUTH_RESEND_KEY}
-      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      AUTH_SECRET: local_dev_secret_123456789
+      AUTH_RESEND_KEY: re_RtsCVCn5_FGgLYqakR9RabQ7VyQdaeQNG
+      NEXTAUTH_URL: http://localhost:3000
 
-      AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID}
-      AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET}
-      AUTH_GITHUB_ID: ${AUTH_GITHUB_ID}
-      AUTH_GITHUB_SECRET: ${AUTH_GITHUB_SECRET}
+      AUTH_GOOGLE_ID: ""
+      AUTH_GOOGLE_SECRET: ""
+      AUTH_GITHUB_ID: ""
+      AUTH_GITHUB_SECRET: ""
 
-      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
-      S3_SECRET_KEY: ${S3_SECRET_KEY}
-      S3_ENDPOINT: ${S3_ENDPOINT}
-      S3_PUBLIC_URL: ${S3_PUBLIC_URL}
-      S3_BUCKET_NAME: ${S3_BUCKET_NAME}
+      S3_ACCESS_KEY: TYtoFkiA5U29IELEb0l1
+      S3_SECRET_KEY: AtWleFjMuUqZ7elNkHu5I5a7e0yvnukOJs1Rxi5r
+      S3_ENDPOINT: medias3.verzay.co
+      S3_PUBLIC_URL: https://medias3.verzay.co
+      S3_BUCKET_NAME: verzay-media
 
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      GEMINI_API_KEY: AIzaSyDHs5qwSgTqf-DN3ar8xGNDc6G2rfXGoto
+      CRON_SECRET: 8f5b7a9d2c1e4f6a9b3d7e1c5a8f2b4d
 
-      FOLLOW_UP_RUNNER_ENABLED: ${FOLLOW_UP_RUNNER_ENABLED:-false}
-      FOLLOW_UP_RUNNER_INTERVAL_MS: ${FOLLOW_UP_RUNNER_INTERVAL_MS:-60000}
-      FOLLOW_UP_RUNNER_LIMIT: ${FOLLOW_UP_RUNNER_LIMIT:-25}
-      FOLLOW_UP_RUNNER_KEY: ${FOLLOW_UP_RUNNER_KEY:-}
+      FOLLOW_UP_RUNNER_ENABLED: "false"
 
-      CRM_FOLLOW_UP_RUNNER_ENABLED: ${CRM_FOLLOW_UP_RUNNER_ENABLED:-false}
-      CRM_FOLLOW_UP_RUNNER_INTERVAL_MS: ${CRM_FOLLOW_UP_RUNNER_INTERVAL_MS:-60000}
-      CRM_FOLLOW_UP_RUNNER_LIMIT: ${CRM_FOLLOW_UP_RUNNER_LIMIT:-25}
-      CRM_FOLLOW_UP_RUNNER_KEY: ${CRM_FOLLOW_UP_RUNNER_KEY:-}
+      CRM_FOLLOW_UP_RUNNER_ENABLED: "true"
+      CRM_FOLLOW_UP_RUNNER_INTERVAL_MS: "60000"
+      CRM_FOLLOW_UP_RUNNER_LIMIT: "25"
+      CRM_FOLLOW_UP_RUNNER_KEY: verzay_crm_runner_safe_key
 
-      BILLING_CRON_ENABLED: ${BILLING_CRON_ENABLED:-false}
-      BILLING_CRON_INTERVAL_MS: ${BILLING_CRON_INTERVAL_MS:-60000}
-      BILLING_CRON_HOUR: ${BILLING_CRON_HOUR:-10}
-      BILLING_CRON_MINUTE: ${BILLING_CRON_MINUTE:-0}
-      BILLING_CRON_TIME_ZONE: ${BILLING_CRON_TIME_ZONE:-America/Bogota}
-      BILLING_CRON_ENDPOINT_URL: ${BILLING_CRON_ENDPOINT_URL:-}
-      BILLING_CRON_SECRET: ${BILLING_CRON_SECRET:-}
-      BILLING_CRON_RUNNER_KEY: ${BILLING_CRON_RUNNER_KEY:-}
-      BILLING_CRON_TIMEOUT_MS: ${BILLING_CRON_TIMEOUT_MS:-20000}
+      BILLING_CRON_ENABLED: "false"
+      BILLING_CRON_INTERVAL_MS: "60000"
+      BILLING_CRON_HOUR: "10"
+      BILLING_CRON_MINUTE: "0"
+      BILLING_CRON_TIME_ZONE: America/Bogota
+      BILLING_CRON_ENDPOINT_URL: https://agente.ia-app.com/api/cron/billing
+      BILLING_CRON_SECRET: verzay_crm_runner_safe_key
+      BILLING_CRON_RUNNER_KEY: verzay_crm_runner_safe_key
+      BILLING_CRON_TIMEOUT_MS: "20000"
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "2"
+          memory: 4G
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=minha_rede
+        - traefik.http.routers.api-webhook-verzay.rule=Host(`api.tu-dominio.com`)
+        - traefik.http.routers.api-webhook-verzay.entrypoints=websecure
+        - traefik.http.routers.api-webhook-verzay.priority=1
+        - traefik.http.routers.api-webhook-verzay.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.api-webhook-verzay.service=api-webhook-verzay
+        - traefik.http.services.api-webhook-verzay.loadbalancer.server.port=3000
+        - traefik.http.services.api-webhook-verzay.loadbalancer.passHostHeader=true
 
-    # Si usas una red externa en Portainer/Traefik/Nginx, descomenta esto.
-    # networks:
-    #   - proxy
-
-# networks:
-#   proxy:
-#     external: true
+networks:
+  minha_rede:
+    name: minha_rede
+    external: true
