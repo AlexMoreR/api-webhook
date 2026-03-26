@@ -41,7 +41,6 @@ import { BillingCronSchedulerService } from './services/billing-cron/billing-cro
     SessionService,
     UserService,
     InstancesService,
-    AiAgentService,
     PromptService,
     ChatHistoryService,
     IntentionService,
@@ -64,7 +63,6 @@ import { BillingCronSchedulerService } from './services/billing-cron/billing-cro
     AntifloodService,
     MessageBufferService,
     MessageTypeHandlerService,
-    WebhookService,
   ],
 })
 export class WebhookModule {}
