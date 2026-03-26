@@ -17,10 +17,10 @@ import { PromptCompressorService } from './services/prompt-compressor/prompt-com
 import { LlmClientFactory } from './services/llmClientFactory/llmClientFactory.service';
 import { UserService } from '../user/user.service';
 import { AgentNotificationService } from './services/notificacionService/notificacion.service';
-import { ExternalClientDataService } from '../external-client-data/external-client-data.service';
+import { ExternalClientDataModule } from '../external-client-data/external-client-data.module';
 
 @Module({
-  imports: [HttpModule, ConfigModule, forwardRef(() => WorkflowModule)],
+  imports: [HttpModule, ConfigModule, forwardRef(() => WorkflowModule), ExternalClientDataModule],
   providers: [
     AiAgentService,
     PromptService,
@@ -35,7 +35,6 @@ import { ExternalClientDataService } from '../external-client-data/external-clie
     LlmClientFactory,
     AgentNotificationService,
     UserService,
-    ExternalClientDataService,
   ],
   exports: [
     NotificacionToolService,
