@@ -442,7 +442,7 @@ export class WebhookService implements OnModuleInit {
 
             // (Opcional pero recomendado si tú llevas tracking en Session)
             await this.sessionService.registerWorkflow(
-              matchedWorkflow.name,
+              { id: matchedWorkflow.id, name: matchedWorkflow.name },
               canonicalRemoteJid,
               instanceName,
               userId,

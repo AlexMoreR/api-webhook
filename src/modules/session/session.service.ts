@@ -20,6 +20,24 @@ export class SessionService {
     return (value ?? '').trim();
   }
 
+  private parseFlujos(raw: string): Array<{ id: string; name: string }> {
+    const str = (raw ?? '').trim();
+    if (!str) return [];
+
+    try {
+      const parsed = JSON.parse(str);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      // legacy format: comma-separated names, use name as id fallback
+    }
+
+    return str
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((name) => ({ id: name, name }));
+  }
+
   private buildRemoteJidCandidates(
     remoteJid: string,
     extras: Array<string | null | undefined> = [],
@@ -232,7 +250,7 @@ export class SessionService {
   }
 
   async registerWorkflow(
-    flujos: string,
+    workflow: { id: string; name: string },
     remoteJid: string,
     instanceId: string,
     userId: string,
@@ -252,13 +270,13 @@ export class SessionService {
         select: { flujos: true },
       });
 
-      const existingNames = (existing?.flujos ?? '')
-        .split(/[,\s|]+/)
-        .map((s) => s.trim())
-        .filter(Boolean);
+      const parsed = this.parseFlujos(existing?.flujos ?? '');
+      const idx = parsed.findIndex((f) => f.id === workflow.id);
 
-      if (!existingNames.includes(flujos)) {
-        existingNames.push(flujos);
+      if (idx !== -1) {
+        parsed[idx].name = workflow.name;
+      } else {
+        parsed.push({ id: workflow.id, name: workflow.name });
       }
 
       const updatedSession = await this.prisma.session.updateMany({
@@ -270,7 +288,7 @@ export class SessionService {
             { remoteJidAlt: { in: candidates } },
           ],
         },
-        data: { flujos: existingNames.join(',') },
+        data: { flujos: JSON.stringify(parsed) },
       });
 
       if (updatedSession.count === 0) {

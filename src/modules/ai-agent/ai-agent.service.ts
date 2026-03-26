@@ -478,7 +478,7 @@ export class AiAgentService {
     );
 
     await this.sessionService.registerWorkflow(
-      currentWorkflow.name,
+      { id: currentWorkflow.id, name: currentWorkflow.name },
       remoteJid,
       instanceName,
       userId,
@@ -869,7 +869,7 @@ export class AiAgentService {
         );
 
         await this.sessionService.registerWorkflow(
-          currentWorkflow.name,
+          { id: currentWorkflow.id, name: currentWorkflow.name },
           remoteJid,
           instanceName,
           userId,
