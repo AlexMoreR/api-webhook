@@ -25,4 +25,10 @@ export const langchainTools = [
     description: 'Devuelve todos los flujos disponibles para este usuario.',
     schema: z.object({}),
   },
+  {
+    name: 'consultar_datos_cliente',
+    description:
+      'Consulta el perfil externo del cliente actual: cédula, correo, servicio contratado, monto, sector, convenio u otros campos configurados por el administrador. Úsala cuando el cliente pregunte por su información de cuenta, servicio o datos personales registrados.',
+    schema: z.object({}),
+  },
 ];

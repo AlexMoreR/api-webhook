@@ -16,6 +16,7 @@ import { NotificacionToolService } from './tools/notificacion/notificacion.servi
 import { AiCreditsService } from '../ai-credits/ai-credits.service';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { SessionService } from '../session/session.service';
+import { ExternalClientDataService } from '../external-client-data/external-client-data.service';
 
 // Refactor
 import { LlmClientFactory } from './services/llmClientFactory/llmClientFactory.service';
@@ -52,6 +53,7 @@ export class AiAgentService {
     private readonly nodeSenderService: NodeSenderService,
     private readonly sessionService: SessionService,
     private readonly agentNotificationService: AgentNotificationService,
+    private readonly externalClientDataService: ExternalClientDataService,
 
     @Inject(forwardRef(() => WorkflowService))
     private readonly workflowService: WorkflowService,
@@ -344,7 +346,32 @@ export class AiAgentService {
       },
     );
 
-    return [notificacionAsesor, ejecutarFlujos, listarWorkflows];
+    // Tool: consultar_datos_cliente
+    // @ts-ignore - evitar problemas de tipos profundos con LangChain + zod
+    const consultarDatosCliente = tool(
+      async () => {
+        logger.log('Tool consultar_datos_cliente llamada.');
+
+        const data = await this.externalClientDataService.getByRemoteJid(
+          userId,
+          remoteJid,
+        );
+
+        if (!data || Object.keys(data).length === 0) {
+          return 'No hay datos externos registrados para este cliente.';
+        }
+
+        return this.externalClientDataService.formatForAgent(data);
+      },
+      {
+        name: 'consultar_datos_cliente',
+        description:
+          'Consulta el perfil externo del cliente actual: cédula, correo, servicio contratado, monto, sector, convenio u otros campos configurados por el administrador. Úsala cuando el cliente pregunte por su información de cuenta, servicio o datos personales registrados.',
+        schema: z.object({}),
+      },
+    );
+
+    return [notificacionAsesor, ejecutarFlujos, listarWorkflows, consultarDatosCliente];
   }
 
   /**
@@ -522,8 +549,17 @@ export class AiAgentService {
         .getPromptPadre('cm842kthc0000qd2l66nbnytv')
         .catch(() => '');
 
+      // Datos externos del cliente (cédula, correo, servicio, monto, etc.)
+      const externalClientData = await this.externalClientDataService
+        .getByRemoteJid(userId, remoteJid)
+        .catch(() => null);
+
+      const externalDataBlock = externalClientData
+        ? `\n\n---\n## PERFIL DEL CLIENTE (datos registrados en el sistema)\n${this.externalClientDataService.formatForAgent(externalClientData)}\nUsa estos datos para personalizar tus respuestas. No los repitas todos de golpe; solo menciona los relevantes según el contexto. No inventes ni modifiques ninguno de estos valores.\n---`
+        : '';
+
       // Prompt PRINCIPAL del agente
-      const promptAI = `${extraRules} ${systemPrompt}`.trim();
+      const promptAI = `${extraRules} ${systemPrompt}${externalDataBlock}`.trim();
 
       // logger.log('PROMPT:', promptAI);
 

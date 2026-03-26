@@ -430,6 +430,7 @@ model User {
   reseller_reseller_userIdToUser     Reseller[]            @relation("reseller_userIdToUser")
   aiConfigs                          UserAiConfig[]
   Module                             Module[]              @relation("UserModules")
+  externalClientData                 ExternalClientData[]
 }
 
 model CrmFollowUp {
@@ -818,6 +819,21 @@ model Seguimiento {
   generatedMessage      String?  @map("generated_message")
 
   @@map("seguimientos")
+}
+
+model ExternalClientData {
+  id        String   @id @default(uuid())
+  userId    String
+  remoteJid String
+  data      Json
+  source    String?  @default("manual")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, remoteJid])
+  @@index([userId])
+  @@map("external_client_data")
 }
 
 model UserAiConfig {
