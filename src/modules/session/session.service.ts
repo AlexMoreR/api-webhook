@@ -239,6 +239,28 @@ export class SessionService {
   ) {
     try {
       const candidates = this.buildRemoteJidCandidates(this.clean(remoteJid));
+
+      const existing = await this.prisma.session.findFirst({
+        where: {
+          userId: this.clean(userId),
+          instanceId: this.clean(instanceId),
+          OR: [
+            { remoteJid: { in: candidates } },
+            { remoteJidAlt: { in: candidates } },
+          ],
+        },
+        select: { flujos: true },
+      });
+
+      const existingNames = (existing?.flujos ?? '')
+        .split(/[,\s|]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      if (!existingNames.includes(flujos)) {
+        existingNames.push(flujos);
+      }
+
       const updatedSession = await this.prisma.session.updateMany({
         where: {
           userId: this.clean(userId),
@@ -248,7 +270,7 @@ export class SessionService {
             { remoteJidAlt: { in: candidates } },
           ],
         },
-        data: { flujos },
+        data: { flujos: existingNames.join(',') },
       });
 
       if (updatedSession.count === 0) {
