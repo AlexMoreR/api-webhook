@@ -886,6 +886,13 @@ export class WebhookService implements OnModuleInit {
         );
         // logger.debug(`✅ updateSessionStatus(true) sesión principal OK`);
 
+        await this.sessionService.updateAgentDisabled(
+          remoteJid,
+          instanceName,
+          false,
+          userWithRelations.id,
+        );
+
         // Reactivar alternativo SOLO si existe sesión
         // logger.debug(`Reactivar alternativo: ${remoteJidAlt && remoteJidAlt !== remoteJid ? 'ENTRA' : 'NO entra'}`);
 
@@ -952,6 +959,13 @@ export class WebhookService implements OnModuleInit {
         logger.error('ERROR_SEGUIMIENTOS', error);
         // logger.debug(`🟥 FIN (return: error eliminando seguimiento)`);
       }
+
+      await this.sessionService.updateAgentDisabled(
+        remoteJid,
+        instanceName,
+        true,
+        userWithRelations.id,
+      );
 
       // logger.debug(`🟥 FIN (return: rama eliminar seguimiento)`);
       return;

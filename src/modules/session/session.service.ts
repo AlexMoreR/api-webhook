@@ -207,6 +207,26 @@ export class SessionService {
     });
   }
 
+  async updateAgentDisabled(
+    remoteJid: string,
+    instanceId: string,
+    agentDisabled: boolean,
+    userId: string,
+  ) {
+    const candidates = this.buildRemoteJidCandidates(this.clean(remoteJid));
+    return this.prisma.session.updateMany({
+      where: {
+        userId: this.clean(userId),
+        instanceId: this.clean(instanceId),
+        OR: [
+          { remoteJid: { in: candidates } },
+          { remoteJidAlt: { in: candidates } },
+        ],
+      },
+      data: { agentDisabled },
+    });
+  }
+
   // Consulta el estado del chat
   async isSessionActive(
     remoteJid: string,
