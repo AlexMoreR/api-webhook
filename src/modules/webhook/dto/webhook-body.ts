@@ -58,6 +58,23 @@ export class WebhookDataDto {
     };
     messageContextInfo?: any;
     base64?: string;
+    extendedTextMessage?: {
+      text: string;
+      contextInfo?: any;
+    };
+    templateButtonReplyMessage?: {
+      selectedDisplayText?: string;
+      selectedId?: string;
+      contextInfo?: any;
+    };
+    interactiveResponseMessage?: {
+      body?: string;
+      nativeFlowResponseMessage?: {
+        name?: string;
+        paramsJson?: string;
+      };
+      contextInfo?: any;
+    };
   };
   contextInfo?: any;
   messageType: string;

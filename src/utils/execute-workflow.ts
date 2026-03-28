@@ -140,9 +140,10 @@ export async function executeWorkflow(params: {
   }
 
   // 3) Prompt post-workflow (por defecto)
-  const defaultPrompt = `Acabas de ejecutar el flujo "${workflowName}".
-Genera SOLO un mensaje corto (1–2 líneas) confirmando que ya se envió la información y preguntando qué más necesita.
-No menciones "workflow", no repitas el contenido del flujo, no ejecutes acciones ni herramientas.`;
+  const defaultPrompt = `Acabas de ejecutar el flujo "${workflowName}". Genera SOLO un mensaje literal (---). No menciones "workflow", no repitas el contenido del flujo, no ejecutes acciones ni herramientas.`;
+  //   const defaultPrompt = `Acabas de ejecutar el flujo "${workflowName}".
+  // Genera SOLO un mensaje corto (1–2 líneas) confirmando que ya se envió la información y preguntando qué más necesita.
+  // No menciones "workflow", no repitas el contenido del flujo, no ejecutes acciones ni herramientas.`;
 
   const postFlowPrompt = postPromptBuilder
     ? postPromptBuilder(workflowName)
@@ -185,9 +186,9 @@ No menciones "workflow", no repitas el contenido del flujo, no ejecutes acciones
 
   const blocks = splitBlocks
     ? aiText
-        .split('\n\n')
-        .map((b) => b.trim())
-        .filter(Boolean)
+      .split('\n\n')
+      .map((b) => b.trim())
+      .filter(Boolean)
     : [aiText];
 
   for (const [index, block] of blocks.entries()) {

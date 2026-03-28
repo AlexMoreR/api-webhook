@@ -26,6 +26,22 @@ export class MessageTypeHandlerService {
       case 'conversation':
         return data?.message?.conversation ?? '';
 
+      case 'extendedTextMessage':
+        return data?.message?.extendedTextMessage?.text ?? '';
+
+      case 'templateButtonReplyMessage':
+        return (
+          data?.message?.templateButtonReplyMessage?.selectedDisplayText ??
+          data?.message?.templateButtonReplyMessage?.selectedId ??
+          ''
+        );
+
+      case 'interactiveResponseMessage':
+        return (
+          data?.message?.interactiveResponseMessage?.nativeFlowResponseMessage
+            ?.paramsJson ?? ''
+        );
+
       case 'audioMessage':
         const audioUrl = data?.message?.mediaUrl;
         const audioType = data?.message?.audioMessage?.mimetype ?? '';
