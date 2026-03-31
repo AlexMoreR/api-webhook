@@ -783,7 +783,8 @@ model Reseller {
 
 model QuickReply {
   id         Int      @id @default(autoincrement())
-  workflowId String
+  workflowId String?
+  name       String?
   mensaje    String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
