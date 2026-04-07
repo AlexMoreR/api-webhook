@@ -44,6 +44,8 @@ export class WebhookService implements OnModuleInit {
 
   private aiAgentService!: AiAgentService;
   private readonly processedMsgIds = new Map<string, number>();
+  /** Contactos con un callback de buffer actualmente en ejecución */
+  private readonly processingContacts = new Set<string>();
 
   constructor(
     private readonly moduleRef: ModuleRef,
@@ -253,7 +255,7 @@ export class WebhookService implements OnModuleInit {
       return;
     }
 
-    if (!sessionRes.status) return;
+    if (!canonicalSession?.status) return;
 
     const sessionHistoryId = buildChatHistorySessionId(
       instanceName,
@@ -295,7 +297,7 @@ export class WebhookService implements OnModuleInit {
 
     logger.log(`Is from me: ${fromMe}`);
 
-    const sessionActive = sessionRes.status;
+    const sessionActive = canonicalSession?.status ?? false;
     logger.log(`Estado de la session: ${sessionActive}`);
 
     if (!sessionActive) return;
@@ -316,25 +318,21 @@ export class WebhookService implements OnModuleInit {
 
     /* Anti-flood */
     this.antifloodService.registerMessageTimestamp(canonicalRemoteJid);
-    if (this.antifloodService.isSynchronizedPattern(canonicalRemoteJid)) {
+    const isFlood =
+      this.antifloodService.isSynchronizedPattern(canonicalRemoteJid);
+    const isHighFreq =
+      this.antifloodService.isHighFrequencyContact(canonicalRemoteJid);
+
+    if (isFlood || isHighFreq) {
       this.messageBufferService.reset(canonicalRemoteJid);
-      await Promise.all([
-        this.sessionService.updateSessionStatus(
-          canonicalRemoteJid,
-          instanceName,
-          false,
-          userWithRelations.id,
-        ),
-        this.sessionService.updateAgentDisabled(
-          canonicalRemoteJid,
-          instanceName,
-          true,
-          userWithRelations.id,
-        ),
-      ]);
-      this.antifloodService.clear(canonicalRemoteJid);
+      await this.sessionService.disableSession(
+        canonicalRemoteJid,
+        instanceName,
+        userWithRelations.id,
+      );
+      this.antifloodService.markBlocked(canonicalRemoteJid);
       logger.warn(
-        'Patrón sincronizado detectado → sesión desactivada y agente bloqueado.',
+        `${isFlood ? 'Patrón sincronizado' : 'Alta frecuencia AI-to-AI'} detectado → sesión desactivada y agente bloqueado.`,
       );
       return;
     }
@@ -345,15 +343,29 @@ export class WebhookService implements OnModuleInit {
       incomingMessage,
       delayConversation,
       async (mergedText) => {
+        if (this.processingContacts.has(canonicalRemoteJid)) {
+          logger.warn(
+            `[WEBHOOK] Callback concurrente ignorado para ${canonicalRemoteJid}`,
+          );
+          return;
+        }
+        this.processingContacts.add(canonicalRemoteJid);
         try {
           const mergedTextStr = mergedText.toString();
 
-          // Limpiar inactividad porque el agente ya respondió con un flujo
-          await this.sessionService.clearInactividadAfterAgentReply(
-            userId,
+          // Guard: verificar agentDisabled ANTES de cualquier modificación de estado
+          const agentDisabled = await this.sessionService.getAgentDisabled(
             canonicalRemoteJid,
             instanceName,
+            userId,
           );
+
+          if (agentDisabled) {
+            this.logger.warn(
+              `[WEBHOOK] agentDisabled=true → flujo detenido. userId=${userId} instance=${instanceName} remoteJid=${canonicalRemoteJid}`,
+            );
+            return;
+          }
 
           // Guardamos el mensaje completo que se acumuló en el buffer
           await this.chatHistoryService.saveMessage(
@@ -375,19 +387,12 @@ export class WebhookService implements OnModuleInit {
             );
           }
 
-          // cortar si agentDisabled está activo en la sesión
-          const agentDisabled = await this.sessionService.getAgentDisabled(
+          // Limpiar inactividad solo cuando el agente va a responder
+          await this.sessionService.clearInactividadAfterAgentReply(
+            userId,
             canonicalRemoteJid,
             instanceName,
-            userId,
           );
-
-          if (agentDisabled) {
-            this.logger.warn(
-              `[WEBHOOK] agentDisabled=true → flujo detenido. userId=${userId} instance=${instanceName} remoteJid=${canonicalRemoteJid}`,
-            );
-            return;
-          }
 
           //Lead Funnel (bucket/sintetizador)
           if (canonicalSession?.id && userWithRelations.enabledSynthesizer) {
@@ -551,6 +556,8 @@ export class WebhookService implements OnModuleInit {
             'Error en callback de messageBufferService.handleIncomingMessage (se evita crash global).',
             err?.message || err,
           );
+        } finally {
+          this.processingContacts.delete(canonicalRemoteJid);
         }
       },
     );

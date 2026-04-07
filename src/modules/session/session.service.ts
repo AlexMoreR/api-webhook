@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/database/prisma.service';
 import { LoggerService } from 'src/core/logger/logger.service';
 import {
@@ -106,43 +107,56 @@ export class SessionService {
     const rj = this.resolvePreferredRemoteJid(observedAliases);
     const candidates = this.buildRemoteJidCandidates(rj, observedAliases);
 
-    const existingSession = await this.findSessionByCandidates(
-      userId,
-      instanceId,
-      candidates,
-    );
+    // Transacción serializable para evitar race condition entre dos webhooks
+    // simultáneos del mismo contacto que harían doble-create.
+    return this.prisma.$transaction(
+      async (tx) => {
+        const existingSession = await tx.session.findFirst({
+          where: {
+            userId,
+            instanceId,
+            OR: [
+              { remoteJid: { in: candidates } },
+              { remoteJidAlt: { in: candidates } },
+            ],
+          },
+          orderBy: { updatedAt: 'desc' },
+        });
 
-    if (existingSession) {
-      const nextPushName = !isBadName(pn) ? pn : existingSession.pushName;
-      const nextAlt = pickObservedAlternateRemoteJid(rj, [
-        ...observedAliases,
-        existingSession.remoteJid,
-        existingSession.remoteJidAlt,
-      ]);
+        if (existingSession) {
+          const nextPushName = !isBadName(pn) ? pn : existingSession.pushName;
+          const nextAlt = pickObservedAlternateRemoteJid(rj, [
+            ...observedAliases,
+            existingSession.remoteJid,
+            existingSession.remoteJidAlt,
+          ]);
 
-      return this.prisma.session.update({
-        where: { id: existingSession.id },
-        data: {
-          remoteJid: rj,
-          remoteJidAlt: nextAlt,
-          pushName: nextPushName,
-          instanceId: this.clean(instanceId),
-          updatedAt: new Date(),
-        },
-      });
-    }
+          return tx.session.update({
+            where: { id: existingSession.id },
+            data: {
+              remoteJid: rj,
+              remoteJidAlt: nextAlt,
+              pushName: nextPushName,
+              instanceId: this.clean(instanceId),
+              updatedAt: new Date(),
+            },
+          });
+        }
 
-    return this.prisma.session.create({
-      data: {
-        userId,
-        remoteJid: rj,
-        remoteJidAlt: pickObservedAlternateRemoteJid(rj, observedAliases),
-        pushName: !isBadName(pn) ? pn : 'Desconocido',
-        instanceId: this.clean(instanceId),
-        status: true,
-        updatedAt: new Date(),
+        return tx.session.create({
+          data: {
+            userId,
+            remoteJid: rj,
+            remoteJidAlt: pickObservedAlternateRemoteJid(rj, observedAliases),
+            pushName: !isBadName(pn) ? pn : 'Desconocido',
+            instanceId: this.clean(instanceId),
+            status: true,
+            updatedAt: new Date(),
+          },
+        });
       },
-    });
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
   }
 
   // Nuevo método para obtener el estado de agentDisabled
@@ -225,6 +239,32 @@ export class SessionService {
       },
       data: { agentDisabled },
     });
+  }
+
+  /**
+   * Deshabilita la sesión de forma atómica: status=false y agentDisabled=true
+   * en una única transacción para evitar estados inconsistentes si una de las
+   * dos operaciones falla.
+   */
+  async disableSession(
+    remoteJid: string,
+    instanceId: string,
+    userId: string,
+  ): Promise<void> {
+    const candidates = this.buildRemoteJidCandidates(this.clean(remoteJid));
+    const where = {
+      userId: this.clean(userId),
+      instanceId: this.clean(instanceId),
+      OR: [
+        { remoteJid: { in: candidates } },
+        { remoteJidAlt: { in: candidates } },
+      ],
+    };
+
+    await this.prisma.$transaction([
+      this.prisma.session.updateMany({ where, data: { status: false } }),
+      this.prisma.session.updateMany({ where, data: { agentDisabled: true } }),
+    ]);
   }
 
   // Consulta el estado del chat

@@ -35,7 +35,12 @@ export class MessageBufferService {
     entry.timeout = setTimeout(async () => {
       const mergedText = entry.messages.join(' ').replace(/\s+/g, ' ').trim();
       this.buffer.delete(userId);
-      await callback(mergedText);
+      try {
+        await callback(mergedText);
+      } catch {
+        // Los errores del callback deben manejarse internamente.
+        // Este catch evita unhandled promise rejections en el setTimeout.
+      }
     }, delay);
 
     this.buffer.set(userId, entry);
