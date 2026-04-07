@@ -313,24 +313,37 @@ export class WebhookService implements OnModuleInit {
     const incomingMessage = extractedContent.toString().trim();
 
     /* Anti-flood */
-    this.antifloodService.registerMessageTimestamp(canonicalRemoteJid);
+    logger.debug(
+      `[ANTIFLOOD] Registrando timestamp para remoteJid=${canonicalRemoteJid} instance=${instanceName}`,
+    );
+    this.antifloodService.registerMessageTimestamp(canonicalRemoteJid, instanceName);
+
+    logger.debug(`[ANTIFLOOD] Evaluando isSynchronizedPattern...`);
     const isFlood =
-      this.antifloodService.isSynchronizedPattern(canonicalRemoteJid);
+      this.antifloodService.isSynchronizedPattern(canonicalRemoteJid, instanceName);
+    logger.debug(`[ANTIFLOOD] isSynchronizedPattern → ${isFlood}`);
+
+    logger.debug(`[ANTIFLOOD] Evaluando isHighFrequencyContact...`);
     const isHighFreq =
-      this.antifloodService.isHighFrequencyContact(canonicalRemoteJid);
+      this.antifloodService.isHighFrequencyContact(canonicalRemoteJid, instanceName);
+    logger.debug(`[ANTIFLOOD] isHighFrequencyContact → ${isHighFreq}`);
 
     if (isFlood || isHighFreq) {
       const reason = isFlood ? 'Patrón sincronizado' : 'Alta frecuencia AI-to-AI';
+      logger.debug(
+        `[ANTIFLOOD] Detección confirmada (${reason}). Reseteando buffer y marcando bloqueo...`,
+      );
       this.messageBufferService.reset(canonicalRemoteJid);
-      // markBlocked primero (en-memoria, nunca falla) para garantizar
-      // protección aunque la escritura a BD falle después.
-      this.antifloodService.markBlocked(canonicalRemoteJid);
+      // markBlocked primero: actualiza memoria y persiste en BD (fire-and-forget).
+      this.antifloodService.markBlocked(canonicalRemoteJid, instanceName);
+      logger.debug(`[ANTIFLOOD] Desactivando sesión en BD...`);
       try {
         await this.sessionService.disableSession(
           canonicalRemoteJid,
           instanceName,
           userWithRelations.id,
         );
+        logger.debug(`[ANTIFLOOD] Sesión desactivada en BD correctamente.`);
       } catch (err: any) {
         logger.error(
           `[ANTIFLOOD] Error desactivando sesión en BD (cooldown en-memoria activo). ${err?.message}`,
@@ -339,6 +352,8 @@ export class WebhookService implements OnModuleInit {
       logger.warn(`${reason} detectado → sesión desactivada y agente bloqueado.`);
       return;
     }
+
+    logger.debug(`[ANTIFLOOD] Sin detección. Continuando flujo normal.`);
 
     /* Buffer + IA + CHATBOT */
     this.messageBufferService.handleIncomingMessage(
