@@ -317,13 +317,25 @@ export class WebhookService implements OnModuleInit {
     /* Anti-flood */
     this.antifloodService.registerMessageTimestamp(canonicalRemoteJid);
     if (this.antifloodService.isSynchronizedPattern(canonicalRemoteJid)) {
-      await this.sessionService.updateSessionStatus(
-        canonicalRemoteJid,
-        instanceName,
-        false,
-        userWithRelations.id,
+      this.messageBufferService.reset(canonicalRemoteJid);
+      await Promise.all([
+        this.sessionService.updateSessionStatus(
+          canonicalRemoteJid,
+          instanceName,
+          false,
+          userWithRelations.id,
+        ),
+        this.sessionService.updateAgentDisabled(
+          canonicalRemoteJid,
+          instanceName,
+          true,
+          userWithRelations.id,
+        ),
+      ]);
+      this.antifloodService.clear(canonicalRemoteJid);
+      logger.warn(
+        'Patrón sincronizado detectado → sesión desactivada y agente bloqueado.',
       );
-      logger.warn('Patrón sincronizado detectado → sesión desactivada.');
       return;
     }
 
