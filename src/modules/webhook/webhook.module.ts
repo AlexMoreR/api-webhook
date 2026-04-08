@@ -25,9 +25,10 @@ import { FollowUpRunnerService } from './services/follow-up-runner/follow-up-run
 import { FollowUpRunnerSchedulerService } from './services/follow-up-runner/follow-up-runner.scheduler.service';
 import { BillingCronService } from './services/billing-cron/billing-cron.service';
 import { BillingCronSchedulerService } from './services/billing-cron/billing-cron.scheduler.service';
+import { PaymentReceiptModule } from 'src/modules/payment-receipt/payment-receipt.module';
 
 @Module({
-  imports: [HttpModule, WorkflowModule, AiAgentModule, LeadFunnelModule],
+  imports: [HttpModule, WorkflowModule, AiAgentModule, LeadFunnelModule, PaymentReceiptModule],
 
   controllers: [WebhookController],
 

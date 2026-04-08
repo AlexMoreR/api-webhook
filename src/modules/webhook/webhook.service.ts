@@ -37,6 +37,7 @@ import {
 import { LeadFunnelService } from '../lead-funnel/services/lead-funnel/lead-funnel.service';
 import { buildChatHistorySessionId } from '../chat-history/chat-history-session.helper';
 import { FollowUpRunnerService } from './services/follow-up-runner/follow-up-runner.service';
+import { PaymentReceiptProcessorService } from 'src/modules/payment-receipt/services/payment-receipt-processor.service';
 
 @Injectable()
 export class WebhookService implements OnModuleInit {
@@ -76,6 +77,7 @@ export class WebhookService implements OnModuleInit {
     private readonly antifloodService: AntifloodService,
     private readonly leadFunnelService: LeadFunnelService,
     private readonly followUpRunnerService: FollowUpRunnerService,
+    private readonly paymentReceiptProcessor: PaymentReceiptProcessorService,
   ) {}
 
   onModuleInit(): void {
@@ -360,6 +362,17 @@ export class WebhookService implements OnModuleInit {
       );
 
     const incomingMessage = extractedContent.toString().trim();
+
+    /* Detección de comprobantes de pago en la instancia del admin */
+    if (userId === process.env.ADMIN_USER_ID && incomingMessage) {
+      void this.paymentReceiptProcessor
+        .handle({ content: incomingMessage, remoteJid: canonicalRemoteJid })
+        .catch((err: unknown) =>
+          logger.error(
+            `[PaymentReceipt] Error procesando comprobante: ${(err as any)?.message ?? err}`,
+          ),
+        );
+    }
 
     /* Anti-flood */
     logger.debug(

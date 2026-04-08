@@ -11,6 +11,8 @@ import { Response } from 'express';
 import { LoggerService } from 'src/core/logger/logger.service';
 import { BillingCronService } from './services/billing-cron/billing-cron.service';
 import { WebhookBodyDto } from './dto/webhook-body';
+import { WompiService } from 'src/modules/payment-receipt/wompi/wompi.service';
+import { WompiEventDto } from 'src/modules/payment-receipt/wompi/wompi-event.dto';
 
 @Controller('webhook')
 export class WebhookController {
@@ -18,6 +20,7 @@ export class WebhookController {
     private readonly webhookService: WebhookService,
     private readonly logger: LoggerService,
     private readonly billingCronService: BillingCronService,
+    private readonly wompiService: WompiService,
   ) {}
 
   @Post()
@@ -38,6 +41,20 @@ export class WebhookController {
       // No se puede enviar error 500 al remitente, la respuesta ya fue enviada.
     });
     // El hilo de ejecución se libera aquí.
+  }
+
+  /**
+   * Webhook de Wompi — recibe eventos de transacciones.
+   * Responde 200 inmediatamente y procesa en segundo plano.
+   */
+  @Post('wompi')
+  wompiWebhook(@Body() event: WompiEventDto, @Res() res: Response) {
+    res.status(200).send();
+    void this.wompiService.process(event).catch((error: unknown) => {
+      void this.logger.error(
+        `[Wompi] Error asíncrono: ${JSON.stringify(error)}`,
+      );
+    });
   }
 
   @Post('billing/process')

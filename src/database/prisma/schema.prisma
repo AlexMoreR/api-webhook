@@ -740,31 +740,33 @@ model FinanceCurrency {
 }
 
 model FinanceTransaction {
-  id           String              @id @default(uuid())
-  userId       String
-  type         FinanceTxType
-  status       FinanceTxStatus     @default(ACTIVE)
-  occurredAt   DateTime
-  amount       Decimal             @db.Decimal(18, 2)
-  currencyCode String
-  accountId    String
-  categoryId   String?
-  title        String?
-  description  String?
-  counterparty String?
-  reference    String?
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
-  deletedAt    DateTime?
-  discount     Decimal             @default(0)
-  extra        Decimal             @default(0)
-  sessionId    Int?
-  attachments  FinanceAttachment[]
-  account      FinanceAccount      @relation(fields: [accountId], references: [id])
-  category     FinanceCategory?    @relation(fields: [categoryId], references: [id])
-  currency     FinanceCurrency     @relation(fields: [currencyCode], references: [code])
-  session      Session?            @relation(fields: [sessionId], references: [id])
-  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String              @id @default(uuid())
+  userId            String
+  type              FinanceTxType
+  status            FinanceTxStatus     @default(ACTIVE)
+  occurredAt        DateTime
+  amount            Decimal             @db.Decimal(18, 2)
+  currencyCode      String
+  accountId         String
+  categoryId        String?
+  title             String?
+  description       String?
+  counterparty      String?
+  reference         String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  deletedAt         DateTime?
+  discount          Decimal             @default(0)
+  extra             Decimal             @default(0)
+  sessionId         Int?
+  paymentSource     PaymentSource?
+  externalReference String?             @unique
+  attachments       FinanceAttachment[]
+  account           FinanceAccount      @relation(fields: [accountId], references: [id])
+  category          FinanceCategory?    @relation(fields: [categoryId], references: [id])
+  currency          FinanceCurrency     @relation(fields: [currencyCode], references: [code])
+  session           Session?            @relation(fields: [sessionId], references: [id])
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, accountId, occurredAt])
   @@index([userId, categoryId, occurredAt])
@@ -772,6 +774,7 @@ model FinanceTransaction {
   @@index([userId, occurredAt])
   @@index([userId, type, status])
   @@index([userId, sessionId, occurredAt])
+  @@index([paymentSource])
   @@map("finance_transactions")
 }
 
@@ -1085,4 +1088,10 @@ enum BillingStatus {
 enum ServiceAccessStatus {
   ACTIVE
   SUSPENDED
+}
+
+enum PaymentSource {
+  WHATSAPP_RECEIPT
+  WOMPI_WEBHOOK
+  MANUAL
 }
