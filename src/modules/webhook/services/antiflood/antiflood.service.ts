@@ -7,6 +7,8 @@ interface MessageTracker {
   timestamps: number[];
   /** Timestamp (ms) hasta el cual el contacto está bloqueado por cooldown */
   blockedUntil?: number;
+  /** Últimos N textos recibidos (para detección de contenido repetido) */
+  recentContent: string[];
 }
 
 @Injectable()
@@ -33,6 +35,41 @@ export class AntifloodService implements OnModuleInit, OnModuleDestroy {
   // 🔧 Cleanup de entradas inactivas
   private readonly staleThresholdMs = 5 * 60_000;
   private readonly cleanupIntervalMs = 10 * 60_000;
+
+  // 🔧 Detección de contenido repetido: 3 mensajes idénticos en los últimos 5
+  private readonly maxContentHistory = 5;
+  private readonly maxIdenticalMessages = 3;
+
+  // 🔧 Detección de repetición interna en un solo mensaje (≥60% palabras iguales, mín 5 palabras)
+  private readonly internalRepetitionThreshold = 0.6;
+  private readonly internalRepetitionMinWords = 5;
+
+  // 🔧 Lista blanca: estos números de teléfono omiten todos los checks de antiflood
+  private readonly WHITELIST_PHONES = new Set<string>([
+    '573233246305',
+    '573233612620',
+    '573115616975',
+    '573216031493',
+    '573186571866',
+  ]);
+
+  // 🔧 Palabras ofensivas (español + inglés básico)
+  private readonly BAD_WORDS = new Set<string>([
+    'hijueputa', 'hijueputas', 'hp', 'mierda', 'mierdas',
+    'puta', 'puto', 'putas', 'putos', 'putamente',
+    'coño', 'coños', 'pendejo', 'pendeja', 'pendejos', 'pendejas',
+    'idiota', 'idiotas', 'imbecil', 'imbécil', 'imbeciles', 'imbéciles',
+    'estupido', 'estúpido', 'estupida', 'estúpida', 'estupidos', 'estúpidos',
+    'malparido', 'malparida', 'malparidos', 'malparidas',
+    'gonorrea', 'gonorreas', 'verga', 'vergas',
+    'marica', 'marico', 'maricas', 'maricos', 'maricon', 'maricón',
+    'cabron', 'cabrón', 'cabrona', 'cabrona', 'cabrones',
+    'bastardo', 'bastarda', 'bastardos', 'bastardas',
+    'desgraciado', 'desgraciada', 'desgraciados', 'desgraciadas',
+    'huevon', 'güevon', 'huevona', 'güevona', 'huevones',
+    'culero', 'culera', 'culeros',
+    'fuck', 'shit', 'bitch', 'asshole', 'cunt',
+  ]);
 
   private cleanupTimer!: NodeJS.Timeout;
 
@@ -71,7 +108,7 @@ export class AntifloodService implements OnModuleInit, OnModuleDestroy {
 
       for (const block of active) {
         const key = this.buildKey(block.remoteJid, block.instanceName);
-        const entry = this.messageMap.get(key) ?? { timestamps: [] };
+        const entry = this.messageMap.get(key) ?? { timestamps: [], recentContent: [] };
         entry.blockedUntil = block.blockedUntil.getTime();
         this.messageMap.set(key, entry);
 
@@ -127,7 +164,7 @@ export class AntifloodService implements OnModuleInit, OnModuleDestroy {
   registerMessageTimestamp(remoteJid: string, instanceName: string): void {
     const key = this.buildKey(remoteJid, instanceName);
     const now = Date.now();
-    const entry = this.messageMap.get(key) ?? { timestamps: [] };
+    const entry = this.messageMap.get(key) ?? { timestamps: [], recentContent: [] };
     entry.timestamps.push(now);
 
     if (entry.timestamps.length > this.maxHistory) {
@@ -294,7 +331,7 @@ export class AntifloodService implements OnModuleInit, OnModuleDestroy {
 
   markBlocked(remoteJid: string, instanceName: string): void {
     const key = this.buildKey(remoteJid, instanceName);
-    const entry = this.messageMap.get(key) ?? { timestamps: [] };
+    const entry = this.messageMap.get(key) ?? { timestamps: [], recentContent: [] };
     const blockedUntilMs = Date.now() + this.cooldownMs;
     entry.blockedUntil = blockedUntilMs;
     this.messageMap.set(key, entry);
@@ -338,6 +375,121 @@ export class AntifloodService implements OnModuleInit, OnModuleDestroy {
           'AntifloodService',
         ),
       );
+  }
+
+  // ─── Lista blanca ─────────────────────────────────────────────────────────
+
+  /**
+   * Devuelve true si el número de teléfono extraído del JID está en la lista blanca.
+   * Los números en lista blanca omiten todos los checks de antiflood y contenido.
+   */
+  isWhitelisted(remoteJid: string): boolean {
+    const phone = remoteJid.split('@')[0];
+    const result = this.WHITELIST_PHONES.has(phone);
+    if (result) {
+      this.logger.debug(
+        `[WHITELIST] ${remoteJid} → número en lista blanca, omitiendo checks.`,
+        'AntifloodService',
+      );
+    }
+    return result;
+  }
+
+  // ─── Detección de contenido ───────────────────────────────────────────────
+
+  /**
+   * Registra el texto del mensaje entrante para rastrear contenido repetido.
+   * Debe llamarse junto con registerMessageTimestamp.
+   */
+  registerMessageContent(remoteJid: string, instanceName: string, text: string): void {
+    const key = this.buildKey(remoteJid, instanceName);
+    const entry = this.messageMap.get(key) ?? { timestamps: [], recentContent: [] };
+    const normalized = text.trim().toLowerCase();
+    entry.recentContent.push(normalized);
+    if (entry.recentContent.length > this.maxContentHistory) {
+      entry.recentContent.shift();
+    }
+    this.messageMap.set(key, entry);
+    this.logger.debug(
+      `[CONTENT] key="${key}" | contenido registrado (${entry.recentContent.length}/${this.maxContentHistory})`,
+      'AntifloodService',
+    );
+  }
+
+  /**
+   * Detecta si el contacto está enviando el mismo mensaje repetidamente.
+   * Umbral: maxIdenticalMessages coincidencias exactas en los últimos maxContentHistory mensajes.
+   */
+  isRepeatedContentSpam(text: string, remoteJid: string, instanceName: string): boolean {
+    if (!text || text.length < 3) return false;
+    const key = this.buildKey(remoteJid, instanceName);
+    const entry = this.messageMap.get(key);
+    if (!entry || entry.recentContent.length < this.maxIdenticalMessages) return false;
+
+    const normalized = text.trim().toLowerCase();
+    const identicalCount = entry.recentContent.filter((c) => c === normalized).length;
+
+    this.logger.debug(
+      `[CONTENT_REPEAT] key="${key}" | idénticos=${identicalCount}/${this.maxIdenticalMessages} requeridos`,
+      'AntifloodService',
+    );
+
+    if (identicalCount >= this.maxIdenticalMessages) {
+      this.logger.warn(
+        `🚨 Contenido repetido detectado para ${remoteJid} (${identicalCount} mensajes idénticos en los últimos ${entry.recentContent.length})`,
+        'AntifloodService',
+      );
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Detecta si un solo mensaje tiene repetición interna excesiva de palabras
+   * (ej: "hola hola hola hola hola" → spam de palabra).
+   */
+  hasInternalRepetition(text: string): boolean {
+    if (!text) return false;
+    const words = text.trim().toLowerCase().split(/\s+/).filter((w) => w.length >= 3);
+    if (words.length < this.internalRepetitionMinWords) return false;
+
+    const freq = new Map<string, number>();
+    for (const word of words) {
+      freq.set(word, (freq.get(word) ?? 0) + 1);
+    }
+    const maxFreq = Math.max(...freq.values());
+    const ratio = maxFreq / words.length;
+
+    this.logger.debug(
+      `[INTERNAL_REPEAT] palabras=${words.length} | maxFreq=${maxFreq} | ratio=${ratio.toFixed(2)} | umbral=${this.internalRepetitionThreshold}`,
+      'AntifloodService',
+    );
+
+    if (ratio >= this.internalRepetitionThreshold) {
+      this.logger.warn(
+        `🚨 Repetición interna detectada (ratio=${ratio.toFixed(2)}, umbral=${this.internalRepetitionThreshold})`,
+        'AntifloodService',
+      );
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Detecta si el mensaje contiene palabras ofensivas de la lista.
+   */
+  isBadWordMessage(text: string): boolean {
+    if (!text) return false;
+    const words = text.toLowerCase().split(/[\s,!?¿¡.;:()\-_]+/);
+    const found = words.find((w) => w.length > 0 && this.BAD_WORDS.has(w));
+    if (found) {
+      this.logger.warn(
+        `🚨 Palabra ofensiva detectada: "${found}"`,
+        'AntifloodService',
+      );
+      return true;
+    }
+    return false;
   }
 
   // ─── Internos ─────────────────────────────────────────────────────────────

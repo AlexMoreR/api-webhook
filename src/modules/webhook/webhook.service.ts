@@ -395,54 +395,82 @@ export class WebhookService implements OnModuleInit {
           )
         ).toString().trim();
 
-    /* Anti-flood */
+    /* Stickers y tipos de mensaje no soportados → ignorar silenciosamente */
+    if (incomingMessage === '[UNKNOWN_MESSAGE_TYPE]') {
+      logger.debug(`[CONTENT] Tipo de mensaje no soportado (sticker/media) → ignorado.`);
+      return;
+    }
+
+    /* Registrar contenido e timestamp para checks de antiflood */
+    this.antifloodService.registerMessageContent(canonicalRemoteJid, instanceName, incomingMessage);
     logger.debug(
       `[ANTIFLOOD] Registrando timestamp para remoteJid=${canonicalRemoteJid} instance=${instanceName}`,
     );
     this.antifloodService.registerMessageTimestamp(canonicalRemoteJid, instanceName);
 
-    logger.debug(`[ANTIFLOOD] Evaluando isSynchronizedPattern...`);
-    const isFlood =
-      this.antifloodService.isSynchronizedPattern(canonicalRemoteJid, instanceName);
-    logger.debug(`[ANTIFLOOD] isSynchronizedPattern → ${isFlood}`);
+    /* Lista blanca: números de prueba omiten todos los checks de spam */
+    const isWhitelisted = this.antifloodService.isWhitelisted(canonicalRemoteJid);
 
-    logger.debug(`[ANTIFLOOD] Evaluando isHighFrequencyContact...`);
-    const isHighFreq =
-      this.antifloodService.isHighFrequencyContact(canonicalRemoteJid, instanceName);
-    logger.debug(`[ANTIFLOOD] isHighFrequencyContact → ${isHighFreq}`);
+    if (!isWhitelisted) {
+      /* Anti-flood temporal (loops AI-to-AI) */
+      logger.debug(`[ANTIFLOOD] Evaluando isSynchronizedPattern...`);
+      const isFlood =
+        this.antifloodService.isSynchronizedPattern(canonicalRemoteJid, instanceName);
+      logger.debug(`[ANTIFLOOD] isSynchronizedPattern → ${isFlood}`);
 
-    logger.debug(`[ANTIFLOOD] Evaluando isMediumFrequencyBurst...`);
-    const isMediumBurst =
-      this.antifloodService.isMediumFrequencyBurst(canonicalRemoteJid, instanceName);
-    logger.debug(`[ANTIFLOOD] isMediumFrequencyBurst → ${isMediumBurst}`);
+      logger.debug(`[ANTIFLOOD] Evaluando isHighFrequencyContact...`);
+      const isHighFreq =
+        this.antifloodService.isHighFrequencyContact(canonicalRemoteJid, instanceName);
+      logger.debug(`[ANTIFLOOD] isHighFrequencyContact → ${isHighFreq}`);
 
-    if (isFlood || isHighFreq || isMediumBurst) {
-      const reason = isFlood
-        ? 'Patrón sincronizado'
-        : isHighFreq
-          ? 'Alta frecuencia AI-to-AI'
-          : 'Burst de media frecuencia (loop lento AI-to-AI)';
-      logger.debug(
-        `[ANTIFLOOD] Detección confirmada (${reason}). Reseteando buffer y marcando bloqueo...`,
-      );
-      this.messageBufferService.reset(canonicalRemoteJid);
-      // markBlocked primero: actualiza memoria y persiste en BD (fire-and-forget).
-      this.antifloodService.markBlocked(canonicalRemoteJid, instanceName);
-      logger.debug(`[ANTIFLOOD] Desactivando sesión en BD...`);
-      try {
-        await this.sessionService.disableSession(
-          canonicalRemoteJid,
-          instanceName,
-          userWithRelations.id,
+      logger.debug(`[ANTIFLOOD] Evaluando isMediumFrequencyBurst...`);
+      const isMediumBurst =
+        this.antifloodService.isMediumFrequencyBurst(canonicalRemoteJid, instanceName);
+      logger.debug(`[ANTIFLOOD] isMediumFrequencyBurst → ${isMediumBurst}`);
+
+      if (isFlood || isHighFreq || isMediumBurst) {
+        const reason = isFlood
+          ? 'Patrón sincronizado'
+          : isHighFreq
+            ? 'Alta frecuencia AI-to-AI'
+            : 'Burst de media frecuencia (loop lento AI-to-AI)';
+        logger.debug(
+          `[ANTIFLOOD] Detección confirmada (${reason}). Reseteando buffer y marcando bloqueo...`,
         );
-        logger.debug(`[ANTIFLOOD] Sesión desactivada en BD correctamente.`);
-      } catch (err: any) {
-        logger.error(
-          `[ANTIFLOOD] Error desactivando sesión en BD (cooldown en-memoria activo). ${err?.message}`,
-        );
+        this.messageBufferService.reset(canonicalRemoteJid);
+        this.antifloodService.markBlocked(canonicalRemoteJid, instanceName);
+        logger.debug(`[ANTIFLOOD] Desactivando sesión en BD...`);
+        try {
+          await this.sessionService.disableSession(
+            canonicalRemoteJid,
+            instanceName,
+            userWithRelations.id,
+          );
+          logger.debug(`[ANTIFLOOD] Sesión desactivada en BD correctamente.`);
+        } catch (err: any) {
+          logger.error(
+            `[ANTIFLOOD] Error desactivando sesión en BD (cooldown en-memoria activo). ${err?.message}`,
+          );
+        }
+        logger.warn(`${reason} detectado → sesión desactivada y agente bloqueado.`);
+        return;
       }
-      logger.warn(`${reason} detectado → sesión desactivada y agente bloqueado.`);
-      return;
+
+      /* Anti-spam de contenido (soft-skip: no bloquea sesión) */
+      if (this.antifloodService.isRepeatedContentSpam(incomingMessage, canonicalRemoteJid, instanceName)) {
+        logger.warn(`[CONTENT] Mensaje repetido consecutivamente → ignorado.`);
+        return;
+      }
+
+      if (this.antifloodService.hasInternalRepetition(incomingMessage)) {
+        logger.warn(`[CONTENT] Mensaje con palabras repetidas internamente → ignorado.`);
+        return;
+      }
+
+      if (this.antifloodService.isBadWordMessage(incomingMessage)) {
+        logger.warn(`[CONTENT] Mensaje con palabras ofensivas → ignorado.`);
+        return;
+      }
     }
 
     logger.debug(`[ANTIFLOOD] Sin detección. Continuando flujo normal.`);
