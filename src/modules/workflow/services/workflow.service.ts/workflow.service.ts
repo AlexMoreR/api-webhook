@@ -1041,6 +1041,26 @@ export class WorkflowService implements OnModuleInit {
       return;
     }
 
+    // Guard de idempotencia: si ya existe un seguimiento pendiente para este mismo nodo
+    // y sesión, no crear duplicado (puede ocurrir si el workflow re-ejecuta el nodo).
+    const existingPending = await this.prisma.seguimiento.findFirst({
+      where: {
+        idNodo: node.id,
+        instancia: instanceName,
+        remoteJid,
+        followUpStatus: { in: ['pending', 'processing'] },
+      },
+      select: { id: true },
+    });
+
+    if (existingPending) {
+      this.logger.log(
+        `Seguimiento inactividad para nodo ${node.id} ya está pendiente (id=${existingPending.id}). Saltando creación duplicada.`,
+        'WorkflowService',
+      );
+      return;
+    }
+
     const delaySeguimiento = convertDelayToSeconds(node.delay ?? '') ?? 0;
     const seguimiento = await this.prisma.seguimiento.create({
       data: {

@@ -475,6 +475,20 @@ export class WebhookService implements OnModuleInit {
 
     logger.debug(`[ANTIFLOOD] Sin detección. Continuando flujo normal.`);
 
+    // Cancelar seguimientos de inactividad INMEDIATAMENTE al recibir respuesta del cliente,
+    // antes del buffer, para evitar race condition con el scheduler de follow-ups.
+    void this.followUpRunnerService
+      .cancelPendingFollowUpsOnReply({
+        userId,
+        remoteJid: canonicalRemoteJid,
+        instanceName,
+      })
+      .catch((err: unknown) =>
+        logger.error(
+          `[INACTIVIDAD] Error cancelando follow-ups al recibir mensaje: ${(err as any)?.message ?? err}`,
+        ),
+      );
+
     /* Buffer + IA + CHATBOT */
     this.messageBufferService.handleIncomingMessage(
       canonicalRemoteJid,
