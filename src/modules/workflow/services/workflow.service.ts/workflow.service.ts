@@ -3,7 +3,7 @@ import { ModuleRef } from '@nestjs/core';
 
 import { NodeSenderService } from '../node-sender.service.ts/node-sender.service';
 import { LoggerService } from 'src/core/logger/logger.service';
-import { convertDelayToSeconds, convertDelayToFutureDate } from 'src/modules/webhook/utils/convert-delay-to-seconds.helper';
+import { convertDelayToSeconds } from 'src/modules/webhook/utils/convert-delay-to-seconds.helper';
 import { Session, WorkflowNode } from '@prisma/client';
 import { SessionService } from 'src/modules/session/session.service';
 import { SessionTriggerService } from 'src/modules/session-trigger/session-trigger.service';
@@ -613,7 +613,7 @@ export class WorkflowService implements OnModuleInit {
       }
 
       try {
-        const reactivationDate = convertDelayToFutureDate(rawDelay);
+        const reactivationDate = convertDelayToSeconds(rawDelay);
         const existingTrigger =
           await this.sessionTriggerService.findBySessionId(s.id.toString());
 
