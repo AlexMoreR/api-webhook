@@ -7,14 +7,13 @@ export const unitToSeconds = {
 };
 
 /**
- * Convierte un delay con formato "unidad-valor" (ej. "minutes-5") a segundos.
+ * Convierte un delay con formato "unidad-valor" (ej. "minutes-5") a segundos numéricos.
  *
  * @param delay Formato como "minutes-5", "hours-2", "days-1"
- * @returns Fecha con la suma del tiempo
+ * @returns Número de segundos
  * @throws Error si el formato es inválido
  */
-
-export function convertDelayToSeconds(delay: string): string {
+export function convertDelayToSeconds(delay: string): number {
   if (!delay) {
     throw new Error('El parámetro delay es requerido.');
   }
@@ -26,28 +25,27 @@ export function convertDelayToSeconds(delay: string): string {
     throw new Error(`Formato de delay inválido: ${delay}`);
   }
 
-  const seconds = value * unitToSeconds[unit];
+  return value * unitToSeconds[unit];
+}
 
-  //  #1: Darle el formato DD/MM/YYYY HH:MM
-  const now = new Date();
-  const day = String(now.getDate()).padStart(2, '0');
-  const month = String(now.getMonth() + 1).padStart(2, '0'); // ¡Importante! Enero es 0
-  const year = now.getFullYear();
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
+/**
+ * Convierte un delay con formato "unidad-valor" a una fecha futura formateada "DD/MM/YYYY HH:MM".
+ * Usar exclusivamente para nodos de tipo pause/trigger que necesitan una fecha de reactivación.
+ *
+ * @param delay Formato como "minutes-5", "hours-2", "days-1"
+ * @returns Fecha futura como string "DD/MM/YYYY HH:MM"
+ * @throws Error si el formato es inválido
+ */
+export function convertDelayToFutureDate(delay: string): string {
+  const seconds = convertDelayToSeconds(delay);
 
-  const formattedNow = `${day}/${month}/${year} ${hours}:${minutes}`;
+  const futureDate = new Date(Date.now() + seconds * 1000);
 
-  //  #2: Sumar segundos a la fecha actual
-  const futureDate = new Date(now.getTime() + seconds * 1000);
+  const day = String(futureDate.getDate()).padStart(2, '0');
+  const month = String(futureDate.getMonth() + 1).padStart(2, '0');
+  const year = futureDate.getFullYear();
+  const hours = String(futureDate.getHours()).padStart(2, '0');
+  const minutes = String(futureDate.getMinutes()).padStart(2, '0');
 
-  const futureDay = String(futureDate.getDate()).padStart(2, '0');
-  const futureMonth = String(futureDate.getMonth() + 1).padStart(2, '0');
-  const futureYear = futureDate.getFullYear();
-  const futureHours = String(futureDate.getHours()).padStart(2, '0');
-  const futureMinutes = String(futureDate.getMinutes()).padStart(2, '0');
-
-  const formattedFuture = `${futureDay}/${futureMonth}/${futureYear} ${futureHours}:${futureMinutes}`;
-
-  return formattedFuture;
+  return `${day}/${month}/${year} ${hours}:${minutes}`;
 }
