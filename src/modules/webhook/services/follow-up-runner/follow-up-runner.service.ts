@@ -54,6 +54,19 @@ export class FollowUpRunnerService {
     return Array.from(pairs.values());
   }
 
+  private parseStoredIds(value?: string | null): number[] {
+    if (!value || !value.trim()) return [];
+
+    return value
+      .split(/[-,]/)
+      .map((item) => Number.parseInt(item.trim(), 10))
+      .filter((item) => Number.isFinite(item));
+  }
+
+  private buildStoredIds(ids: number[]) {
+    return ids.length ? ids.map((id) => String(id)).join('-') : '';
+  }
+
   private async findSessionByRemoteJid(remoteJid: string, instanceId: string) {
     const candidates = this.buildRemoteJidCandidates(remoteJid);
 
@@ -72,6 +85,8 @@ export class FollowUpRunnerService {
         remoteJidAlt: true,
         instanceId: true,
         pushName: true,
+        seguimientos: true,
+        inactividad: true,
       },
       orderBy: { updatedAt: 'desc' },
     });
@@ -305,37 +320,34 @@ export class FollowUpRunnerService {
     instanceName: string;
   }) {
     const { userId, remoteJid, instanceName } = args;
-    const candidates = this.buildRemoteJidCandidates(remoteJid);
-    const cancellable = await this.prisma.seguimiento.findMany({
-      where: {
-        remoteJid: { in: candidates },
-        instancia: instanceName,
-        followUpStatus: { in: ['pending', 'processing'] },
-        followUpCancelOnReply: true,
-      },
-      select: { id: true, idNodo: true, tipo: true },
-    });
+    const session = await this.findSessionByRemoteJid(remoteJid, instanceName);
+    if (!session) return { count: 0, ids: [] as number[] };
 
-    const legacyPending = cancellable.filter((item) =>
-      this.isLegacyWorkflowFollowUp(
-        item as Pick<Seguimiento, 'idNodo' | 'tipo'>,
-      ),
+    const ids = this.parseStoredIds(session.inactividad);
+    if (!ids.length) return { count: 0, ids: [] as number[] };
+
+    const todosSeguimientos = this.parseStoredIds(session.seguimientos);
+    const remainingSeguimientos = todosSeguimientos.filter(
+      (id) => !ids.includes(id),
     );
 
-    if (!legacyPending.length) return { count: 0, ids: [] as number[] };
-
-    const ids = legacyPending.map((item) => item.id);
-    await this.prisma.seguimiento.updateMany({
+    await this.prisma.seguimiento.deleteMany({
       where: { id: { in: ids } },
-      data: { followUpStatus: 'cancelled' },
     });
 
-    await this.sessionService.removeSeguimientosFromSession(
-      ids,
-      remoteJid,
-      instanceName,
-      userId,
+    await this.prisma.session.update({
+      where: { id: session.id },
+      data: {
+        inactividad: '',
+        seguimientos: this.buildStoredIds(remainingSeguimientos),
+      },
+    });
+
+    this.logger.log(
+      `[INACTIVIDAD] Eliminados seguimientos por respuesta del cliente. session=${session.id} ids=[${ids.join(', ')}]`,
+      'FollowUpRunnerService',
     );
+
     return { count: ids.length, ids };
   }
 
