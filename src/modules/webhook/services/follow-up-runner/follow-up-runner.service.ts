@@ -63,10 +63,6 @@ export class FollowUpRunnerService {
       .filter((item) => Number.isFinite(item));
   }
 
-  private buildStoredIds(ids: number[]) {
-    return ids.length ? ids.map((id) => String(id)).join('-') : '';
-  }
-
   private async findSessionByRemoteJid(remoteJid: string, instanceId: string) {
     const candidates = this.buildRemoteJidCandidates(remoteJid);
 
@@ -323,25 +319,38 @@ export class FollowUpRunnerService {
     const session = await this.findSessionByRemoteJid(remoteJid, instanceName);
     if (!session) return { count: 0, ids: [] as number[] };
 
-    const ids = this.parseStoredIds(session.inactividad);
+    const storedInactividadIds = this.parseStoredIds(session.inactividad);
+    if (!storedInactividadIds.length) return { count: 0, ids: [] as number[] };
+
+    const remoteJidCandidates = this.buildSeguimientoPairsForSession(session).map(
+      (item) => item.remoteJid,
+    );
+    const candidates = this.buildRemoteJidCandidates(remoteJid, remoteJidCandidates);
+
+    const followUpsToDelete = await this.prisma.seguimiento.findMany({
+      where: {
+        id: { in: storedInactividadIds },
+        instancia: instanceName,
+        remoteJid: { in: candidates },
+      },
+      select: { id: true },
+    });
+
+    const ids = followUpsToDelete.map((item) => item.id);
     if (!ids.length) return { count: 0, ids: [] as number[] };
 
-    const todosSeguimientos = this.parseStoredIds(session.seguimientos);
-    const remainingSeguimientos = todosSeguimientos.filter(
-      (id) => !ids.includes(id),
-    );
-
     await this.prisma.seguimiento.deleteMany({
-      where: { id: { in: ids } },
-    });
-
-    await this.prisma.session.update({
-      where: { id: session.id },
-      data: {
-        inactividad: '',
-        seguimientos: this.buildStoredIds(remainingSeguimientos),
+      where: {
+        id: { in: ids },
       },
     });
+
+    await this.sessionService.removeSeguimientosFromSession(
+      ids,
+      session.remoteJid,
+      session.instanceId,
+      userId,
+    );
 
     this.logger.log(
       `[INACTIVIDAD] Eliminados seguimientos por respuesta del cliente. session=${session.id} ids=[${ids.join(', ')}]`,
