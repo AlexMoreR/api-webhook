@@ -1,3 +1,6 @@
+import { PrismaService } from 'src/database/prisma.service';
+import { CRM_AGENT_PROMPT_IDS } from 'src/types/CRM_AGENT_PROMPT_IDS';
+
 /**
  * Prompt para analizar comprobantes de pago recibidos por WhatsApp.
  * El contenido puede ser texto plano de un mensaje o la descripción
@@ -50,4 +53,36 @@ Responde ÚNICAMENTE con un JSON válido, sin markdown, sin explicaciones:
 - **reference**: número de transacción o confirmación del banco/plataforma
 - **date**: formato ISO 8601 (ej: "2026-04-08T10:00:00.000Z") o null
 - Si algún dato no está presente, usa null`;
+}
+
+async function findPromptText(
+  prisma: PrismaService,
+  userId: string,
+  agentId: string,
+) {
+  const prompt = await prisma.agentPrompt.findFirst({
+    where: {
+      userId,
+      agentId,
+    },
+    orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+    select: {
+      promptText: true,
+    },
+  });
+
+  return String(prompt?.promptText ?? '').trim();
+}
+
+export async function resolvePaymentReceiptPrompt(args: {
+  prisma: PrismaService;
+  userId: string;
+}) {
+  const promptText = await findPromptText(
+    args.prisma,
+    args.userId,
+    CRM_AGENT_PROMPT_IDS.paymentReceiptAnalyzer,
+  );
+
+  return promptText || buildPaymentReceiptPrompt();
 }

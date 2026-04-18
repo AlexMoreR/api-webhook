@@ -4,7 +4,7 @@ import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { LoggerService } from 'src/core/logger/logger.service';
 import { PrismaService } from 'src/database/prisma.service';
 import { LlmClientFactory } from 'src/modules/ai-agent/services/llmClientFactory/llmClientFactory.service';
-import { buildPaymentReceiptPrompt } from '../prompts/payment-receipt.prompt';
+import { resolvePaymentReceiptPrompt } from '../prompts/payment-receipt.prompt';
 import { ReceiptAnalysis } from '../types/receipt-analysis.types';
 
 const FALLBACK_ANALYSIS: ReceiptAnalysis = {
@@ -89,9 +89,13 @@ export class PaymentReceiptAnalyzerService {
         apiKey: llmConfig.apiKey,
         model: llmConfig.model,
       });
+      const systemPrompt = await resolvePaymentReceiptPrompt({
+        prisma: this.prisma,
+        userId: adminUserId,
+      });
 
       const response = await client.invoke([
-        new SystemMessage(buildPaymentReceiptPrompt()),
+        new SystemMessage(systemPrompt),
         new HumanMessage(content.slice(0, 3000)),
       ]);
 
