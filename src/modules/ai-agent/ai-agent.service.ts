@@ -17,6 +17,7 @@ import { AiCreditsService } from '../ai-credits/ai-credits.service';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { SessionService } from '../session/session.service';
 import { ExternalClientDataService } from '../external-client-data/external-client-data.service';
+import { DEFAULT_EXTERNAL_TOOL_CONFIGS } from '../external-client-data/default-tool-configs';
 
 // Refactor
 import { LlmClientFactory } from './services/llmClientFactory/llmClientFactory.service';
@@ -512,10 +513,11 @@ export class AiAgentService {
     instanceName: string;
     remoteJid: string;
   }): any[] {
-    const HARDCODED_BUILTIN_CONFIGS = [
+    const HARDCODED_BUILTIN_CONFIGS = DEFAULT_EXTERNAL_TOOL_CONFIGS as any[];
+    /*
       {
         toolKey: 'Notificacion_Asesor', toolType: 'notificacion_asesor',
-        toolDescription: 'Utiliza esta herramienta cuando un usuario necesite la ayuda directa de un asesor humano (reclamos, solicitudes complejas, dudas de pago o agendamiento).',
+        toolDescription: 'Utiliza esta *tool* solo cuando un usuario necesite la ayuda directa de un asesor humano o exista un registro ya guardado de (solicitud, pedido, reclamo, cita, reserva o el usuario envía una *imagen de comprobante de pago* que requiere validación).',
       },
       {
         toolKey: 'Ejecutar_Flujos', toolType: 'ejecutar_flujos',
@@ -535,8 +537,11 @@ export class AiAgentService {
       },
     ];
 
+    */
     const notificationSentThisTurn = { value: false };
-    return HARDCODED_BUILTIN_CONFIGS.map((cfg) => this.buildToolFromConfig(cfg, params, notificationSentThisTurn)).filter(Boolean);
+    return HARDCODED_BUILTIN_CONFIGS.map((cfg) =>
+      this.buildToolFromConfig(cfg, params, notificationSentThisTurn),
+    ).filter(Boolean);
   }
 
   /**

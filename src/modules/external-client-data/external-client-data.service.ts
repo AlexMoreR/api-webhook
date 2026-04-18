@@ -5,6 +5,7 @@ import { LoggerService } from 'src/core/logger/logger.service';
 import {
   buildWhatsAppJidCandidates,
 } from 'src/utils/whatsapp-jid.util';
+import { DEFAULT_EXTERNAL_TOOL_CONFIGS } from './default-tool-configs';
 import type {
   ExternalClientDataRecord,
   IExternalClientDataProvider,
@@ -105,10 +106,21 @@ export class ExternalClientDataService implements IExternalClientDataProvider {
     if (!userId) return [];
 
     try {
-      return await this.prisma.externalDataToolConfig.findMany({
+      let configs = await this.prisma.externalDataToolConfig.findMany({
         where: { userId, isEnabled: true },
         orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
       });
+
+      if (configs.length > 0) return configs;
+
+      await this.ensureDefaultToolConfigs(userId);
+
+      configs = await this.prisma.externalDataToolConfig.findMany({
+        where: { userId, isEnabled: true },
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+      });
+
+      return configs;
     } catch (error: any) {
       this.logger.error(
         `[ExternalClientData] Error al obtener tool configs para userId=${userId}`,
@@ -135,5 +147,28 @@ export class ExternalClientDataService implements IExternalClientDataProvider {
    */
   applyPromptTemplate(template: string, formattedData: string): string {
     return template.replace(/\{data\}/g, formattedData);
+  }
+
+  private async ensureDefaultToolConfigs(userId: string): Promise<void> {
+    const existingCount = await this.prisma.externalDataToolConfig.count({
+      where: { userId },
+    });
+
+    if (existingCount > 0) return;
+
+    await this.prisma.externalDataToolConfig.createMany({
+      data: DEFAULT_EXTERNAL_TOOL_CONFIGS.map((cfg) => ({
+        userId,
+        toolKey: cfg.toolKey,
+        displayName: cfg.displayName,
+        toolDescription: cfg.toolDescription,
+        toolCategory: cfg.toolCategory,
+        toolType: cfg.toolType,
+        isEnabled: true,
+        isDefault: true,
+        sortOrder: cfg.sortOrder,
+      })),
+      skipDuplicates: true,
+    });
   }
 }
