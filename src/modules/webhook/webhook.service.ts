@@ -35,6 +35,7 @@ import {
   pickPreferredWhatsAppRemoteJid,
 } from 'src/utils/whatsapp-jid.util';
 import { LeadFunnelService } from '../lead-funnel/services/lead-funnel/lead-funnel.service';
+import { CrmFollowUpRunnerService } from '../lead-funnel/services/crm-follow-up-runner.service';
 import { buildChatHistorySessionId } from '../chat-history/chat-history-session.helper';
 import { FollowUpRunnerService } from './services/follow-up-runner/follow-up-runner.service';
 import { PaymentReceiptProcessorService } from 'src/modules/payment-receipt/services/payment-receipt-processor.service';
@@ -77,6 +78,7 @@ export class WebhookService implements OnModuleInit {
     private readonly antifloodService: AntifloodService,
     private readonly leadFunnelService: LeadFunnelService,
     private readonly followUpRunnerService: FollowUpRunnerService,
+    private readonly crmFollowUpRunnerService: CrmFollowUpRunnerService,
     private readonly paymentReceiptProcessor: PaymentReceiptProcessorService,
   ) { }
 
@@ -1146,6 +1148,21 @@ export class WebhookService implements OnModuleInit {
       } catch (error) {
         logger.error('ERROR_SEGUIMIENTOS', error);
         // logger.debug(`🟥 FIN (return: error eliminando seguimiento)`);
+      }
+
+      try {
+        const { count: crmCount } =
+          await this.crmFollowUpRunnerService.deletePendingByRemoteJid({
+            remoteJid,
+            instanceId,
+          });
+        if (crmCount > 0) {
+          logger.log(`CRM follow-ups eliminados: ${crmCount}`);
+        } else {
+          logger.log('No se encontraron CRM follow-ups pendientes.');
+        }
+      } catch (error) {
+        logger.error('ERROR_CRM_FOLLOW_UPS', error);
       }
 
       await this.sessionService.updateAgentDisabled(

@@ -106,6 +106,21 @@ export class CrmFollowUpRunnerService {
     });
   }
 
+  async deletePendingByRemoteJid(args: {
+    remoteJid: string;
+    instanceId: string;
+  }) {
+    const candidates = this.buildRemoteJidCandidates(args.remoteJid);
+    const result = await this.prisma.crmFollowUp.deleteMany({
+      where: {
+        remoteJid: { in: candidates },
+        instanceId: args.instanceId,
+        status: { in: [CrmFollowUpStatus.PENDING, CrmFollowUpStatus.PROCESSING] },
+      },
+    });
+    return { count: result.count };
+  }
+
   async cancelPendingOnReply(args: { remoteJid: string; instanceId: string }) {
     const candidates = this.buildRemoteJidCandidates(args.remoteJid);
     const result = await this.prisma.crmFollowUp.updateMany({
