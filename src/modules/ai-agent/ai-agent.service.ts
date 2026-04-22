@@ -321,6 +321,10 @@ export class AiAgentService {
         return cfg.searchField
           ? this.buildSearchByFieldTool(cfg, params)
           : null;
+      case 'buscar_producto':
+        return this.buildBuscarProductoTool(cfg, params);
+      case 'listar_productos':
+        return this.buildListarProductosTool(cfg, params);
       default:
         return null;
     }
@@ -495,6 +499,90 @@ export class AiAgentService {
             `Valor de ${cfg.searchField} a buscar. Ejemplo: si el campo es CEDULA-RIF, el valor sería "V27548446".`,
           ),
         }),
+      },
+    );
+  }
+
+  private buildBuscarProductoTool(cfg: any, params: {
+    userId: string; instanceName: string; remoteJid: string;
+  }): any {
+    const { userId, instanceName, remoteJid } = params;
+    const logger = this.scopedLogger({ userId, instanceName, remoteJid });
+
+    // @ts-ignore
+    return tool(
+      async ({ query, category, sku }: { query?: string; category?: string; sku?: string }) => {
+        logger.log(`Tool "${cfg.toolKey}" (buscar_producto): query="${query}" category="${category}" sku="${sku}"`);
+
+        const where: any = { userId, isActive: true };
+        if (sku) {
+          where.sku = sku;
+        } else {
+          if (query) where.title = { contains: query, mode: 'insensitive' };
+          if (category) where.category = category;
+        }
+
+        const products = await this.prisma.product.findMany({ where, orderBy: { title: 'asc' } });
+
+        if (products.length === 0) {
+          return 'No se encontraron productos con los criterios indicados.';
+        }
+
+        const formatted = products
+          .map((p) =>
+            `• ${p.title} — $${Number(p.price).toLocaleString('es-CO')} | Categoría: ${p.category} | Stock: ${p.stock}` +
+            (p.description ? `\n  ${p.description}` : '') +
+            (p.sku ? ` | SKU: ${p.sku}` : ''),
+          )
+          .join('\n');
+
+        return `Productos encontrados (${products.length}):\n${formatted}`;
+      },
+      {
+        name: cfg.toolKey,
+        description: cfg.toolDescription,
+        schema: z.object({
+          query: z.string().optional().describe('Nombre o texto del producto a buscar'),
+          category: z.string().optional().describe('Categoría del producto'),
+          sku: z.string().optional().describe('Código SKU exacto del producto'),
+        }),
+      },
+    );
+  }
+
+  private buildListarProductosTool(cfg: any, params: {
+    userId: string; instanceName: string; remoteJid: string;
+  }): any {
+    const { userId, instanceName, remoteJid } = params;
+    const logger = this.scopedLogger({ userId, instanceName, remoteJid });
+
+    // @ts-ignore
+    return tool(
+      async () => {
+        logger.log(`Tool "${cfg.toolKey}" (listar_productos) llamada.`);
+
+        const products = await this.prisma.product.findMany({
+          where: { userId, isActive: true },
+          orderBy: { category: 'asc' },
+        });
+
+        if (products.length === 0) {
+          return 'No hay productos disponibles en este momento.';
+        }
+
+        const formatted = products
+          .map((p) =>
+            `• ${p.title} — $${Number(p.price).toLocaleString('es-CO')} | Categoría: ${p.category} | Stock: ${p.stock}` +
+            (p.description ? `\n  ${p.description}` : ''),
+          )
+          .join('\n');
+
+        return `Catálogo de productos disponibles (${products.length}):\n${formatted}`;
+      },
+      {
+        name: cfg.toolKey,
+        description: cfg.toolDescription,
+        schema: z.object({}),
       },
     );
   }

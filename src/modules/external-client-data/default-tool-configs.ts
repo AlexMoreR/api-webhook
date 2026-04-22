@@ -52,4 +52,22 @@ export const DEFAULT_EXTERNAL_TOOL_CONFIGS: DefaultExternalToolConfig[] = [
     toolType: 'buscar_cliente_por_dato',
     sortOrder: 4,
   },
+  {
+    toolKey: 'buscar_producto',
+    displayName: 'Buscar Producto',
+    toolDescription:
+      'Busca productos del catálogo por nombre, categoría o SKU. Úsala cuando el cliente pregunte por un producto específico o quiera saber si existe un artículo determinado.',
+    toolCategory: 'builtin',
+    toolType: 'buscar_producto',
+    sortOrder: 5,
+  },
+  {
+    toolKey: 'listar_productos',
+    displayName: 'Listar Productos',
+    toolDescription:
+      'Devuelve el catálogo completo de productos activos disponibles. Úsala cuando el cliente pida ver todos los productos, el catálogo o las opciones disponibles.',
+    toolCategory: 'builtin',
+    toolType: 'listar_productos',
+    sortOrder: 6,
+  },
 ];
