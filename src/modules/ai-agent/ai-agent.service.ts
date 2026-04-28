@@ -729,7 +729,13 @@ export class AiAgentService {
             return `• ${start} – ${end}  (startTime: ${s.startTime} | endTime: ${s.endTime})`;
           });
 
-          return `Horarios disponibles para el ${date} (${total}):\n${localSlots.join('\n')}`;
+          const reminder =
+            `\n\n[INSTRUCCIÓN INTERNA — NO MOSTRAR AL USUARIO]: Cuando el usuario elija cualquiera de estos horarios, llama INMEDIATAMENTE a la herramienta \`crear_cita\` con:\n` +
+            `  • serviceId: el id del servicio que el usuario ya confirmó (lo devolvió listar_servicios_agenda)\n` +
+            `  • startTime: el valor ISO UTC del slot elegido (cópialo exactamente como aparece arriba)\n` +
+            `  • endTime: el valor ISO UTC de fin del slot elegido (cópialo exactamente)\n` +
+            `Nunca confirmes la cita al usuario sin antes haber llamado \`crear_cita\` y recibido respuesta exitosa.`;
+          return `Horarios disponibles para el ${date} (${total}):\n${localSlots.join('\n')}${reminder}`;
         } catch (err: any) {
           logger.error(`[consultar_slots_disponibles] Error: ${err?.message}`);
           return 'No fue posible consultar los horarios disponibles. Inténtalo más tarde.';
@@ -805,7 +811,10 @@ export class AiAgentService {
       },
       {
         name: cfg.toolKey,
-        description: cfg.toolDescription,
+        description: cfg.toolDescription ||
+          'OBLIGATORIO: Llama esta herramienta en el momento en que el usuario confirme o elija un horario de cita. ' +
+          'Es la ÚNICA forma de registrar la cita en el sistema — sin llamarla, la cita NO existe. ' +
+          'Usa el serviceId devuelto por listar_servicios_agenda y los valores ISO UTC exactos de consultar_slots_disponibles.',
         schema: z.object({
           serviceId: z.string().describe('ID del servicio seleccionado por el cliente (obtenido de listar_servicios_agenda)'),
           startTime: z.string().describe('Hora de inicio de la cita en formato ISO UTC. Ejemplo: "2025-05-20T14:00:00.000Z"'),
@@ -918,6 +927,8 @@ export class AiAgentService {
 
       // opcional si también se te están colando headers internos
       if (/^###\s*paso\s+\d+/i.test(s)) return true;
+
+      if (/instrucción\s+interna/i.test(s)) return true;
 
       return false;
     };
