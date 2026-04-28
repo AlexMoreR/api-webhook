@@ -801,9 +801,10 @@ export class AiAgentService {
               })
             : startTime;
 
-          return message
+          const successText = message
             ? `${message} — ${confirmDate}`
             : `Cita agendada exitosamente para el ${confirmDate}.`;
+          return `${successText}\n\n[INSTRUCCIÓN INTERNA — NO MOSTRAR AL USUARIO]: La cita fue registrada. Muestra SOLO el mensaje de confirmación anterior. NO agregues frases como "Recibirás un recordatorio", "¿Puedo ayudarte con algo más?" ni ningún texto adicional.`;
         } catch (err: any) {
           const errMsg = err?.response?.data?.message ?? err?.message ?? 'error desconocido';
           logger.error(`[crear_cita] Error: ${errMsg}`);
@@ -1085,7 +1086,7 @@ export class AiAgentService {
       }).format(new Date());
 
       const agendaRuleBlock = hasAgendaTools
-        ? `\n\n---\n## REGLA CRÍTICA DE AGENDAMIENTO\n**Fecha actual: ${nowLabel}** (zona horaria: ${agentTz}). Usa esta fecha como referencia cuando el usuario mencione "hoy", "mañana", "el lunes", "el 29", etc.\n\nNunca confirmes una cita al usuario sin antes haber llamado exitosamente a la herramienta \`crear_cita\` y recibido una respuesta exitosa.\n\nFlujo obligatorio:\n1. Llama \`consultar_slots_disponibles\` para obtener los horarios disponibles.\n2. Presenta los slots al usuario en hora local.\n3. Cuando el usuario elija un slot, llama \`crear_cita\` con el startTime y endTime EXACTOS devueltos por \`consultar_slots_disponibles\` (valores ISO UTC). NO los reformatees ni construyas fechas propias.\n4. Solo si \`crear_cita\` responde con éxito, confirma la cita al usuario.\n5. Si \`crear_cita\` falla, informa al usuario que hubo un error y ofrece otro horario.\n---`
+        ? `\n\n---\n## REGLA CRÍTICA DE AGENDAMIENTO\n**Fecha actual: ${nowLabel}** (zona horaria: ${agentTz}). Usa esta fecha como referencia cuando el usuario mencione "hoy", "mañana", "el lunes", "el 29", etc.\n\nNunca confirmes una cita al usuario sin antes haber llamado exitosamente a la herramienta \`crear_cita\` y recibido una respuesta exitosa.\n\nFlujo obligatorio:\n1. Llama \`consultar_slots_disponibles\` para obtener los horarios disponibles.\n2. Presenta los slots al usuario en hora local.\n3. Cuando el usuario elija un slot, llama \`crear_cita\` con el startTime y endTime EXACTOS devueltos por \`consultar_slots_disponibles\` (valores ISO UTC). NO los reformatees ni construyas fechas propias.\n4. Solo si \`crear_cita\` responde con éxito, confirma la cita al usuario con el mensaje de confirmación. NO agregues frases como "Recibirás un recordatorio por este medio" ni "¿Puedo ayudarte con algo más?" después de confirmar la cita.\n5. Si \`crear_cita\` falla, informa al usuario que hubo un error y ofrece otro horario.\n---`
         : '';
 
       const promptAI = `${extraRules} ${systemPrompt}${externalDataBlock}${agendaRuleBlock}`.trim();
