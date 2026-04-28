@@ -1074,8 +1074,18 @@ export class AiAgentService {
           ['listar_servicios_agenda', 'consultar_slots_disponibles', 'crear_cita'].includes(c.toolType) &&
           c.isEnabled,
       );
+      const userForTz = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { timezone: true },
+      });
+      const agentTz = userForTz?.timezone || 'America/Bogota';
+      const nowLabel = new Intl.DateTimeFormat('es-CO', {
+        timeZone: agentTz,
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+      }).format(new Date());
+
       const agendaRuleBlock = hasAgendaTools
-        ? `\n\n---\n## REGLA CRÍTICA DE AGENDAMIENTO\nNunca confirmes una cita al usuario sin antes haber llamado exitosamente a la herramienta \`crear_cita\` y recibido una respuesta exitosa.\n\nFlujo obligatorio:\n1. Llama \`consultar_slots_disponibles\` para obtener los horarios disponibles.\n2. Presenta los slots al usuario en hora local.\n3. Cuando el usuario elija un slot, llama \`crear_cita\` con el startTime y endTime EXACTOS devueltos por \`consultar_slots_disponibles\` (valores ISO UTC). NO los reformatees ni construyas fechas propias.\n4. Solo si \`crear_cita\` responde con éxito, confirma la cita al usuario.\n5. Si \`crear_cita\` falla, informa al usuario que hubo un error y ofrece otro horario.\n---`
+        ? `\n\n---\n## REGLA CRÍTICA DE AGENDAMIENTO\n**Fecha actual: ${nowLabel}** (zona horaria: ${agentTz}). Usa esta fecha como referencia cuando el usuario mencione "hoy", "mañana", "el lunes", "el 29", etc.\n\nNunca confirmes una cita al usuario sin antes haber llamado exitosamente a la herramienta \`crear_cita\` y recibido una respuesta exitosa.\n\nFlujo obligatorio:\n1. Llama \`consultar_slots_disponibles\` para obtener los horarios disponibles.\n2. Presenta los slots al usuario en hora local.\n3. Cuando el usuario elija un slot, llama \`crear_cita\` con el startTime y endTime EXACTOS devueltos por \`consultar_slots_disponibles\` (valores ISO UTC). NO los reformatees ni construyas fechas propias.\n4. Solo si \`crear_cita\` responde con éxito, confirma la cita al usuario.\n5. Si \`crear_cita\` falla, informa al usuario que hubo un error y ofrece otro horario.\n---`
         : '';
 
       const promptAI = `${extraRules} ${systemPrompt}${externalDataBlock}${agendaRuleBlock}`.trim();
