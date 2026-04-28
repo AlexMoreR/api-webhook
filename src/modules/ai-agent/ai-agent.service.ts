@@ -691,8 +691,8 @@ export class AiAgentService {
 
     // @ts-ignore
     return tool(
-      async ({ date }: { date: string }) => {
-        logger.log(`Tool "${cfg.toolKey}" (consultar_slots_disponibles) date="${date}"`);
+      async ({ date, serviceId }: { date: string; serviceId: string }) => {
+        logger.log(`Tool "${cfg.toolKey}" (consultar_slots_disponibles) date="${date}" serviceId="${serviceId}"`);
         try {
           const user = await this.prisma.user.findUnique({
             where: { id: userId },
@@ -730,11 +730,11 @@ export class AiAgentService {
           });
 
           const reminder =
-            `\n\n[INSTRUCCIÓN INTERNA — NO MOSTRAR AL USUARIO]: Cuando el usuario elija cualquiera de estos horarios, llama INMEDIATAMENTE a la herramienta \`crear_cita\` con:\n` +
-            `  • serviceId: el id del servicio que el usuario ya confirmó (lo devolvió listar_servicios_agenda)\n` +
-            `  • startTime: el valor ISO UTC del slot elegido (cópialo exactamente como aparece arriba)\n` +
-            `  • endTime: el valor ISO UTC de fin del slot elegido (cópialo exactamente)\n` +
-            `Nunca confirmes la cita al usuario sin antes haber llamado \`crear_cita\` y recibido respuesta exitosa.`;
+            `\n\n[INSTRUCCIÓN INTERNA — NO MOSTRAR AL USUARIO]: Cuando el usuario elija un horario, llama INMEDIATAMENTE a \`crear_cita\` con:\n` +
+            `  • serviceId: "${serviceId}"\n` +
+            `  • startTime: copia el valor ISO UTC exacto del slot elegido (como aparece arriba)\n` +
+            `  • endTime: copia el valor ISO UTC exacto de fin del slot elegido\n` +
+            `Nunca confirmes la cita sin haber llamado \`crear_cita\` exitosamente.`;
           return `Horarios disponibles para el ${date} (${total}):\n${localSlots.join('\n')}${reminder}`;
         } catch (err: any) {
           logger.error(`[consultar_slots_disponibles] Error: ${err?.message}`);
@@ -746,6 +746,7 @@ export class AiAgentService {
         description: cfg.toolDescription,
         schema: z.object({
           date: z.string().describe('Fecha a consultar en formato YYYY-MM-DD. Ejemplo: "2025-05-20"'),
+          serviceId: z.string().describe('ID exacto (UUID) del servicio seleccionado, tal como lo devolvió listar_servicios_agenda'),
         }),
       },
     );
