@@ -69,7 +69,7 @@ export class LeadStatusIaService {
     const normalized = summary.toLowerCase();
 
     if (
-      /(no me interesa|no estoy interesado|no deseo|dejalo asi|ya no|no escribir|no gracias|descartar)/i.test(
+      /(no me interesa|no estoy interesado|no deseo|dejalo asi|ya no|no escribir|no gracias|descartar|en otro momento|mejor en otro|no me parece|no me parecen|muy caro|por ahora no|no por ahora|no necesito|no requiero|no es para mi|no es lo que busco|no tengo interes|sera en otro|para otro momento|no lo veo|no aplica|no por el momento|por el momento no)/i.test(
         normalized,
       )
     ) {

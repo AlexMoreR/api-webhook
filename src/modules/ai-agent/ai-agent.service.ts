@@ -266,7 +266,9 @@ export class AiAgentService {
       logger.warn(
         'Sin ExternalDataToolConfig para este usuario → usando tools hardcodeadas por defecto',
       );
-      return this.buildHardcodedDefaultTools(params);
+      const defaultTools = this.buildHardcodedDefaultTools(params);
+      defaultTools.push(this.buildMarcarDescartadoTool(params));
+      return defaultTools;
     }
 
     // ── CONFIG-DRIVEN ───────────────────────────────────────────────────────
@@ -291,6 +293,9 @@ export class AiAgentService {
         );
       }
     }
+
+    // Tool de sistema: siempre disponible independientemente de configs
+    tools.push(this.buildMarcarDescartadoTool(params));
 
     return tools;
   }
@@ -824,6 +829,56 @@ export class AiAgentService {
           serviceId: z.string().describe('ID del servicio seleccionado por el cliente (obtenido de listar_servicios_agenda)'),
           startTime: z.string().describe('Hora de inicio de la cita en formato ISO UTC. Ejemplo: "2025-05-20T14:00:00.000Z"'),
           endTime: z.string().describe('Hora de fin de la cita en formato ISO UTC. Ejemplo: "2025-05-20T15:00:00.000Z"'),
+        }),
+      },
+    );
+  }
+
+  /**
+   * Tool de sistema siempre disponible.
+   * El agente la llama cuando el usuario expresa rechazo explícito.
+   * Marca el lead como DESCARTADO, desactiva el agente y cancela follow-ups pendientes.
+   */
+  private buildMarcarDescartadoTool(params: {
+    userId: string;
+    sessionId: string;
+    instanceName: string;
+    remoteJid: string;
+  }): any {
+    const { userId, sessionId, instanceName, remoteJid } = params;
+    const logger = this.scopedLogger({ userId, instanceName, remoteJid });
+
+    // @ts-ignore
+    return tool(
+      async ({ motivo }: { motivo: string }) => {
+        logger.log(`Tool "Marcar_Descartado" llamada. motivo="${motivo}"`);
+        const sessionIdNum = parseInt(sessionId, 10);
+        if (isNaN(sessionIdNum)) return 'Error: sessionId inválido.';
+
+        await this.prisma.session.update({
+          where: { id: sessionIdNum },
+          data: {
+            leadStatus: 'DESCARTADO' as any,
+            leadStatusReason: motivo.slice(0, 500),
+            leadStatusUpdatedAt: new Date(),
+            agentDisabled: true,
+          },
+        });
+
+        const cancelled = await this.prisma.crmFollowUp.updateMany({
+          where: { sessionId: sessionIdNum, status: 'PENDING' as any },
+          data: { status: 'CANCELLED' as any, cancelledAt: new Date() },
+        });
+
+        logger.log(`Lead DESCARTADO. Follow-ups cancelados: ${cancelled.count}`);
+        return `OK: lead marcado como DESCARTADO, ${cancelled.count} seguimiento(s) cancelado(s).`;
+      },
+      {
+        name: 'Marcar_Descartado',
+        description:
+          'Llama esta tool ÚNICAMENTE cuando el usuario exprese de forma clara que NO está interesado, rechaza el servicio/precio, o no quiere ser contactado (ej: "no me interesa", "mejor en otro momento", "muy caro", "no gracias", "en otro momento", "no me parecen los precios"). Marca al lead como DESCARTADO, desactiva el agente y cancela todos los seguimientos automáticos pendientes.',
+        schema: z.object({
+          motivo: z.string().describe('Razón del descarte expresada por el usuario'),
         }),
       },
     );
